@@ -9,7 +9,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.DistanceController;
 
 @Autonomous(name = "Distance Sensor Test", group = "Test")
 public class DistanceTest extends LinearOpMode {
-
     private DistanceController distanceController;
     private ElapsedTime runtime = new ElapsedTime();
 
@@ -17,7 +16,6 @@ public class DistanceTest extends LinearOpMode {
     public void runOpMode() {
         telemetry.addData("Status", "Initializing Distance Sensor Test");
         telemetry.update();
-
         // Initialize the distance controller
         try {
             distanceController = new DistanceController(hardwareMap);
@@ -30,7 +28,6 @@ public class DistanceTest extends LinearOpMode {
 
         // Test sensor availability
         testSensorAvailability();
-
         telemetry.addData("Status", "Ready to start tests");
         telemetry.addData("Instructions", "Press play to begin distance sensor tests");
         telemetry.update();
