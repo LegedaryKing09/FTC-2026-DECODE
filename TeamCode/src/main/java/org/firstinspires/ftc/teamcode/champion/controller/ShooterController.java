@@ -47,6 +47,10 @@ public class ShooterController {
         shooterMode = ShooterMode.SHOOT;
     }
 
+    public double getShooterPower() {
+        return shooter.getPower();
+    }
+
     public boolean isDoingShooter() {
         return shooterMode == ShooterMode.SHOOT;
     }

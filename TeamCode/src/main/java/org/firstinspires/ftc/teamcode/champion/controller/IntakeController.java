@@ -26,7 +26,7 @@ public class IntakeController {
         roller = opMode.hardwareMap.get(DcMotor.class, ROLLER_NAME);
     }
 
-    public void rest() {
+    public void intakeRest() {
         roller.setPower(ROLLER_STOP_POWER);
         intakeMode = IntakeMode.STOP;
     }
@@ -46,9 +46,13 @@ public class IntakeController {
         intakeMode = IntakeMode.INTAKE;
     }
 
-    public void eject() {
+    public void intakeEject() {
         roller.setPower(ROLLER_EJECT_POWER);
         intakeMode = IntakeMode.EJECT;
+    }
+
+    public double getRollerPower() {
+        return roller.getPower();
     }
 
     public boolean isDoingIntake() {
@@ -57,6 +61,7 @@ public class IntakeController {
 
     public void setRollerPower(double power) {
         roller.setPower(power);
+        intakeMode = IntakeMode.INTAKE;
     }
 
 }
