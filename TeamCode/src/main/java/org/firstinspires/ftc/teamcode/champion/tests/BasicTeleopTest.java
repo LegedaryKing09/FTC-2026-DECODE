@@ -19,7 +19,8 @@ public class BasicTeleopTest extends LinearOpMode {
     LoaderController loaderController;
     ShooterController shooterController;
     IntakeController intakeController;
-    public static double ShootingPower;
+    public static double SHOOTINGPOWER = 0;
+    public static double INTAKEPOWER = 0;
 
     boolean isUsingTelemetry = true;
     boolean isPressingX = false;
@@ -72,18 +73,26 @@ public class BasicTeleopTest extends LinearOpMode {
 
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
-                shooterController.setShooterPower(ShootingPower);
+                shooterController.setShooterPower(SHOOTINGPOWER);
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
                 shooterController.shooterStop();
             }
 
-            if (gamepad1.dpad_up && ShootingPower < 1) {
-                ShootingPower += 0.1;
+            if (gamepad1.dpad_up && SHOOTINGPOWER < 1) {
+                SHOOTINGPOWER += 0.1;
             }
 
-            if (gamepad1.dpad_down && ShootingPower > 0) {
-                ShootingPower -= 0.1;
+            if (gamepad1.dpad_down && SHOOTINGPOWER > 0) {
+                SHOOTINGPOWER -= 0.1;
+            }
+
+            if (gamepad1.dpad_right && INTAKEPOWER < 1) {
+                INTAKEPOWER += 0.1;
+            }
+
+            if (gamepad1.dpad_left && INTAKEPOWER > 0) {
+                INTAKEPOWER -= 0.1;
             }
 
             if (gamepad1.x) {
@@ -136,7 +145,8 @@ public class BasicTeleopTest extends LinearOpMode {
                 telemetry.addData("Expected Left Power", "%.2f", leftPower);
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
-                telemetry.addData("Shooting Power:", "%.2f", ShootingPower);
+                telemetry.addData("Shooting Power:", "%.2f", SHOOTINGPOWER);
+                telemetry.addData("Intake Power:", "%.2f", INTAKEPOWER);
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y", "%.2f", driveController.getY());
