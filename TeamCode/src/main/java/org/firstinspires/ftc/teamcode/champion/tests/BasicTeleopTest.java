@@ -125,6 +125,8 @@ public class BasicTeleopTest extends LinearOpMode {
             telemetry.addData("Expected Left Power", "%.2f", leftPower);
             telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
+            telemetry.addData("Shooting Power:", "%.2f", ShootingPower);
+
             telemetry.addData("Robot X", "%.2f", driveController.getX());
             telemetry.addData("Robot Y", "%.2f", driveController.getY());
             telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
