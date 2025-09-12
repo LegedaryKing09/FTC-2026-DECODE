@@ -29,7 +29,7 @@ public class ShooterTest extends LinearOpMode {
 
         while (opModeIsActive()) {
 
-            if(!useDashBoard) {
+            if (!useDashBoard) {
                 if (gamepad1.x && !isPressingX) {
                     isPressingX = true;
                     shooterController.shooterStop();
@@ -79,7 +79,9 @@ public class ShooterTest extends LinearOpMode {
                 } else if (!gamepad1.start && isPressingStart) {
                     isPressingStart = false;
                 }
-            } else if (useDashBoard) {
+            }
+
+            if (useDashBoard) {
                 shooterController.setShooterPower(TARGETPOWER);
 
                 if (gamepad1.start && !isPressingStart) {
@@ -90,8 +92,6 @@ public class ShooterTest extends LinearOpMode {
                     isPressingStart = false;
                 }
             }
-
-
 
 
         }

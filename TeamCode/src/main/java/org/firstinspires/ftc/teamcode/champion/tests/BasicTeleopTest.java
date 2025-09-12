@@ -21,6 +21,7 @@ public class BasicTeleopTest extends LinearOpMode {
     IntakeController intakeController;
     public static double ShootingPower;
 
+    boolean isUsingTelemetry = true;
     boolean isPressingX = false;
     boolean isPressingB = false;
     boolean isPressingA = false;
@@ -112,6 +113,14 @@ public class BasicTeleopTest extends LinearOpMode {
                 isPressingLeftBumper = false;
             }
 
+            if (gamepad1.start && !isPressingStart) {
+                isPressingStart = true;
+                isUsingTelemetry = !isUsingTelemetry;
+
+            } else if (!gamepad1.start && isPressingStart) {
+                isPressingStart = false;
+            }
+
             double leftPower = drive + turn;
             double rightPower = drive - turn;
             double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
@@ -120,18 +129,21 @@ public class BasicTeleopTest extends LinearOpMode {
                 rightPower /= maxPower;
             }
 
-            driveController.giveAllTelemetry();
+            if(isUsingTelemetry) {
 
-            telemetry.addData("Expected Left Power", "%.2f", leftPower);
-            telemetry.addData("Expected Right Power", "%.2f", rightPower);
+                driveController.giveAllTelemetry();
 
-            telemetry.addData("Shooting Power:", "%.2f", ShootingPower);
+                telemetry.addData("Expected Left Power", "%.2f", leftPower);
+                telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
-            telemetry.addData("Robot X", "%.2f", driveController.getX());
-            telemetry.addData("Robot Y", "%.2f", driveController.getY());
-            telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
+                telemetry.addData("Shooting Power:", "%.2f", ShootingPower);
 
-            telemetry.update();
+                telemetry.addData("Robot X", "%.2f", driveController.getX());
+                telemetry.addData("Robot Y", "%.2f", driveController.getY());
+                telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
+
+                telemetry.update();
+            }
 
         }
     }

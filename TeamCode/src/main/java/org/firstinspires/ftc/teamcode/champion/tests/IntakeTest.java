@@ -26,12 +26,12 @@ public class IntakeTest extends LinearOpMode {
     @Override
     public void runOpMode() {
         intakeController = new IntakeController(this);
-        
+
         waitForStart();
 
         while (opModeIsActive()) {
 
-            if(!useDashBoard) {
+            if (!useDashBoard) {
                 if (gamepad1.x && !isPressingX) {
                     isPressingX = true;
                     intakeController.intakeRest();
@@ -81,7 +81,9 @@ public class IntakeTest extends LinearOpMode {
                 } else if (!gamepad1.start && isPressingStart) {
                     isPressingStart = false;
                 }
-            } else if (useDashBoard) {
+            }
+
+            if (useDashBoard) {
                 intakeController.setRollerPower(TARGETPOWER);
 
                 if (gamepad1.start && !isPressingStart) {
@@ -92,8 +94,6 @@ public class IntakeTest extends LinearOpMode {
                     isPressingStart = false;
                 }
             }
-
-
 
 
         }

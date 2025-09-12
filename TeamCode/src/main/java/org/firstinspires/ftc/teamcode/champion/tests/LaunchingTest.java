@@ -104,7 +104,9 @@ public class LaunchingTest extends LinearOpMode {
                 } else if (!gamepad1.start && isPressingStart) {
                     isPressingStart = false;
                 }
-            } else if (useDashBoard) {
+            }
+
+            if (useDashBoard) {
                 shooterController.setShooterPower(SHOOTTARGETPOWER);
                 loaderController.setLoaderPower(LOADTARGETPOWER);
 
