@@ -5,7 +5,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
 public class ShooterController {
-    public static String SHOOTER_NAME = "shooter";
+    public static String SHOOTER_NAME1 = "shooter1";
+    public static String SHOOTER_NAME2 = "shooter2";
     public static double SHOOTER_FULL_POWER = 1;
     public static double SHOOTER_HALF_POWER = 0.5;
     public static double SHOOTER_QUARTER_POWER = 0.25;
@@ -15,40 +16,46 @@ public class ShooterController {
         SHOOT, STOP
     }
 
-    private DcMotor shooter;
+    private DcMotor shooter1 , shooter2;
     private ShooterMode shooterMode = ShooterMode.STOP;
 
     public ShooterController(LinearOpMode opMode) {
-        shooter = opMode.hardwareMap.get(DcMotor.class, SHOOTER_NAME);
+        shooter1 = opMode.hardwareMap.get(DcMotor.class, SHOOTER_NAME1);
+        shooter2 = opMode.hardwareMap.get(DcMotor.class, SHOOTER_NAME2);
     }
 
     public void shooterFull() {
-        shooter.setPower(SHOOTER_FULL_POWER);
+        shooter1.setPower(SHOOTER_FULL_POWER);
+        shooter2.setPower(SHOOTER_FULL_POWER);
         shooterMode = ShooterMode.SHOOT;
     }
 
     public void shooterHalf() {
-        shooter.setPower(SHOOTER_HALF_POWER);
+        shooter1.setPower(SHOOTER_HALF_POWER);
+        shooter2.setPower(SHOOTER_HALF_POWER);
         shooterMode = ShooterMode.SHOOT;
     }
 
     public void shooterQuarter() {
-        shooter.setPower(SHOOTER_QUARTER_POWER);
+        shooter1.setPower(SHOOTER_QUARTER_POWER);
+        shooter2.setPower(SHOOTER_QUARTER_POWER);
         shooterMode = ShooterMode.SHOOT;
     }
 
     public void shooterStop() {
-        shooter.setPower(SHOOTER_STOP_POWER);
+        shooter1.setPower(SHOOTER_STOP_POWER);
+        shooter2.setPower(SHOOTER_STOP_POWER);
         shooterMode = ShooterMode.SHOOT;
     }
 
     public void setShooterPower(double power) {
-        shooter.setPower(power);
+        shooter1.setPower(power);
+        shooter2.setPower(power);
         shooterMode = ShooterMode.SHOOT;
     }
 
     public double getShooterPower() {
-        return shooter.getPower();
+        return shooter1.getPower();
     }
 
     public boolean isDoingShooter() {
