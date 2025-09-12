@@ -62,7 +62,7 @@ public class SixWheelDriveController {
         backLeft.setDirection(DcMotor.Direction.FORWARD);
 
         frontRight.setDirection(DcMotor.Direction.REVERSE);
-        backRight.setDirection(DcMotor.Direction.REVERSE);
+        backRight.setDirection(DcMotor.Direction.FORWARD);
 
         // Set all motors to brake when power is zero
         setMotorsBrakeMode();
