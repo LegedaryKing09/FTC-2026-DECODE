@@ -1,5 +1,10 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
+import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
+
+import com.fasterxml.jackson.databind.util.LRUMap;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.hardware.lynx.LynxModule;
@@ -18,13 +23,14 @@ import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 public class SixWheelDriveController {
 
     // Drive Motors (4 motors controlling 6 wheels via gears/belts)
-    private DcMotor frontLeft = null;
-    private DcMotor frontRight = null;
-    private DcMotor backLeft = null;
-    private DcMotor backRight = null;
+    public static String LF_NAME = "lf";
+    public static String RF_NAME = "rf";
+    public static String LB_NAME = "lb";
+    public static String RB_NAME = "rb";
+    private final DcMotor frontLeft, frontRight, backLeft, backRight;
 
     // GoBilda Odometry Computer
-    private GoBildaPinpointDriver pinpoint = null;
+    private final GoBildaPinpointDriver pinpoint;
 
     // Robot dimensions
     private double trackWidth = 12.0; // Distance between left and right drive wheels
@@ -41,18 +47,22 @@ public class SixWheelDriveController {
     private int prevLeftEncoder = 0;
     private int prevRightEncoder = 0;
 
-    // Constructor
-    public SixWheelDriveController() {
-        // Empty constructor
-    }
 
-    // Initialize hardware
-    public void init(HardwareMap hardwareMap) {
+    public static double FAST_SPEED_MULTIPLIER = 2;
+    public static double FAST_TURN_MULTIPLIER = 4;
+    public static double SLOW_SPEED_MULTIPLIER = 0.8;
+    public static double SLOW_TURN_MULTIPLIER = 3.5;
+
+    private boolean isFastSpeedMode = false;
+
+    // Constructor
+    public SixWheelDriveController(LinearOpMode opMode ) {
+
         // Initialize drive motors (4 motors controlling 6 wheels)
-        frontLeft = hardwareMap.get(DcMotor.class, "lf");
-        frontRight = hardwareMap.get(DcMotor.class, "rf");
-        backLeft = hardwareMap.get(DcMotor.class, "lb");
-        backRight = hardwareMap.get(DcMotor.class, "rb");
+        frontLeft = hardwareMap.get(DcMotor.class, LF_NAME);
+        frontRight = hardwareMap.get(DcMotor.class, RF_NAME);
+        backLeft = hardwareMap.get(DcMotor.class, LB_NAME);
+        backRight = hardwareMap.get(DcMotor.class, RB_NAME);
 
         // Initialize GoBilda Odometry Computer
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "odo");
@@ -60,12 +70,14 @@ public class SixWheelDriveController {
         // Set motor directions
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
         backLeft.setDirection(DcMotor.Direction.FORWARD);
-
         frontRight.setDirection(DcMotor.Direction.REVERSE);
         backRight.setDirection(DcMotor.Direction.FORWARD);
 
         // Set all motors to brake when power is zero
-        setMotorsBrakeMode();
+        frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Reset odometry
         resetOdometry();
@@ -139,14 +151,6 @@ public class SixWheelDriveController {
         robotX = 0.0;
         robotY = 0.0;
         robotHeading = 0.0;
-    }
-
-    // Set motors to brake mode
-    private void setMotorsBrakeMode() {
-        frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
     // Getters for robot position
@@ -228,6 +232,22 @@ public class SixWheelDriveController {
         backRight.setPower(power);
     }
 
+    public void setAllMotorPower(double power) {
+        frontLeft.setPower(power);
+        frontRight.setPower(power);
+        backLeft.setPower(power);
+        backRight.setPower(power);
+    }
+
+    public void setLeftPower(double power) {
+        frontLeft.setPower(power);
+        backLeft.setPower(power);
+    }
+
+    public void setRightPower(double power) {
+        frontRight.setPower(power);
+        backRight.setPower(power);
+    }
     // Get pinpoint odometry computer reference for advanced usage
     public GoBildaPinpointDriver getPinpoint() {
         return pinpoint;
@@ -241,5 +261,41 @@ public class SixWheelDriveController {
     // Get pinpoint status
     public GoBildaPinpointDriver.DeviceStatus getPinpointStatus() {
         return pinpoint.getDeviceStatus();
+    }
+
+    public void setFastSpeed() {
+        isFastSpeedMode = true;
+    }
+
+    public void setSlowSpeed() {
+        isFastSpeedMode = false;
+    }
+
+    public boolean isFastSpeedMode() {
+        return isFastSpeedMode;
+    }
+
+    public void testAllMotorsDirectly(double power) {
+        if (frontLeft != null) frontLeft.setPower(power);
+        if (frontRight != null) frontRight.setPower(power);
+        if (backLeft != null) backLeft.setPower(power);
+        if (backRight != null) backRight.setPower(power);
+    }
+
+    public void giveAllTelemetry() {
+
+        // Check if motors are actually connected and responsive
+        telemetry.addData("Motor Status", "");
+        telemetry.addData("FL Connected", frontLeft != null ? "Yes" : "No");
+        telemetry.addData("FR Connected", frontRight != null ? "Yes" : "No");
+        telemetry.addData("BL Connected", backLeft != null ? "Yes" : "No");
+        telemetry.addData("BR Connected", backRight != null ? "Yes" : "No");
+
+        // Show current motor powers
+        if (frontLeft != null) telemetry.addData("FL Power", "%.2f", frontLeft.getPower());
+        if (frontRight != null) telemetry.addData("FR Power", "%.2f", frontRight.getPower());
+        if (backLeft != null) telemetry.addData("BL Power", "%.2f", backLeft.getPower());
+        if (backRight != null) telemetry.addData("BR Power", "%.2f", backRight.getPower());
+
     }
 }
