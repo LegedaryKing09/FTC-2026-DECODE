@@ -38,6 +38,7 @@ public class LoaderController {
     }
 
     public void loaderStop() {
+        loader.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         loader.setPower(LOADER_STOP_POWER);
         loaderMode = LoaderMode.TRANSFER;
     }
