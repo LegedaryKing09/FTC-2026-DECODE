@@ -8,8 +8,8 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 public class DistanceController {
     public static final String SENSOR_NAME = "distance";
-    private DistanceSensor distanceSensor;
-    private Rev2mDistanceSensor sensorTimeOfFlight;
+    private final DistanceSensor distanceSensor;
+    private final Rev2mDistanceSensor sensorTimeOfFlight;
 
     public DistanceController(HardwareMap hardwareMap) {
         this.distanceSensor = hardwareMap.get(DistanceSensor.class, SENSOR_NAME);
