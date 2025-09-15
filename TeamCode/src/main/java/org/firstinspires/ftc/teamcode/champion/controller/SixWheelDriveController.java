@@ -1,19 +1,8 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
-
-import com.fasterxml.jackson.databind.util.LRUMap;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.hardware.lynx.LynxModule;
-import com.qualcomm.robotcore.hardware.I2cDeviceSynch;
-import com.qualcomm.robotcore.hardware.I2cAddr;
-import com.qualcomm.robotcore.hardware.I2cDeviceSynchDevice;
-import com.qualcomm.robotcore.hardware.configuration.annotations.DeviceProperties;
-import com.qualcomm.robotcore.hardware.configuration.annotations.I2cDeviceType;
-import com.qualcomm.robotcore.util.TypeConversion;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
@@ -22,15 +11,20 @@ import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 
 public class SixWheelDriveController {
 
-    // Drive Motors (4 motors controlling 6 wheels via gears/belts)
+    // Motor configuration names - STATIC like in version 2
     public static String LF_NAME = "lf";
     public static String RF_NAME = "rf";
     public static String LB_NAME = "lb";
     public static String RB_NAME = "rb";
-    private final DcMotor frontLeft, frontRight, backLeft, backRight;
+
+    // Drive Motors (4 motors controlling 6 wheels via gears/belts)
+    private DcMotor frontLeft = null;
+    private DcMotor frontRight = null;
+    private DcMotor backLeft = null;
+    private DcMotor backRight = null;
 
     // GoBilda Odometry Computer
-    private final GoBildaPinpointDriver pinpoint;
+    private GoBildaPinpointDriver pinpoint = null;
 
     // Robot dimensions
     private double trackWidth = 12.0; // Distance between left and right drive wheels
@@ -47,7 +41,7 @@ public class SixWheelDriveController {
     private int prevLeftEncoder = 0;
     private int prevRightEncoder = 0;
 
-
+    // Speed mode settings
     public static double FAST_SPEED_MULTIPLIER = 2;
     public static double FAST_TURN_MULTIPLIER = 4;
     public static double SLOW_SPEED_MULTIPLIER = 0.8;
@@ -55,10 +49,14 @@ public class SixWheelDriveController {
 
     private boolean isFastSpeedMode = false;
 
-    // Constructor
-    public SixWheelDriveController(LinearOpMode opMode ) {
+    // Constructor - EMPTY like version 1
+    public SixWheelDriveController() {
+        // Empty constructor - initialization happens in init() method
+    }
 
-        // Initialize drive motors (4 motors controlling 6 wheels)
+    // Initialize hardware - USING THE VERSION 1 PATTERN
+    public void init(HardwareMap hardwareMap) {
+        // Initialize drive motors using STATIC configuration names
         frontLeft = hardwareMap.get(DcMotor.class, LF_NAME);
         frontRight = hardwareMap.get(DcMotor.class, RF_NAME);
         backLeft = hardwareMap.get(DcMotor.class, LB_NAME);
@@ -74,10 +72,7 @@ public class SixWheelDriveController {
         backRight.setDirection(DcMotor.Direction.FORWARD);
 
         // Set all motors to brake when power is zero
-        frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        setMotorsBrakeMode();
 
         // Reset odometry
         resetOdometry();
@@ -151,6 +146,14 @@ public class SixWheelDriveController {
         robotX = 0.0;
         robotY = 0.0;
         robotHeading = 0.0;
+    }
+
+    // Set motors to brake mode
+    private void setMotorsBrakeMode() {
+        frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
     // Getters for robot position
@@ -232,6 +235,7 @@ public class SixWheelDriveController {
         backRight.setPower(power);
     }
 
+    // Additional utility methods from version 2
     public void setAllMotorPower(double power) {
         frontLeft.setPower(power);
         frontRight.setPower(power);
@@ -248,6 +252,7 @@ public class SixWheelDriveController {
         frontRight.setPower(power);
         backRight.setPower(power);
     }
+
     // Get pinpoint odometry computer reference for advanced usage
     public GoBildaPinpointDriver getPinpoint() {
         return pinpoint;
@@ -263,6 +268,7 @@ public class SixWheelDriveController {
         return pinpoint.getDeviceStatus();
     }
 
+    // Speed mode methods
     public void setFastSpeed() {
         isFastSpeedMode = true;
     }
@@ -275,6 +281,7 @@ public class SixWheelDriveController {
         return isFastSpeedMode;
     }
 
+    // Test methods for debugging
     public void testAllMotorsDirectly(double power) {
         if (frontLeft != null) frontLeft.setPower(power);
         if (frontRight != null) frontRight.setPower(power);
@@ -282,20 +289,22 @@ public class SixWheelDriveController {
         if (backRight != null) backRight.setPower(power);
     }
 
-    public void giveAllTelemetry() {
+    // Get status information for telemetry
+    public String getMotorStatus() {
+        StringBuilder status = new StringBuilder();
+        status.append("FL:").append(frontLeft != null ? "OK" : "NULL");
+        status.append(" FR:").append(frontRight != null ? "OK" : "NULL");
+        status.append(" BL:").append(backLeft != null ? "OK" : "NULL");
+        status.append(" BR:").append(backRight != null ? "OK" : "NULL");
+        return status.toString();
+    }
 
-        // Check if motors are actually connected and responsive
-        telemetry.addData("Motor Status", "");
-        telemetry.addData("FL Connected", frontLeft != null ? "Yes" : "No");
-        telemetry.addData("FR Connected", frontRight != null ? "Yes" : "No");
-        telemetry.addData("BL Connected", backLeft != null ? "Yes" : "No");
-        telemetry.addData("BR Connected", backRight != null ? "Yes" : "No");
-
-        // Show current motor powers
-        if (frontLeft != null) telemetry.addData("FL Power", "%.2f", frontLeft.getPower());
-        if (frontRight != null) telemetry.addData("FR Power", "%.2f", frontRight.getPower());
-        if (backLeft != null) telemetry.addData("BL Power", "%.2f", backLeft.getPower());
-        if (backRight != null) telemetry.addData("BR Power", "%.2f", backRight.getPower());
-
+    public String getMotorPowers() {
+        if (frontLeft == null || frontRight == null || backLeft == null || backRight == null) {
+            return "Motors not initialized";
+        }
+        return String.format("FL:%.2f FR:%.2f BL:%.2f BR:%.2f",
+                frontLeft.getPower(), frontRight.getPower(),
+                backLeft.getPower(), backRight.getPower());
     }
 }
