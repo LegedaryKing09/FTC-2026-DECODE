@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.tests;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -8,6 +9,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
+@Config
 @TeleOp
 public class BasicTeleopTest extends LinearOpMode {
 
