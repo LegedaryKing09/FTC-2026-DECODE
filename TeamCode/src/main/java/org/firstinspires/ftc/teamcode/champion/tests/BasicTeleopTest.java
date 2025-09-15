@@ -106,7 +106,7 @@ public class BasicTeleopTest extends LinearOpMode {
                 intakeController.intakeHalf();
             } else if (!gamepad1.right_bumper && isPressingRightBumper) {
                 isPressingRightBumper = false;
-                intakeController.intakeRest();
+                intakeController.intakeStop();
             }
 
             if (gamepad1.left_bumper && !isPressingLeftBumper) {

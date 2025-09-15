@@ -79,20 +79,20 @@ public class LaunchingTest extends LinearOpMode {
                     isPressingDpadDown = false;
                 }
 
-                if (gamepad1.left_bumper) {//if left bumper is pressed loader at quarter full power
-                    transferController.transferQuarter();//(change as needed)
+                if (gamepad1.left_bumper) {//if left bumper is pressed loader at full power
+                    transferController.transferFull();//(change as needed)
                 }
 
                 if (!gamepad1.left_bumper) {// if stopped pressing loader stop
                     transferController.transferStop();
                 }
 
-                if (gamepad1.right_bumper && !isPressingRightBumper) {//if right is pressed intake motor half power
+                if (gamepad1.right_bumper && !isPressingRightBumper) {//if right is pressed intake motor full power
                     isPressingRightBumper = true;
-                    intakeController.intakeHalf();//change as needed
+                    intakeController.intakeFull();//change as needed
                 } else if (!gamepad1.right_bumper && isPressingRightBumper) {
                     isPressingRightBumper = false;
-                    intakeController.intakeRest();
+                    intakeController.intakeStop();
                 }
 
 

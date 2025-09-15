@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 public class ShooterController {
     public static String SHOOTER_NAME1 = "shooter1";
@@ -22,6 +23,8 @@ public class ShooterController {
     public ShooterController(LinearOpMode opMode) {
         shooter1 = opMode.hardwareMap.get(DcMotor.class, SHOOTER_NAME1);
         shooter2 = opMode.hardwareMap.get(DcMotor.class, SHOOTER_NAME2);
+        shooter1.setDirection(DcMotorSimple.Direction.REVERSE);
+        shooter2.setDirection(DcMotorSimple.Direction.FORWARD);
     }
 
     public void shooterFull() {

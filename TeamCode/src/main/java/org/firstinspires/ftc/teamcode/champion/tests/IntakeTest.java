@@ -34,7 +34,7 @@ public class IntakeTest extends LinearOpMode {
             if (!useDashBoard) {
                 if (gamepad1.x && !isPressingX) {
                     isPressingX = true;
-                    intakeController.intakeRest();
+                    intakeController.intakeStop();
                 } else if (!gamepad1.x && isPressingX) {
                     isPressingX = false;
                 }
