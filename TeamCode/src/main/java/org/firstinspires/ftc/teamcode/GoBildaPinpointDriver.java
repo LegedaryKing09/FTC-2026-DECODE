@@ -97,17 +97,10 @@ public class GoBildaPinpointDriver extends I2cDeviceSynchDevice<I2cDeviceSynchSi
     private enum Register {
         DEVICE_ID       (1),
         DEVICE_VERSION  (2),
-        DEVICE_STATUS   (3),
         DEVICE_CONTROL  (4),
-        LOOP_TIME       (5),
-        X_ENCODER_VALUE (6),
-        Y_ENCODER_VALUE (7),
         X_POSITION      (8),
         Y_POSITION      (9),
         H_ORIENTATION   (10),
-        X_VELOCITY      (11),
-        Y_VELOCITY      (12),
-        H_VELOCITY      (13),
         MM_PER_TICK     (14),
         X_POD_OFFSET    (15),
         Y_POD_OFFSET    (16),
@@ -287,7 +280,6 @@ public class GoBildaPinpointDriver extends I2cDeviceSynchDevice<I2cDeviceSynchSi
      */
     private Float isVelocityCorrupt(float oldValue, float newValue, int threshold){
         boolean isCorrupt = Float.isNaN(newValue) || Math.abs(newValue) > threshold;
-        boolean noData = (loopTime <= 1);
 
         if(!isCorrupt){
             return newValue;
