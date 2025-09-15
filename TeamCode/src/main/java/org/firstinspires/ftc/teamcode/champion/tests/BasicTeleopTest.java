@@ -79,7 +79,7 @@ public class BasicTeleopTest extends LinearOpMode {
 
             if (gamepad1.x && !isPressingX) {
                 isPressingX = true;
-                shooterController.shooterFull();
+                shooterController.shooterStop();
             } else if (!gamepad1.x && isPressingX) {
                 isPressingX = false;
             }
@@ -110,7 +110,7 @@ public class BasicTeleopTest extends LinearOpMode {
 
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
-                intakeController.intakeHalf();
+                intakeController.intakeFull();
             } else if (!gamepad1.right_bumper && isPressingRightBumper) {
                 isPressingRightBumper = false;
                 intakeController.intakeStop();
