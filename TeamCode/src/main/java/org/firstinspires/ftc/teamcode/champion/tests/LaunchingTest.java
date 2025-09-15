@@ -51,7 +51,7 @@ public class LaunchingTest extends LinearOpMode {
                     isPressingY = false;
                 }
 
-                if (gamepad1.a && !isPressingA) {//if y is pressed shooter motor quarter power
+                if (gamepad1.a && !isPressingA) {//if a is pressed shooter motor quarter power
                     isPressingA = true;
                     shooterController.shooterQuarter();
                 } else if (!gamepad1.a && isPressingA) {
@@ -67,14 +67,14 @@ public class LaunchingTest extends LinearOpMode {
 
                 if (gamepad1.dpad_up && !isPressingDpadUp) {//if dpad up is pressed shooter slightly increase power
                     isPressingDpadUp = true;
-                    shooterController.setShooterPower(shooterController.getShooterPower() + 0.01);
+                    shooterController.setShooterPower(shooterController.getShooterPower() + 0.05);
                 } else if (!gamepad1.dpad_up && isPressingDpadUp) {
                     isPressingDpadUp = false;
                 }
 
                 if (gamepad1.dpad_down && !isPressingDpadDown) {//if dpad down is pressed shooter slightly decrease power
                     isPressingDpadDown = true;
-                    shooterController.setShooterPower(shooterController.getShooterPower() - 0.01);
+                    shooterController.setShooterPower(shooterController.getShooterPower() - 0.05);
                 } else if (!gamepad1.dpad_down && isPressingDpadDown) {
                     isPressingDpadDown = false;
                 }
