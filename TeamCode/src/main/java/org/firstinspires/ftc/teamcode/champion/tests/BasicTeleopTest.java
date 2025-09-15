@@ -58,7 +58,7 @@ public class BasicTeleopTest extends LinearOpMode {
                 shooterController.shooterHalf();
             } else if (!gamepad1.a && isPressingA) {
                 isPressingA = false;
-                shooterController.shooterQuarter();
+                shooterController.shooterStop();
             }
 
             if (gamepad1.b && !isPressingB) {
@@ -66,7 +66,7 @@ public class BasicTeleopTest extends LinearOpMode {
                 shooterController.shooterFull();
             } else if (!gamepad1.b && isPressingB) {
                 isPressingB = false;
-                shooterController.shooterQuarter();
+                shooterController.shooterStop();
             }
 
             if (gamepad1.y && !isPressingY) {
