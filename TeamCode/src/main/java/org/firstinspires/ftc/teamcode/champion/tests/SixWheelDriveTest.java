@@ -1,126 +1,272 @@
 package org.firstinspires.ftc.teamcode.champion.tests;
 
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
-
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
+import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 
 /**
- * Enhanced test OpMode with comprehensive motor debugging capabilities.
- * This will help identify if the issue is hardware or software related.
+ * Comprehensive test for SixWheelDriveController
+ * Tests motor connections, directions, and Pinpoint odometry
  */
-@TeleOp(name = "Debug Six-Wheel Drive", group = "Tests")
+@TeleOp(name = "SixWheel Drive Test", group = "Test")
 public class SixWheelDriveTest extends LinearOpMode {
 
     private SixWheelDriveController driveController;
-
-    boolean isPressingLeftBumper = false;
+    private boolean testMode = false;
+    private int testPhase = 0;
+    private long phaseStartTime = 0;
 
     @Override
     public void runOpMode() {
-        telemetry.addData("Status", "Initializing Controller...");
+
+        telemetry.addLine("=== INITIALIZING HARDWARE ===");
         telemetry.update();
 
-        // Initialize the controller
-        driveController = new SixWheelDriveController(this);
+        // Create controller instance
+        driveController = new SixWheelDriveController();
 
-        telemetry.addData("Status", "Hardware Initialized. Waiting for Start.");
-        telemetry.addData("Controls", "Left stick = drive, Right stick = turn");
-        telemetry.addData("Debug", "A = Test all motors, X = Test right side only");
-        telemetry.addData("Debug", "Y = Test left side only, B = Individual motor test");
+        // Try to initialize with error handling
+        try {
+            driveController.init(hardwareMap);
+            telemetry.addLine("✓ Drive controller initialized successfully");
+        } catch (Exception e) {
+            telemetry.addLine("✗ INITIALIZATION FAILED!");
+            telemetry.addLine("Error: " + e.getMessage());
+            telemetry.addLine();
+            telemetry.addLine("Check that these devices are configured:");
+            telemetry.addLine("- Motors: " + SixWheelDriveController.LF_NAME + ", " +
+                    SixWheelDriveController.RF_NAME + ", " +
+                    SixWheelDriveController.LB_NAME + ", " +
+                    SixWheelDriveController.RB_NAME);
+            telemetry.addLine("- Pinpoint: odo");
+            telemetry.update();
+            sleep(5000);
+            return;
+        }
+
+        // Display startup info
+        telemetry.clear();
+        telemetry.addLine("=== HARDWARE TEST READY ===");
+        telemetry.addLine();
+        telemetry.addLine("CONTROLS:");
+        telemetry.addLine("• Left Stick Y: Forward/Backward");
+        telemetry.addLine("• Right Stick X: Turn");
+        telemetry.addLine("• A: Test Mode (cycles through motors)");
+        telemetry.addLine("• B: Reset Odometry");
+        telemetry.addLine("• X: Speed Mode Toggle");
+        telemetry.addLine("• Y: Emergency Stop");
+        telemetry.addLine();
+        telemetry.addLine("Motor Status: " + driveController.getMotorStatus());
+        telemetry.addLine("Pinpoint Status: " + driveController.getPinpointStatus());
+        telemetry.addLine();
+        telemetry.addLine(">>> Press START to begin <<<");
         telemetry.update();
 
         waitForStart();
 
-        while (opModeIsActive()) {
-            // Normal driving controls
-            double drive = -gamepad1.left_stick_y * driveController.SLOW_SPEED_MULTIPLIER;
-            double turn = gamepad1.right_stick_x * driveController.SLOW_TURN_MULTIPLIER;
+        if (isStopRequested()) return;
 
-            waitForStart();
-            // Drivetrain Power Control
-            if (gamepad1.left_bumper && !isPressingLeftBumper) {
-                isPressingLeftBumper = true;
+        phaseStartTime = System.currentTimeMillis();
+
+        // Main control loop
+        while (opModeIsActive()) {
+
+            // Get gamepad inputs
+            double drive = -gamepad1.left_stick_y;  // Forward/backward
+            double turn = gamepad1.right_stick_x;   // Rotation
+
+            // Button controls
+            if (gamepad1.a && !testMode) {
+                testMode = true;
+                testPhase = 0;
+                phaseStartTime = System.currentTimeMillis();
+            }
+
+            if (gamepad1.b) {
+                driveController.resetOdometry();
+                gamepad1.rumble(200);  // Haptic feedback
+            }
+
+            if (gamepad1.x) {
                 if (driveController.isFastSpeedMode()) {
                     driveController.setSlowSpeed();
                 } else {
                     driveController.setFastSpeed();
                 }
-            } else if (!gamepad1.left_bumper && isPressingLeftBumper) {
-                isPressingLeftBumper = false;
+                gamepad1.rumble(100);
             }
 
-            // Debug button tests
-            if (gamepad1.a) {
+            if (gamepad1.y) {
+                // Emergency stop
+                driveController.stopDrive();
+                testMode = false;
+                gamepad1.rumble(500);
+            }
 
-                // Test all motors at 50% power
-                driveController.testAllMotorsDirectly(0.5);
-                telemetry.addData("Test", "All motors at 50%");
-            } else if (gamepad1.x) {
-
-                // Test right side motors only
-                driveController.setLeftPower(0);
-                driveController.setRightPower(0.5);
-                telemetry.addData("Test", "Right side motors only");
-            } else if (gamepad1.y) {
-
-                // Test left side motors only
-                driveController.setLeftPower(0.5);
-                driveController.setRightPower(0);
-                telemetry.addData("Test", "Left side motors only");
-            } else if (gamepad1.b) {
-                // Individual motor test (cycle through motors)
-                long time = System.currentTimeMillis() / 1000;
-                int motorIndex = (int) (time % 4);
-
-                driveController.setFrontLeftPower(motorIndex == 0 ? 0.5 : 0);
-                driveController.setFrontRightPower(motorIndex == 1 ? 0.5 : 0);
-                driveController.setBackLeftPower(motorIndex == 2 ? 0.5 : 0);
-                driveController.setBackRightPower(motorIndex == 3 ? 0.5 : 0);
-
-                String[] motorNames = {"Front Left", "Front Right", "Back Left", "Back Right"};
-                telemetry.addData("Test", "Testing: " + motorNames[motorIndex]);
+            // Control logic
+            if (testMode) {
+                runTestSequence();
             } else {
                 // Normal arcade drive
-                if (!driveController.isFastSpeedMode()) {
-                    driveController.arcadeDrive(drive, turn);
-                } else {
-                    driveController.arcadeDrive(drive, turn);
-                }
+                driveController.arcadeDrive(drive, turn);
             }
 
             // Update odometry
             driveController.updateOdometry();
 
             // Display telemetry
-            telemetry.addData("Status", "Running");
-            telemetry.addData("Drive Input", "%.2f", drive);
-            telemetry.addData("Turn Input", "%.2f", turn);
+            displayTelemetry(drive, turn);
 
-            // Calculate what the motor powers should be
-            double leftPower = drive + turn;
-            double rightPower = drive - turn;
-            double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
-            if (maxPower > 1.0) {
-                leftPower /= maxPower;
-                rightPower /= maxPower;
-            }
-
-            driveController.giveAllTelemetry();
-
-            telemetry.addData("Expected Left Power", "%.2f", leftPower);
-            telemetry.addData("Expected Right Power", "%.2f", rightPower);
-
-            telemetry.addData("Robot X", "%.2f", driveController.getX());
-            telemetry.addData("Robot Y", "%.2f", driveController.getY());
-            telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
-
-            telemetry.update();
+            sleep(20);  // 50Hz update rate
         }
+
+        // Cleanup
         driveController.stopDrive();
     }
 
+    /**
+     * Run automated test sequence
+     */
+    private void runTestSequence() {
+        long elapsed = System.currentTimeMillis() - phaseStartTime;
+
+        // Each phase lasts 2 seconds
+        if (elapsed > 2000) {
+            testPhase++;
+            phaseStartTime = System.currentTimeMillis();
+
+            if (testPhase > 7) {
+                testMode = false;
+                driveController.stopDrive();
+                return;
+            }
+        }
+
+        // Test different motor combinations
+        switch (testPhase) {
+            case 0:  // Test front left
+                driveController.setFrontLeftPower(0.3);
+                driveController.setFrontRightPower(0);
+                driveController.setBackLeftPower(0);
+                driveController.setBackRightPower(0);
+                break;
+
+            case 1:  // Test front right
+                driveController.setFrontLeftPower(0);
+                driveController.setFrontRightPower(0.3);
+                driveController.setBackLeftPower(0);
+                driveController.setBackRightPower(0);
+                break;
+
+            case 2:  // Test back left
+                driveController.setFrontLeftPower(0);
+                driveController.setFrontRightPower(0);
+                driveController.setBackLeftPower(0.3);
+                driveController.setBackRightPower(0);
+                break;
+
+            case 3:  // Test back right
+                driveController.setFrontLeftPower(0);
+                driveController.setFrontRightPower(0);
+                driveController.setBackLeftPower(0);
+                driveController.setBackRightPower(0.3);
+                break;
+
+            case 4:  // Test left side
+                driveController.setLeftPower(0.3);
+                driveController.setRightPower(0);
+                break;
+
+            case 5:  // Test right side
+                driveController.setLeftPower(0);
+                driveController.setRightPower(0.3);
+                break;
+
+            case 6:  // Test forward
+                driveController.tankDrive(0.3, 0.3);
+                break;
+
+            case 7:  // Test rotation
+                driveController.tankDrive(0.3, -0.3);
+                break;
+        }
+    }
+
+    /**
+     * Display comprehensive telemetry
+     */
+    private void displayTelemetry(double drive, double turn) {
+        telemetry.clear();
+
+        // Mode indicator
+        if (testMode) {
+            telemetry.addLine("═══ TEST MODE ACTIVE ═══");
+            telemetry.addData("Test Phase", getTestPhaseName());
+            telemetry.addLine();
+        } else {
+            telemetry.addLine("═══ MANUAL CONTROL ═══");
+            telemetry.addLine();
+        }
+
+        // Input values
+        telemetry.addLine("INPUTS:");
+        telemetry.addData("  Drive", "%.2f", drive);
+        telemetry.addData("  Turn", "%.2f", turn);
+        telemetry.addData("  Speed Mode", driveController.isFastSpeedMode() ? "FAST" : "SLOW");
+        telemetry.addLine();
+
+        // Motor status
+        telemetry.addLine("MOTOR STATUS:");
+        telemetry.addData("  Configuration", driveController.getMotorStatus());
+        telemetry.addData("  Powers", driveController.getMotorPowers());
+        telemetry.addLine();
+
+        // Odometry data
+        telemetry.addLine("ODOMETRY:");
+        telemetry.addData("  X Position", "%.1f mm", driveController.getX());
+        telemetry.addData("  Y Position", "%.1f mm", driveController.getY());
+        telemetry.addData("  Heading", "%.1f°", driveController.getHeadingDegrees());
+        telemetry.addLine();
+
+        // Raw encoder values
+        telemetry.addLine("RAW ENCODERS:");
+        telemetry.addData("  X Encoder", driveController.getXOdoPosition());
+        telemetry.addData("  Y Encoder", driveController.getYOdoPosition());
+        telemetry.addLine();
+
+        // Pinpoint status
+        telemetry.addLine("PINPOINT:");
+        telemetry.addData("  Status", driveController.getPinpointStatus());
+        telemetry.addLine();
+
+        // Control hints
+        if (!testMode) {
+            telemetry.addLine("Press A for test mode | B to reset odometry");
+            telemetry.addLine("Press X for speed toggle | Y for emergency stop");
+        } else {
+            telemetry.addLine("Press Y to exit test mode");
+        }
+
+        telemetry.update();
+    }
+
+    /**
+     * Get descriptive name for current test phase
+     */
+    private String getTestPhaseName() {
+        switch (testPhase) {
+            case 0: return "Front Left Motor";
+            case 1: return "Front Right Motor";
+            case 2: return "Back Left Motor";
+            case 3: return "Back Right Motor";
+            case 4: return "Left Side";
+            case 5: return "Right Side";
+            case 6: return "Forward Motion";
+            case 7: return "Rotation";
+            default: return "Complete";
+        }
+    }
 }
