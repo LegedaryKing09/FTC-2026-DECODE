@@ -140,7 +140,7 @@ public class BasicTeleopTest extends LinearOpMode {
 
             if(isUsingTelemetry) {
 
-                driveController.giveAllTelemetry();
+                driveController.getMotorStatus();
 
                 telemetry.addData("Expected Left Power", "%.2f", leftPower);
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);

@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.hardware.lynx.LynxModule;
@@ -50,20 +51,14 @@ public class SixWheelDriveController {
     private boolean isFastSpeedMode = false;
 
     // Constructor - EMPTY like version 1
-    public SixWheelDriveController() {
-        // Empty constructor - initialization happens in init() method
-    }
-
-    // Initialize hardware - USING THE VERSION 1 PATTERN
-    public void init(HardwareMap hardwareMap) {
-        // Initialize drive motors using STATIC configuration names
-        frontLeft = hardwareMap.get(DcMotor.class, LF_NAME);
-        frontRight = hardwareMap.get(DcMotor.class, RF_NAME);
-        backLeft = hardwareMap.get(DcMotor.class, LB_NAME);
-        backRight = hardwareMap.get(DcMotor.class, RB_NAME);
+    public SixWheelDriveController(LinearOpMode opMode) {
+        frontLeft = opMode.hardwareMap.get(DcMotor.class, LF_NAME);
+        frontRight = opMode.hardwareMap.get(DcMotor.class, RF_NAME);
+        backLeft = opMode.hardwareMap.get(DcMotor.class, LB_NAME);
+        backRight = opMode.hardwareMap.get(DcMotor.class, RB_NAME);
 
         // Initialize GoBilda Odometry Computer
-        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "odo");
+        pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
         // Set motor directions
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
@@ -77,6 +72,7 @@ public class SixWheelDriveController {
         // Reset odometry
         resetOdometry();
     }
+
 
     // Tank drive control
     public void tankDrive(double leftPower, double rightPower) {
