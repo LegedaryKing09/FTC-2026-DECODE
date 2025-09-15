@@ -19,12 +19,9 @@ public class BasicTeleopTest extends LinearOpMode {
     public static double INTAKE_POWER = 0;
 
     boolean isUsingTelemetry = true;
-    boolean isPressingX = false;
     boolean isPressingB = false;
     boolean isPressingA = false;
     boolean isPressingY = false;
-    boolean isPressingDpadUp = false;
-    boolean isPressingDpadDown = false;
     boolean isPressingLeftBumper = false;
     boolean isPressingRightBumper = false;
     boolean isPressingStart = false;

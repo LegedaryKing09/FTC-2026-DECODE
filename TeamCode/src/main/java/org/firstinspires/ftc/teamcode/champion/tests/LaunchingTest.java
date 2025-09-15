@@ -24,7 +24,6 @@ public class LaunchingTest extends LinearOpMode {
     boolean isPressingY = false;
     boolean isPressingDpadUp = false;
     boolean isPressingDpadDown = false;
-    boolean isPressingLeftBumper = false;
     boolean isPressingRightBumper = false;
     boolean isPressingStart = false;
     boolean useDashBoard = false;

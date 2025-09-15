@@ -105,10 +105,6 @@ public class SixWheelDriveController {
         robotX = pose.getX(DistanceUnit.MM);
         robotY = pose.getY(DistanceUnit.MM);
         robotHeading = pose.getHeading(AngleUnit.DEGREES);
-
-        // You can optionally convert the heading to degrees for display
-        double robotHeadingDegrees = Math.toDegrees(robotHeading);
-
         // Note: The previous delta-based code is not necessary with the Pinpoint driver
     }
 
