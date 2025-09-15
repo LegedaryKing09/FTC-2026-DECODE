@@ -37,67 +37,67 @@ public class LaunchingTest extends LinearOpMode {
 
         while (opModeIsActive()) {
 
-            if (!useDashBoard) {
-                if (gamepad1.x && !isPressingX) {
+            if (!useDashBoard) {//toggle between using only dashboard or computer
+                if (gamepad1.x && !isPressingX) {//if x is pressed stop the shooter motor
                     isPressingX = true;
                     shooterController.shooterStop();
                 } else if (!gamepad1.x && isPressingX) {
                     isPressingX = false;
                 }
 
-                if (gamepad1.y && !isPressingY) {
+                if (gamepad1.y && !isPressingY) {//if y is pressed shooter motor full power
                     isPressingY = true;
                     shooterController.shooterFull();
                 } else if (!gamepad1.y && isPressingY) {
                     isPressingY = false;
                 }
 
-                if (gamepad1.a && !isPressingA) {
+                if (gamepad1.a && !isPressingA) {//if y is pressed shooter motor quarter power
                     isPressingA = true;
                     shooterController.shooterQuarter();
                 } else if (!gamepad1.a && isPressingA) {
                     isPressingA = false;
                 }
 
-                if (gamepad1.b && !isPressingB) {
+                if (gamepad1.b && !isPressingB) {//if b is pressed shooter motor half power
                     isPressingB = true;
                     shooterController.shooterHalf();
                 } else if (!gamepad1.b && isPressingB) {
                     isPressingB = false;
                 }
 
-                if (gamepad1.dpad_up && !isPressingDpadUp) {
+                if (gamepad1.dpad_up && !isPressingDpadUp) {//if dpad up is pressed shooter slightly increase power
                     isPressingDpadUp = true;
                     shooterController.setShooterPower(shooterController.getShooterPower() + 0.01);
                 } else if (!gamepad1.dpad_up && isPressingDpadUp) {
                     isPressingDpadUp = false;
                 }
 
-                if (gamepad1.dpad_down && !isPressingDpadDown) {
+                if (gamepad1.dpad_down && !isPressingDpadDown) {//if dpad down is pressed shooter slightly decrease power
                     isPressingDpadDown = true;
                     shooterController.setShooterPower(shooterController.getShooterPower() - 0.01);
                 } else if (!gamepad1.dpad_down && isPressingDpadDown) {
                     isPressingDpadDown = false;
                 }
 
-                if (gamepad1.left_bumper) {
-                    loaderController.loaderQuarter();
+                if (gamepad1.left_bumper) {//if left bumper is pressed loader at quarter full power
+                    loaderController.loaderQuarter();//(change as needed)
                 }
 
-                if (!gamepad1.left_bumper) {
+                if (!gamepad1.left_bumper) {// if stopped pressing loader stop
                     loaderController.loaderStop();
                 }
 
-                if (gamepad1.right_bumper && !isPressingRightBumper) {
+                if (gamepad1.right_bumper && !isPressingRightBumper) {//if right is pressed intake motor half power
                     isPressingRightBumper = true;
-                    intakeController.intakeHalf();
+                    intakeController.intakeHalf();//change as needed
                 } else if (!gamepad1.right_bumper && isPressingRightBumper) {
                     isPressingRightBumper = false;
                     intakeController.intakeRest();
                 }
 
 
-                if (gamepad1.start && !isPressingStart) {
+                if (gamepad1.start && !isPressingStart) {//dashboard toggle
                     isPressingStart = true;
                     useDashBoard = true;
 
@@ -106,7 +106,7 @@ public class LaunchingTest extends LinearOpMode {
                 }
             }
 
-            if (useDashBoard) {
+            if (useDashBoard) {//dashboard: get good powers from trial and error on computer
                 shooterController.setShooterPower(SHOOTTARGETPOWER);
                 loaderController.setLoaderPower(LOADTARGETPOWER);
 
