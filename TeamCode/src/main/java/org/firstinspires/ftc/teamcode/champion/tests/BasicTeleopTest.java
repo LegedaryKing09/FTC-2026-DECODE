@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.LoaderController;
+import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
@@ -12,7 +12,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 public class BasicTeleopTest extends LinearOpMode {
 
     SixWheelDriveController driveController;
-    LoaderController loaderController;
+    TransferController transferController;
     ShooterController shooterController;
     IntakeController intakeController;
     public static double SHOOTING_POWER = 0;
@@ -34,7 +34,7 @@ public class BasicTeleopTest extends LinearOpMode {
 
 
         driveController = new SixWheelDriveController(this);
-        loaderController = new LoaderController(this);
+        transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
 
@@ -97,11 +97,11 @@ public class BasicTeleopTest extends LinearOpMode {
             }
 
             if (gamepad1.x) {
-                loaderController.loaderFull();
+                transferController.transferFull();
             }
 
             if (!gamepad1.x) {
-                loaderController.loaderStop();
+                transferController.transferStop();
             }
 
             if (gamepad1.right_bumper && !isPressingRightBumper) {

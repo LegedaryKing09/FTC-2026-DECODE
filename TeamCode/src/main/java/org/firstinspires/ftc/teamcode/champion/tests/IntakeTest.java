@@ -62,14 +62,14 @@ public class IntakeTest extends LinearOpMode {
 
                 if (gamepad1.dpad_up && !isPressingDpadUp) {
                     isPressingDpadUp = true;
-                    intakeController.setRollerPower(intakeController.getRollerPower() + 0.01);
+                    intakeController.setIntakePower(intakeController.getIntakePower() + 0.01);
                 } else if (!gamepad1.dpad_up && isPressingDpadUp) {
                     isPressingDpadUp = false;
                 }
 
                 if (gamepad1.dpad_down && !isPressingDpadDown) {
                     isPressingDpadDown = true;
-                    intakeController.setRollerPower(intakeController.getRollerPower() - 0.01);
+                    intakeController.setIntakePower(intakeController.getIntakePower() - 0.01);
                 } else if (!gamepad1.dpad_down && isPressingDpadDown) {
                     isPressingDpadDown = false;
                 }
@@ -84,7 +84,7 @@ public class IntakeTest extends LinearOpMode {
             }
 
             if (useDashBoard) {
-                intakeController.setRollerPower(TARGET_POWER);
+                intakeController.setIntakePower(TARGET_POWER);
 
                 if (gamepad1.start && !isPressingStart) {
                     isPressingStart = true;

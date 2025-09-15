@@ -5,18 +5,18 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.LoaderController;
+import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 
 @Config
 @TeleOp(name = "Launching Test", group = "Test")
 public class LaunchingTest extends LinearOpMode {
     ShooterController shooterController;
-    LoaderController loaderController;
+    TransferController transferController;
     IntakeController intakeController;
 
     public static double SHOOT_TARGET_POWER = 0;
-    public static double LOAD_TARGET_POWER = 0;
+    public static double TRANSFER_TARGET_POWER = 0;
 
     boolean isPressingX = false;
     boolean isPressingB = false;
@@ -81,11 +81,11 @@ public class LaunchingTest extends LinearOpMode {
                 }
 
                 if (gamepad1.left_bumper) {//if left bumper is pressed loader at quarter full power
-                    loaderController.loaderQuarter();//(change as needed)
+                    transferController.transferQuarter();//(change as needed)
                 }
 
                 if (!gamepad1.left_bumper) {// if stopped pressing loader stop
-                    loaderController.loaderStop();
+                    transferController.transferStop();
                 }
 
                 if (gamepad1.right_bumper && !isPressingRightBumper) {//if right is pressed intake motor half power
@@ -108,7 +108,7 @@ public class LaunchingTest extends LinearOpMode {
 
             if (useDashBoard) {//dashboard: get good powers from trial and error on computer
                 shooterController.setShooterPower(SHOOT_TARGET_POWER);
-                loaderController.setLoaderPower(LOAD_TARGET_POWER);
+                transferController.setTransferPower(TRANSFER_TARGET_POWER);
 
                 if (gamepad1.start && !isPressingStart) {
                     isPressingStart = true;
