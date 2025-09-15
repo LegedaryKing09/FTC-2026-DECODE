@@ -4,13 +4,13 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.champion.controller.LoaderController;
+import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 
 @Config
-@TeleOp(name = "Loader Test", group = "Test")
-public class LoaderTest extends LinearOpMode {
+@TeleOp(name = "Tranfer Test", group = "Test")
+public class TransferTest extends LinearOpMode {
 
-    LoaderController loaderController;
+    TransferController transferController;
 
     public static double TARGET_POWER = 0;
 
@@ -25,7 +25,7 @@ public class LoaderTest extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        loaderController = new LoaderController(this);
+        transferController = new TransferController(this);
 
         waitForStart();
 
@@ -34,42 +34,42 @@ public class LoaderTest extends LinearOpMode {
             if (!useDashBoard) {
                 if (gamepad1.x && !isPressingX) {
                     isPressingX = true;
-                    loaderController.loaderStop();
+                    transferController.transferStop();
                 } else if (!gamepad1.x && isPressingX) {
                     isPressingX = false;
                 }
 
                 if (gamepad1.y && !isPressingY) {
                     isPressingY = true;
-                    loaderController.loaderFull();
+                    transferController.transferFull();
                 } else if (!gamepad1.y && isPressingY) {
                     isPressingY = false;
                 }
 
                 if (gamepad1.a && !isPressingA) {
                     isPressingA = true;
-                    loaderController.loaderQuarter();
+                    transferController.transferQuarter();
                 } else if (!gamepad1.a && isPressingA) {
                     isPressingA = false;
                 }
 
                 if (gamepad1.b && !isPressingB) {
                     isPressingB = true;
-                    loaderController.loaderHalf();
+                    transferController.transferHalf();
                 } else if (!gamepad1.b && isPressingB) {
                     isPressingB = false;
                 }
 
                 if (gamepad1.dpad_up && !isPressingDpadUp) {
                     isPressingDpadUp = true;
-                    loaderController.setLoaderPower(loaderController.getLoaderPower() + 0.01);
+                    transferController.setTransferPower(transferController.getTransferPower() + 0.01);
                 } else if (!gamepad1.dpad_up && isPressingDpadUp) {
                     isPressingDpadUp = false;
                 }
 
                 if (gamepad1.dpad_down && !isPressingDpadDown) {
                     isPressingDpadDown = true;
-                    loaderController.setLoaderPower(loaderController.getLoaderPower() - 0.01);
+                    transferController.setTransferPower(transferController.getTransferPower() - 0.01);
                 } else if (!gamepad1.dpad_down && isPressingDpadDown) {
                     isPressingDpadDown = false;
                 }
@@ -84,7 +84,7 @@ public class LoaderTest extends LinearOpMode {
             }
 
             if (useDashBoard) {
-                loaderController.setLoaderPower(TARGET_POWER);
+                transferController.setTransferPower(TARGET_POWER);
 
                 if (gamepad1.start && !isPressingStart) {
                     isPressingStart = true;
