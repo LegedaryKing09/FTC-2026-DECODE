@@ -15,8 +15,8 @@ public class LaunchingTest extends LinearOpMode {
     LoaderController loaderController;
     IntakeController intakeController;
 
-    public static double SHOOTTARGETPOWER = 0;
-    public static double LOADTARGETPOWER = 0;
+    public static double SHOOT_TARGET_POWER = 0;
+    public static double LOAD_TARGET_POWER = 0;
 
     boolean isPressingX = false;
     boolean isPressingB = false;
@@ -107,8 +107,8 @@ public class LaunchingTest extends LinearOpMode {
             }
 
             if (useDashBoard) {//dashboard: get good powers from trial and error on computer
-                shooterController.setShooterPower(SHOOTTARGETPOWER);
-                loaderController.setLoaderPower(LOADTARGETPOWER);
+                shooterController.setShooterPower(SHOOT_TARGET_POWER);
+                loaderController.setLoaderPower(LOAD_TARGET_POWER);
 
                 if (gamepad1.start && !isPressingStart) {
                     isPressingStart = true;

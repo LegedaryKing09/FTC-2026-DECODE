@@ -12,7 +12,7 @@ public class IntakeTest extends LinearOpMode {
 
     IntakeController intakeController;
 
-    public static double TARGETPOWER = 0;
+    public static double TARGET_POWER = 0;
 
     boolean isPressingX = false;
     boolean isPressingB = false;
@@ -84,7 +84,7 @@ public class IntakeTest extends LinearOpMode {
             }
 
             if (useDashBoard) {
-                intakeController.setRollerPower(TARGETPOWER);
+                intakeController.setRollerPower(TARGET_POWER);
 
                 if (gamepad1.start && !isPressingStart) {
                     isPressingStart = true;

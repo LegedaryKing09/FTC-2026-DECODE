@@ -10,7 +10,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.DistanceController;
 @Autonomous(name = "Distance Sensor Test", group = "Test")
 public class DistanceTest extends LinearOpMode {
     private DistanceController distanceController;
-    private ElapsedTime runtime = new ElapsedTime();
+    private final ElapsedTime runtime = new ElapsedTime();
 
     @Override
     public void runOpMode() {

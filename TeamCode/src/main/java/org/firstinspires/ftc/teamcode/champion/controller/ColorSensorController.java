@@ -8,7 +8,7 @@ import java.util.Objects;
 
 public class ColorSensorController {
     public static String SENSOR_NAME = "colorSensor";
-    private NormalizedColorSensor colorSensor;
+    private final NormalizedColorSensor colorSensor;
     private volatile NormalizedRGBA colors;
 
     /**

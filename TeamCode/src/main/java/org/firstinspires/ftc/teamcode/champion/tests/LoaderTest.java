@@ -12,7 +12,7 @@ public class LoaderTest extends LinearOpMode {
 
     LoaderController loaderController;
 
-    public static double TARGETPOWER = 0;
+    public static double TARGET_POWER = 0;
 
     boolean isPressingX = false;
     boolean isPressingB = false;
@@ -84,7 +84,7 @@ public class LoaderTest extends LinearOpMode {
             }
 
             if (useDashBoard) {
-                loaderController.setLoaderPower(TARGETPOWER);
+                loaderController.setLoaderPower(TARGET_POWER);
 
                 if (gamepad1.start && !isPressingStart) {
                     isPressingStart = true;

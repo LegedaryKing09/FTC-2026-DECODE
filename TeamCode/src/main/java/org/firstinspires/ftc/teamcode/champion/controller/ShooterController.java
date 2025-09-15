@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
-import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
@@ -16,7 +15,8 @@ public class ShooterController {
         SHOOT, STOP
     }
 
-    private DcMotor shooter1 , shooter2;
+    private final DcMotor shooter1;
+    private final DcMotor shooter2;
     private ShooterMode shooterMode = ShooterMode.STOP;
 
     public ShooterController(LinearOpMode opMode) {

@@ -19,7 +19,7 @@ public class IntakeController {
         INTAKE, EJECT, STOP
     }
 
-    private DcMotor roller;
+    private final DcMotor roller;
     private IntakeMode intakeMode = IntakeMode.STOP;
 
     public IntakeController(LinearOpMode opMode) {
