@@ -87,7 +87,7 @@ public class LaunchingTest extends LinearOpMode {
                     transferController.transferStop();
                 }
 
-                if (gamepad1.right_bumper && !isPressingRightBumper) {//if right is pressed intake motor full power
+                if (gamepad1.right_bumper && !isPressingRightBumper) {//if right bumper is pressed intake motor full power
                     isPressingRightBumper = true;
                     intakeController.intakeFull();//change as needed
                 } else if (!gamepad1.right_bumper && isPressingRightBumper) {

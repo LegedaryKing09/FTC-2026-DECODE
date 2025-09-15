@@ -22,6 +22,7 @@ public class BasicTeleopTest extends LinearOpMode {
     boolean isPressingB = false;
     boolean isPressingA = false;
     boolean isPressingY = false;
+    boolean isPressingX = false;
     boolean isPressingLeftBumper = false;
     boolean isPressingRightBumper = false;
     boolean isPressingStart = false;
@@ -58,7 +59,6 @@ public class BasicTeleopTest extends LinearOpMode {
                 shooterController.shooterHalf();
             } else if (!gamepad1.a && isPressingA) {
                 isPressingA = false;
-                shooterController.shooterStop();
             }
 
             if (gamepad1.b && !isPressingB) {
@@ -66,7 +66,6 @@ public class BasicTeleopTest extends LinearOpMode {
                 shooterController.shooterFull();
             } else if (!gamepad1.b && isPressingB) {
                 isPressingB = false;
-                shooterController.shooterStop();
             }
 
             if (gamepad1.y && !isPressingY) {
@@ -74,7 +73,13 @@ public class BasicTeleopTest extends LinearOpMode {
                 shooterController.setShooterPower(SHOOTING_POWER);
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
-                shooterController.shooterStop();
+            }
+
+            if (gamepad1.x && !isPressingX) {
+                isPressingX = true;
+                shooterController.shooterFull();
+            } else if (!gamepad1.x && isPressingX) {
+                isPressingX = false;
             }
 
             if (gamepad1.dpad_up && SHOOTING_POWER < 1) {
@@ -93,11 +98,11 @@ public class BasicTeleopTest extends LinearOpMode {
                 INTAKE_POWER -= 0.1;
             }
 
-            if (gamepad1.x) {
+            if (gamepad1.right_trigger > 0.1) {
                 transferController.transferFull();
             }
 
-            if (!gamepad1.x) {
+            if (gamepad1.right_trigger < 0.1) {
                 transferController.transferStop();
             }
 
