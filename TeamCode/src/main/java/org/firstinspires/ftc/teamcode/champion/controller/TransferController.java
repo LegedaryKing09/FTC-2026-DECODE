@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 public class TransferController {
     public static String TRANSFER_NAME = "transfer";
@@ -20,6 +21,7 @@ public class TransferController {
 
     public TransferController(LinearOpMode opMode) {
         transfer = opMode.hardwareMap.get(DcMotor.class, TRANSFER_NAME);
+        transfer.setDirection(DcMotorSimple.Direction.REVERSE);
     }
 
     public void transferFull() {

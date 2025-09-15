@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 @Config
 public class IntakeController {
@@ -24,9 +25,10 @@ public class IntakeController {
 
     public IntakeController(LinearOpMode opMode) {
         intake = opMode.hardwareMap.get(DcMotor.class, INTAKE_NAME);
+        intake.setDirection(DcMotorSimple.Direction.REVERSE);
     }
 
-    public void intakeRest() {
+    public void intakeStop() {
         intake.setPower(INTAKE_STOP_POWER);
         intakeMode = IntakeMode.STOP;
     }
