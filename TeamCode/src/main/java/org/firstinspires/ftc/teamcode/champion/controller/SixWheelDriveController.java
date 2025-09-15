@@ -1,9 +1,9 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import android.annotation.SuppressLint;
+
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.hardware.lynx.LynxModule;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
@@ -19,13 +19,13 @@ public class SixWheelDriveController {
     public static String RB_NAME = "rb";
 
     // Drive Motors (4 motors controlling 6 wheels via gears/belts)
-    private DcMotor frontLeft = null;
-    private DcMotor frontRight = null;
-    private DcMotor backLeft = null;
-    private DcMotor backRight = null;
+    private final DcMotor frontLeft;
+    private final DcMotor frontRight;
+    private final DcMotor backLeft;
+    private final DcMotor backRight;
 
     // GoBilda Odometry Computer
-    private GoBildaPinpointDriver pinpoint = null;
+    private final GoBildaPinpointDriver pinpoint;
 
     // Robot dimensions
     private double trackWidth = 12.0; // Distance between left and right drive wheels
@@ -35,12 +35,6 @@ public class SixWheelDriveController {
     private double robotX = 0.0;
     private double robotY = 0.0;
     private double robotHeading = 0.0;
-
-    // Previous encoder readings (not used with the Pinpoint's internal odometry)
-    private int prevXOdo = 0;
-    private int prevYOdo = 0;
-    private int prevLeftEncoder = 0;
-    private int prevRightEncoder = 0;
 
     // Speed mode settings
     public static double FAST_SPEED_MULTIPLIER = 2;
@@ -133,12 +127,6 @@ public class SixWheelDriveController {
         frontRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         backLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         backRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-        // Reset tracking variables
-        prevXOdo = 0;
-        prevYOdo = 0;
-        prevLeftEncoder = 0;
-        prevRightEncoder = 0;
         robotX = 0.0;
         robotY = 0.0;
         robotHeading = 0.0;
@@ -287,14 +275,13 @@ public class SixWheelDriveController {
 
     // Get status information for telemetry
     public String getMotorStatus() {
-        StringBuilder status = new StringBuilder();
-        status.append("FL:").append(frontLeft != null ? "OK" : "NULL");
-        status.append(" FR:").append(frontRight != null ? "OK" : "NULL");
-        status.append(" BL:").append(backLeft != null ? "OK" : "NULL");
-        status.append(" BR:").append(backRight != null ? "OK" : "NULL");
-        return status.toString();
+        return "FL:" + (frontLeft != null ? "OK" : "NULL") +
+                " FR:" + (frontRight != null ? "OK" : "NULL") +
+                " BL:" + (backLeft != null ? "OK" : "NULL") +
+                " BR:" + (backRight != null ? "OK" : "NULL");
     }
 
+    @SuppressLint("DefaultLocale")
     public String getMotorPowers() {
         if (frontLeft == null || frontRight == null || backLeft == null || backRight == null) {
             return "Motors not initialized";

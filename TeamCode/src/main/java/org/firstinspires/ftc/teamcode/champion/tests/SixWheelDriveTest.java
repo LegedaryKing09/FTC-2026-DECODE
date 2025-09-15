@@ -2,10 +2,8 @@ package org.firstinspires.ftc.teamcode.champion.tests;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
-import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 
 /**
  * Comprehensive test for SixWheelDriveController

@@ -15,7 +15,7 @@ public class LoaderController {
         TRANSFER, STOP
     }
 
-    private DcMotor loader;
+    private final DcMotor loader;
     private LoaderMode loaderMode = LoaderMode.STOP;
 
     public LoaderController(LinearOpMode opMode) {

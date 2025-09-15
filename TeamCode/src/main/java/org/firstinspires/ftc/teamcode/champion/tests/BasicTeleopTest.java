@@ -1,12 +1,8 @@
 package org.firstinspires.ftc.teamcode.champion.tests;
 
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
-
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
 
-import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LoaderController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
@@ -19,8 +15,8 @@ public class BasicTeleopTest extends LinearOpMode {
     LoaderController loaderController;
     ShooterController shooterController;
     IntakeController intakeController;
-    public static double SHOOTINGPOWER = 0;
-    public static double INTAKEPOWER = 0;
+    public static double SHOOTING_POWER = 0;
+    public static double INTAKE_POWER = 0;
 
     boolean isUsingTelemetry = true;
     boolean isPressingX = false;
@@ -42,18 +38,14 @@ public class BasicTeleopTest extends LinearOpMode {
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
 
-        double drive = -gamepad1.left_stick_y * driveController.SLOW_SPEED_MULTIPLIER;
-        double turn = gamepad1.right_stick_x * driveController.SLOW_TURN_MULTIPLIER;
+        double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
+        double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
 
         waitForStart();
 
         while (opModeIsActive()) {
 
-            if (!driveController.isFastSpeedMode()) {
-                driveController.arcadeDrive(drive, turn);
-            } else {
-                driveController.arcadeDrive(drive, turn);
-            }
+            driveController.arcadeDrive(drive, turn);
 
             if (gamepad1.a && !isPressingA) {
                 isPressingA = true;
@@ -73,26 +65,26 @@ public class BasicTeleopTest extends LinearOpMode {
 
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
-                shooterController.setShooterPower(SHOOTINGPOWER);
+                shooterController.setShooterPower(SHOOTING_POWER);
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
                 shooterController.shooterStop();
             }
 
-            if (gamepad1.dpad_up && SHOOTINGPOWER < 1) {
-                SHOOTINGPOWER += 0.1;
+            if (gamepad1.dpad_up && SHOOTING_POWER < 1) {
+                SHOOTING_POWER += 0.1;
             }
 
-            if (gamepad1.dpad_down && SHOOTINGPOWER > 0) {
-                SHOOTINGPOWER -= 0.1;
+            if (gamepad1.dpad_down && SHOOTING_POWER > 0) {
+                SHOOTING_POWER -= 0.1;
             }
 
-            if (gamepad1.dpad_right && INTAKEPOWER < 1) {
-                INTAKEPOWER += 0.1;
+            if (gamepad1.dpad_right && INTAKE_POWER < 1) {
+                INTAKE_POWER += 0.1;
             }
 
-            if (gamepad1.dpad_left && INTAKEPOWER > 0) {
-                INTAKEPOWER -= 0.1;
+            if (gamepad1.dpad_left && INTAKE_POWER > 0) {
+                INTAKE_POWER -= 0.1;
             }
 
             if (gamepad1.x) {
@@ -145,8 +137,8 @@ public class BasicTeleopTest extends LinearOpMode {
                 telemetry.addData("Expected Left Power", "%.2f", leftPower);
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
-                telemetry.addData("Shooting Power:", "%.2f", SHOOTINGPOWER);
-                telemetry.addData("Intake Power:", "%.2f", INTAKEPOWER);
+                telemetry.addData("Shooting Power:", "%.2f", SHOOTING_POWER);
+                telemetry.addData("Intake Power:", "%.2f", INTAKE_POWER);
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y", "%.2f", driveController.getY());
