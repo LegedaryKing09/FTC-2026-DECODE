@@ -27,6 +27,7 @@ public class BasicTeleopTest extends LinearOpMode {
     boolean isPressingX = false;
     boolean isPressingLeftBumper = false;
     boolean isPressingRightBumper = false;
+    boolean isPressingDPADLeft = false;
     boolean isPressingStart = false;
 
     @Override
@@ -108,11 +109,27 @@ public class BasicTeleopTest extends LinearOpMode {
                 transferController.transferStop();
             }
 
+            if (gamepad1.left_trigger > 0.1) {
+                transferController.transferEject();
+            }
+
+            if (gamepad1.left_trigger < 0.1) {
+                transferController.transferStop();
+            }
+
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
                 intakeController.intakeFull();
             } else if (!gamepad1.right_bumper && isPressingRightBumper) {
                 isPressingRightBumper = false;
+                intakeController.intakeStop();
+            }
+
+            if (gamepad1.dpad_left && !isPressingDPADLeft) {
+                isPressingDPADLeft = true;
+                intakeController.intakeEject();
+            } else if (!gamepad1.dpad_left && isPressingDPADLeft) {
+                isPressingDPADLeft = false;
                 intakeController.intakeStop();
             }
 
