@@ -27,7 +27,9 @@ public class BasicTeleopTest extends LinearOpMode {
     boolean isPressingX = false;
     boolean isPressingLeftBumper = false;
     boolean isPressingRightBumper = false;
-    boolean isPressingDPADLeft = false;
+    boolean isPressingDpadLeft = false;
+    boolean isPressingDpadUp = false;
+    boolean isPressingDpadDown = false;
     boolean isPressingStart = false;
 
     @Override
@@ -117,6 +119,20 @@ public class BasicTeleopTest extends LinearOpMode {
                 transferController.transferStop();
             }
 
+            if (gamepad1.dpad_up && !isPressingDpadUp && SHOOTING_POWER < 1) {
+                isPressingDpadUp = true;
+                shooterController.setShooterPower(SHOOTING_POWER + 0.05);
+            } else if (!gamepad1.dpad_up && isPressingDpadUp) {
+                isPressingDpadUp = false;
+            }
+
+            if (gamepad1.dpad_down && !isPressingDpadDown && SHOOTING_POWER > -1) {
+                isPressingDpadDown = true;
+                shooterController.setShooterPower(SHOOTING_POWER - 0.05);
+            } else if (!gamepad1.dpad_down && isPressingDpadDown) {
+                isPressingDpadDown = false;
+            }
+
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
                 intakeController.intakeFull();
@@ -125,11 +141,11 @@ public class BasicTeleopTest extends LinearOpMode {
                 intakeController.intakeStop();
             }
 
-            if (gamepad1.dpad_left && !isPressingDPADLeft) {
-                isPressingDPADLeft = true;
+            if (gamepad1.dpad_left && !isPressingDpadLeft) {
+                isPressingDpadLeft = true;
                 intakeController.intakeEject();
-            } else if (!gamepad1.dpad_left && isPressingDPADLeft) {
-                isPressingDPADLeft = false;
+            } else if (!gamepad1.dpad_left && isPressingDpadLeft) {
+                isPressingDpadLeft = false;
                 intakeController.intakeStop();
             }
 
@@ -173,9 +189,9 @@ public class BasicTeleopTest extends LinearOpMode {
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y", "%.2f", driveController.getY());
                 telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
-
-                telemetry.update();
             }
+
+            telemetry.update();
 
         }
     }
