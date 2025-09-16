@@ -8,12 +8,13 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 public class TransferController {
     public static String TRANSFER_NAME = "transfer";
     public static double TRANSFER_FULL_POWER = 1;
+    public static double TRANSFER_EJECT_POWER = -1;
     public static double TRANSFER_HALF_POWER = 0.5;
     public static double TRANSFER_QUARTER_POWER = 0.25;
     public static double TRANSFER_STOP_POWER = 0;
 
     private enum TransferMode {
-        TRANSFER, STOP
+        TRANSFER, STOP, EJECT
     }
 
     private final DcMotor transfer;
@@ -27,6 +28,11 @@ public class TransferController {
     public void transferFull() {
         transfer.setPower(TRANSFER_FULL_POWER);
         transferMode = TransferMode.TRANSFER;
+    }
+
+    public void transferEject() {
+        transfer.setPower(TRANSFER_EJECT_POWER);
+        transferMode = TransferMode.EJECT;
     }
 
     public void transferHalf() {
