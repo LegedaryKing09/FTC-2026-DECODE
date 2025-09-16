@@ -48,12 +48,12 @@ public class BasicTeleopTest extends LinearOpMode {
 
         while (opModeIsActive()) {
 
-            if(driveController.isFastSpeedMode()) {
-                drive =-gamepad1.left_stick_y * SixWheelDriveController.FAST_SPEED_MULTIPLIER;
+            if (driveController.isFastSpeedMode()) {
+                drive = -gamepad1.left_stick_y * SixWheelDriveController.FAST_SPEED_MULTIPLIER;
                 turn = gamepad1.right_stick_x * SixWheelDriveController.FAST_TURN_MULTIPLIER;
             }
-            if(!driveController.isFastSpeedMode()) {
-                drive =-gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
+            if (!driveController.isFastSpeedMode()) {
+                drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
                 turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
             }
 
@@ -176,7 +176,7 @@ public class BasicTeleopTest extends LinearOpMode {
                 rightPower /= maxPower;
             }
 
-            if(isUsingTelemetry) {
+            if (isUsingTelemetry) {
 
                 driveController.getMotorStatus();
 
