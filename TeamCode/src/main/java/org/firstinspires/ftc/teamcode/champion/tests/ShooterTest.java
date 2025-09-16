@@ -10,7 +10,7 @@ public class ShooterTest extends LinearOpMode {
 
     ShooterController shooterController;
 
-    public static double TARGETPOWER = 0;
+    public static double TARGET_POWER = 0;
 
     boolean isPressingX = false;
     boolean isPressingB = false;
@@ -82,7 +82,7 @@ public class ShooterTest extends LinearOpMode {
             }
 
             if (useDashBoard) {
-                shooterController.setShooterPower(TARGETPOWER);
+                shooterController.setShooterPower(TARGET_POWER);
 
                 if (gamepad1.start && !isPressingStart) {
                     isPressingStart = true;

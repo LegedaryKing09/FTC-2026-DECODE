@@ -13,7 +13,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * 3. Shooter motor accelerates to optimal speed (2.5 seconds)
  * 4. Transfer and intake motors start while shooter maintains speed
  * 5. After 5 seconds, all motors stop
- *
+ * <p>
  * Hardware Configuration:
  * - Motor 1: Intake motor (name: "intake")
  * - Motor 2: Transfer motor(name: "transfer")
@@ -28,7 +28,7 @@ public class intakeLaunchTest extends LinearOpMode {
     private DcMotor shooter = null;
 
     // Timer for tracking elapsed time
-    private ElapsedTime runtime = new ElapsedTime();
+    private final ElapsedTime runtime = new ElapsedTime();
 
     // Motor power constants - adjust these values based on your robot's needs
     private static final double INTAKE_POWER = -0.8;  // Power for intake motor (0.0 to 1.0)

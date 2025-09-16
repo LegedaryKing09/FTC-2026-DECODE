@@ -1,36 +1,35 @@
 package org.firstinspires.ftc.teamcode.champion.tests;
 
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
-
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
 
-import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.LoaderController;
+import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
+@Config
 @TeleOp
 public class BasicTeleopTest extends LinearOpMode {
 
     SixWheelDriveController driveController;
-    LoaderController loaderController;
+    TransferController transferController;
     ShooterController shooterController;
     IntakeController intakeController;
-    public static double SHOOTINGPOWER = 0;
-    public static double INTAKEPOWER = 0;
+    public static double SHOOTING_POWER = 0;
+    public static double INTAKE_POWER = 0;
 
     boolean isUsingTelemetry = true;
-    boolean isPressingX = false;
     boolean isPressingB = false;
     boolean isPressingA = false;
     boolean isPressingY = false;
-    boolean isPressingDpadUp = false;
-    boolean isPressingDpadDown = false;
+    boolean isPressingX = false;
     boolean isPressingLeftBumper = false;
     boolean isPressingRightBumper = false;
+    boolean isPressingDpadLeft = false;
+    boolean isPressingDpadUp = false;
+    boolean isPressingDpadDown = false;
     boolean isPressingStart = false;
 
     @Override
@@ -38,29 +37,33 @@ public class BasicTeleopTest extends LinearOpMode {
 
 
         driveController = new SixWheelDriveController(this);
-        loaderController = new LoaderController(this);
+        transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
 
-        double drive = -gamepad1.left_stick_y * driveController.SLOW_SPEED_MULTIPLIER;
-        double turn = gamepad1.right_stick_x * driveController.SLOW_TURN_MULTIPLIER;
+        double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
+        double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
 
         waitForStart();
 
         while (opModeIsActive()) {
 
-            if (!driveController.isFastSpeedMode()) {
-                driveController.arcadeDrive(drive, turn);
-            } else {
-                driveController.arcadeDrive(drive, turn);
+            if (driveController.isFastSpeedMode()) {
+                drive = -gamepad1.left_stick_y * SixWheelDriveController.FAST_SPEED_MULTIPLIER;
+                turn = gamepad1.right_stick_x * SixWheelDriveController.FAST_TURN_MULTIPLIER;
             }
+            if (!driveController.isFastSpeedMode()) {
+                drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
+                turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
+            }
+
+            driveController.arcadeDrive(drive, turn);
 
             if (gamepad1.a && !isPressingA) {
                 isPressingA = true;
                 shooterController.shooterHalf();
             } else if (!gamepad1.a && isPressingA) {
                 isPressingA = false;
-                shooterController.shooterQuarter();
             }
 
             if (gamepad1.b && !isPressingB) {
@@ -68,47 +71,82 @@ public class BasicTeleopTest extends LinearOpMode {
                 shooterController.shooterFull();
             } else if (!gamepad1.b && isPressingB) {
                 isPressingB = false;
-                shooterController.shooterQuarter();
             }
 
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
-                shooterController.setShooterPower(SHOOTINGPOWER);
+                shooterController.setShooterPower(SHOOTING_POWER);
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
+            }
+
+            if (gamepad1.x && !isPressingX) {
+                isPressingX = true;
                 shooterController.shooterStop();
+            } else if (!gamepad1.x && isPressingX) {
+                isPressingX = false;
             }
 
-            if (gamepad1.dpad_up && SHOOTINGPOWER < 1) {
-                SHOOTINGPOWER += 0.1;
+            if (gamepad1.dpad_up && SHOOTING_POWER < 1) {
+                SHOOTING_POWER += 0.1;
             }
 
-            if (gamepad1.dpad_down && SHOOTINGPOWER > 0) {
-                SHOOTINGPOWER -= 0.1;
+            if (gamepad1.dpad_down && SHOOTING_POWER > 0) {
+                SHOOTING_POWER -= 0.1;
             }
 
-            if (gamepad1.dpad_right && INTAKEPOWER < 1) {
-                INTAKEPOWER += 0.1;
+            if (gamepad1.dpad_right && INTAKE_POWER < 1) {
+                INTAKE_POWER += 0.1;
             }
 
-            if (gamepad1.dpad_left && INTAKEPOWER > 0) {
-                INTAKEPOWER -= 0.1;
+            if (gamepad1.dpad_left && INTAKE_POWER > 0) {
+                INTAKE_POWER -= 0.1;
             }
 
-            if (gamepad1.x) {
-                loaderController.loaderFull();
+            if (gamepad1.right_trigger > 0.1) {
+                transferController.transferFull();
             }
 
-            if (!gamepad1.x) {
-                loaderController.loaderStop();
+            if (gamepad1.right_trigger < 0.1) {
+                transferController.transferStop();
+            }
+
+            if (gamepad1.left_trigger > 0.1) {
+                transferController.transferEject();
+            }
+
+            if (gamepad1.left_trigger < 0.1) {
+                transferController.transferStop();
+            }
+
+            if (gamepad1.dpad_up && !isPressingDpadUp && SHOOTING_POWER < 1) {
+                isPressingDpadUp = true;
+                shooterController.setShooterPower(SHOOTING_POWER + 0.05);
+            } else if (!gamepad1.dpad_up && isPressingDpadUp) {
+                isPressingDpadUp = false;
+            }
+
+            if (gamepad1.dpad_down && !isPressingDpadDown && SHOOTING_POWER > -1) {
+                isPressingDpadDown = true;
+                shooterController.setShooterPower(SHOOTING_POWER - 0.05);
+            } else if (!gamepad1.dpad_down && isPressingDpadDown) {
+                isPressingDpadDown = false;
             }
 
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
-                intakeController.intakeHalf();
+                intakeController.intakeFull();
             } else if (!gamepad1.right_bumper && isPressingRightBumper) {
                 isPressingRightBumper = false;
-                intakeController.intakeRest();
+                intakeController.intakeStop();
+            }
+
+            if (gamepad1.dpad_left && !isPressingDpadLeft) {
+                isPressingDpadLeft = true;
+                intakeController.intakeEject();
+            } else if (!gamepad1.dpad_left && isPressingDpadLeft) {
+                isPressingDpadLeft = false;
+                intakeController.intakeStop();
             }
 
             if (gamepad1.left_bumper && !isPressingLeftBumper) {
@@ -138,22 +176,22 @@ public class BasicTeleopTest extends LinearOpMode {
                 rightPower /= maxPower;
             }
 
-            if(isUsingTelemetry) {
+            if (isUsingTelemetry) {
 
-                driveController.giveAllTelemetry();
+                driveController.getMotorStatus();
 
                 telemetry.addData("Expected Left Power", "%.2f", leftPower);
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
-                telemetry.addData("Shooting Power:", "%.2f", SHOOTINGPOWER);
-                telemetry.addData("Intake Power:", "%.2f", INTAKEPOWER);
+                telemetry.addData("Shooting Power:", "%.2f", SHOOTING_POWER);
+                telemetry.addData("Intake Power:", "%.2f", INTAKE_POWER);
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y", "%.2f", driveController.getY());
                 telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
-
-                telemetry.update();
             }
+
+            telemetry.update();
 
         }
     }

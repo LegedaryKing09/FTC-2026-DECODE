@@ -9,13 +9,12 @@ import org.firstinspires.ftc.teamcode.champion.controller.ColorSensorController;
 @TeleOp(name = "Color Sensor Test", group = "Test")
 public class ColorTest extends LinearOpMode {
 
-    private ColorSensorController colorController;
-    private ElapsedTime runtime = new ElapsedTime();
+    private final ElapsedTime runtime = new ElapsedTime();
 
     @Override
     public void runOpMode() {
         // Initialize the color sensor controller
-        colorController = new ColorSensorController(this);
+        ColorSensorController colorController = new ColorSensorController(this);
 
         // Wait for the game to start (driver presses PLAY)
         telemetry.addData("Status", "Initialized - Ready to test color sensor");

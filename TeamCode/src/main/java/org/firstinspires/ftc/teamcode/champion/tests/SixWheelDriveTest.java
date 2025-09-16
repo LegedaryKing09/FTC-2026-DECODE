@@ -2,10 +2,8 @@ package org.firstinspires.ftc.teamcode.champion.tests;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
-import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 
 /**
  * Comprehensive test for SixWheelDriveController
@@ -26,26 +24,7 @@ public class SixWheelDriveTest extends LinearOpMode {
         telemetry.update();
 
         // Create controller instance
-        driveController = new SixWheelDriveController();
-
-        // Try to initialize with error handling
-        try {
-            driveController.init(hardwareMap);
-            telemetry.addLine("✓ Drive controller initialized successfully");
-        } catch (Exception e) {
-            telemetry.addLine("✗ INITIALIZATION FAILED!");
-            telemetry.addLine("Error: " + e.getMessage());
-            telemetry.addLine();
-            telemetry.addLine("Check that these devices are configured:");
-            telemetry.addLine("- Motors: " + SixWheelDriveController.LF_NAME + ", " +
-                    SixWheelDriveController.RF_NAME + ", " +
-                    SixWheelDriveController.LB_NAME + ", " +
-                    SixWheelDriveController.RB_NAME);
-            telemetry.addLine("- Pinpoint: odo");
-            telemetry.update();
-            sleep(5000);
-            return;
-        }
+        driveController = new SixWheelDriveController(this);
 
         // Display startup info
         telemetry.clear();

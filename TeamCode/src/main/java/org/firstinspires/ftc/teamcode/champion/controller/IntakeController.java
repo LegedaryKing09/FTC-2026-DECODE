@@ -3,64 +3,66 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 @Config
 public class IntakeController {
 
-    public static String ROLLER_NAME = "roller";
-    public static double ROLLER_FULL_POWER = 1;
-    public static double ROLLER_EJECT_POWER = -1;
-    public static double ROLLER_STOP_POWER = 0;
-    public static double ROLLER_HALF_POWER = 0.5;
-    public static double ROLLER_QUARTER_POWER = 0.25;
+    public static String INTAKE_NAME = "intake";
+    public static double INTAKE_FULL_POWER = 1;
+    public static double INTAKE_EJECT_POWER = -1;
+    public static double INTAKE_STOP_POWER = 0;
+    public static double INTAKE_HALF_POWER = 0.5;
+    public static double INTAKE_QUARTER_POWER = 0.25;
 
 
     private enum IntakeMode {
         INTAKE, EJECT, STOP
     }
 
-    private DcMotor roller;
+    private final DcMotor intake;
     private IntakeMode intakeMode = IntakeMode.STOP;
 
     public IntakeController(LinearOpMode opMode) {
-        roller = opMode.hardwareMap.get(DcMotor.class, ROLLER_NAME);
+        intake = opMode.hardwareMap.get(DcMotor.class, INTAKE_NAME);
+        intake.setDirection(DcMotorSimple.Direction.REVERSE);
     }
 
-    public void intakeRest() {
-        roller.setPower(ROLLER_STOP_POWER);
+    public void intakeStop() {
+        intake.setPower(INTAKE_STOP_POWER);
         intakeMode = IntakeMode.STOP;
     }
 
     public void intakeFull() {
-        roller.setPower(ROLLER_FULL_POWER);
+        intake.setPower(INTAKE_FULL_POWER);
         intakeMode = IntakeMode.INTAKE;
     }
 
     public void intakeHalf() {
-        roller.setPower(ROLLER_HALF_POWER);
+        intake.setPower(INTAKE_HALF_POWER);
         intakeMode = IntakeMode.INTAKE;
     }
 
     public void intakeQuarter() {
-        roller.setPower(ROLLER_QUARTER_POWER);
+        intake.setPower(INTAKE_QUARTER_POWER);
         intakeMode = IntakeMode.INTAKE;
     }
 
     public void intakeEject() {
-        roller.setPower(ROLLER_EJECT_POWER);
+        intake.setPower(INTAKE_EJECT_POWER);
         intakeMode = IntakeMode.EJECT;
     }
 
-    public double getRollerPower() {
-        return roller.getPower();
+    public double getIntakePower() {
+        return intake.getPower();
     }
 
     public boolean isDoingIntake() {
         return intakeMode == IntakeMode.INTAKE;
     }
 
-    public void setRollerPower(double power) {
-        roller.setPower(power);
+    public void setIntakePower(double power) {
+        intake.setPower(power);
         intakeMode = IntakeMode.INTAKE;
     }
 
