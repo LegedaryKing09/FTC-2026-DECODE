@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.champion.tests;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.ServoController;
@@ -11,8 +10,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.ServoController;
 public class SpindexTest extends LinearOpMode {
 
     private ServoController axonController;
-    private ElapsedTime runtime = new ElapsedTime();
-    private ElapsedTime modeTimer = new ElapsedTime();
+    private final ElapsedTime runtime = new ElapsedTime();
+    private final ElapsedTime modeTimer = new ElapsedTime();
 
     private boolean lastDpadUp = false;
     private boolean lastDpadDown = false;
