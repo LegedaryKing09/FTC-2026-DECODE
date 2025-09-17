@@ -42,7 +42,7 @@ public class ColorSensorController {
     public boolean IsPurple() {
         colors = colorSensor.getNormalizedColors();
         if(colors.green + colors.blue + colors.red > 0.008) {
-            return (colors.blue > colors.green && colors.green / (colors.red + colors.blue + colors.green) < 0.31);
+            return (colors.blue > colors.green && colors.blue / (colors.red + colors.blue + colors.green) < 0.5 && colors.red / (colors.red + colors.blue + colors.green) > 0.22);
         } else {
             return false;
         }

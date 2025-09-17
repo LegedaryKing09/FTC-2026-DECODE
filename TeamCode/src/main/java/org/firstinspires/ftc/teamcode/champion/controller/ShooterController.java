@@ -29,31 +29,31 @@ public class ShooterController {
 
     public void shooterFull() {
         shooter1.setPower(SHOOTER_FULL_POWER);
-        shooter2.setPower(SHOOTER_FULL_POWER);
+        shooter2.setPower(-SHOOTER_FULL_POWER);
         shooterMode = ShooterMode.SHOOT;
     }
 
     public void shooterHalf() {
         shooter1.setPower(SHOOTER_HALF_POWER);
-        shooter2.setPower(SHOOTER_HALF_POWER);
+        shooter2.setPower(-SHOOTER_HALF_POWER);
         shooterMode = ShooterMode.SHOOT;
     }
 
     public void shooterQuarter() {
         shooter1.setPower(SHOOTER_QUARTER_POWER);
-        shooter2.setPower(SHOOTER_QUARTER_POWER);
+        shooter2.setPower(-SHOOTER_QUARTER_POWER);
         shooterMode = ShooterMode.SHOOT;
     }
 
     public void shooterStop() {
         shooter1.setPower(SHOOTER_STOP_POWER);
-        shooter2.setPower(SHOOTER_STOP_POWER);
+        shooter2.setPower(-SHOOTER_STOP_POWER);
         shooterMode = ShooterMode.SHOOT;
     }
 
     public void setShooterPower(double power) {
         shooter1.setPower(power);
-        shooter2.setPower(power);
+        shooter2.setPower(-power);
         shooterMode = ShooterMode.SHOOT;
     }
 

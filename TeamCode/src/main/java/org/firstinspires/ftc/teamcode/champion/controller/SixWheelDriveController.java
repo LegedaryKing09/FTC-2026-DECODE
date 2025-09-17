@@ -63,10 +63,32 @@ public class SixWheelDriveController {
         // Set all motors to brake when power is zero
         setMotorsBrakeMode();
 
+        // Configure the Pinpoint computer
+        configurePinpoint();
+
         // Reset odometry
         resetOdometry();
     }
 
+    // Configure the Pinpoint odometry computer
+    private void configurePinpoint() {
+        // Set encoder directions - adjust these based on your robot setup
+        pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
+                GoBildaPinpointDriver.EncoderDirection.FORWARD);
+
+        // Set encoder resolution - using goBILDA swingarm pods as default
+        // Change this to goBILDA_4_BAR_POD if using 4-bar pods, or use setEncoderResolution() for custom
+        pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
+
+        // Set pod offsets - these are the distances from the center of rotation to each odometry pod
+        // X offset: positive = left of center, negative = right of center
+        // Y offset: positive = forward of center, negative = behind center
+        // Adjust these values based on your robot's physical configuration
+        pinpoint.setOffsets(-84.0, -168.0, DistanceUnit.MM); // Example values - ADJUST FOR YOUR ROBOT
+
+        // Set yaw scalar if needed (usually not necessary as devices come pre-calibrated)
+        // pinpoint.setYawScalar(1.0);
+    }
 
     // Tank drive control
     public void tankDrive(double leftPower, double rightPower) {
@@ -98,19 +120,21 @@ public class SixWheelDriveController {
         tankDrive(0, 0);
     }
 
-    // Update odometry calculations
+    // Update odometry calculations - THIS WAS THE MISSING PIECE
     public void updateOdometry() {
-        // Get the current position and heading directly from the Pinpoint driver
+        // CRITICAL: Call update() first to refresh data from the Pinpoint device
+        pinpoint.update();
+
+        // Get the current position and heading from the Pinpoint driver
         Pose2D pose = pinpoint.getPosition();
         robotX = pose.getX(DistanceUnit.MM);
         robotY = pose.getY(DistanceUnit.MM);
-        robotHeading = pose.getHeading(AngleUnit.DEGREES);
-        // Note: The previous delta-based code is not necessary with the Pinpoint driver
+        robotHeading = pose.getHeading(AngleUnit.RADIANS);
     }
 
     // Reset odometry encoders and position
     public void resetOdometry() {
-        // Reset odometry computer's internal tracking
+        // Reset odometry computer's internal tracking and recalibrate IMU
         pinpoint.resetPosAndIMU();
 
         // Reset drive motor encoders (unnecessary for odometry, but good practice for other uses)
@@ -123,6 +147,8 @@ public class SixWheelDriveController {
         frontRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         backLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         backRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+        // Reset local position variables
         robotX = 0.0;
         robotY = 0.0;
         robotHeading = 0.0;
@@ -153,22 +179,40 @@ public class SixWheelDriveController {
         return Math.toDegrees(robotHeading);
     }
 
-    // Setters for robot position
+    // Get position in different units
+    public double getX(DistanceUnit unit) {
+        return unit.fromMm(robotX);
+    }
+
+    public double getY(DistanceUnit unit) {
+        return unit.fromMm(robotY);
+    }
+
+    public double getHeading(AngleUnit unit) {
+        return unit.fromRadians(robotHeading);
+    }
+
+    // Setters for robot position (this will update the Pinpoint device)
     public void setPosition(double x, double y, double heading) {
+        Pose2D newPose = new Pose2D(DistanceUnit.MM, x, y, AngleUnit.RADIANS, heading);
+        pinpoint.setPosition(newPose);
         robotX = x;
         robotY = y;
         robotHeading = heading;
     }
 
     public void setX(double x) {
+        pinpoint.setPosX(x, DistanceUnit.MM);
         robotX = x;
     }
 
     public void setY(double y) {
+        pinpoint.setPosY(y, DistanceUnit.MM);
         robotY = y;
     }
 
     public void setHeading(double heading) {
+        pinpoint.setHeading(heading, AngleUnit.RADIANS);
         robotHeading = heading;
     }
 
@@ -196,6 +240,19 @@ public class SixWheelDriveController {
 
     public int getYOdoPosition() {
         return pinpoint.getEncoderY();
+    }
+
+    // Get velocities from the Pinpoint
+    public double getVelocityX() {
+        return pinpoint.getVelX(DistanceUnit.MM);
+    }
+
+    public double getVelocityY() {
+        return pinpoint.getVelY(DistanceUnit.MM);
+    }
+
+    public double getHeadingVelocity() {
+        return pinpoint.getHeadingVelocity();
     }
 
     // Individual motor control
@@ -248,6 +305,15 @@ public class SixWheelDriveController {
         return pinpoint.getDeviceStatus();
     }
 
+    // Get pinpoint loop time and frequency for diagnostics
+    public int getPinpointLoopTime() {
+        return pinpoint.getLoopTime();
+    }
+
+    public double getPinpointFrequency() {
+        return pinpoint.getFrequency();
+    }
+
     // Speed mode methods
     public void setFastSpeed() {
         isFastSpeedMode = true;
@@ -285,5 +351,16 @@ public class SixWheelDriveController {
         return String.format("FL:%.2f FR:%.2f BL:%.2f BR:%.2f",
                 frontLeft.getPower(), frontRight.getPower(),
                 backLeft.getPower(), backRight.getPower());
+    }
+
+    // Get detailed pinpoint status for telemetry
+    @SuppressLint("DefaultLocale")
+    public String getPinpointTelemetry() {
+        return String.format("Status: %s, Loop: %dμs (%.1fHz), X: %d, Y: %d",
+                getPinpointStatus().toString(),
+                getPinpointLoopTime(),
+                getPinpointFrequency(),
+                getXOdoPosition(),
+                getYOdoPosition());
     }
 }

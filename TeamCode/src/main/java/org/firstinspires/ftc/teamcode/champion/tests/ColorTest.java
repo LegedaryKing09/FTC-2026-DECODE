@@ -42,6 +42,8 @@ public class ColorTest extends LinearOpMode {
             String dominantColor;
             if(totalIntensity <= 0.008) {
                 dominantColor = "None";
+            } else if (isPurple) {
+                dominantColor = "PURPLE";
             } else {
                 dominantColor = getDominantColor(redValue, greenValue, blueValue);
             }

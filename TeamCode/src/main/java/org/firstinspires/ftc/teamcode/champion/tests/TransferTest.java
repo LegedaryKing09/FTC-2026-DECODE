@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 
 @Config
-@TeleOp(name = "Tranfer Test", group = "Test")
+@TeleOp(name = "Transfer Test", group = "Test")
 public class TransferTest extends LinearOpMode {
 
     TransferController transferController;
