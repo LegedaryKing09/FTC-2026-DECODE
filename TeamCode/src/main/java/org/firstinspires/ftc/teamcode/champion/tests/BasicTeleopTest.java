@@ -73,6 +73,12 @@ public class BasicTeleopTest extends LinearOpMode {
 
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
+                intakeController.intakeFull();
+                driveController.tankDrive(0.8,0.8);
+                sleep(300);
+                driveController.tankDrive(-0.8,-0.8);
+                sleep(300);
+                transferController.transferFull();
                 shooterController.setShooterPower(SHOOTING_POWER);
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
@@ -81,6 +87,8 @@ public class BasicTeleopTest extends LinearOpMode {
             if (gamepad1.x && !isPressingX) {
                 isPressingX = true;
                 shooterController.shooterStop();
+                intakeController.intakeStop();
+                transferController.transferStop();
             } else if (!gamepad1.x && isPressingX) {
                 isPressingX = false;
             }
