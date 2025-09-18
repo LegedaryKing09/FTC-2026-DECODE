@@ -95,12 +95,12 @@ public class BasicTeleopTest extends LinearOpMode {
                 isPressingX = false;
             }
 
-            if (gamepad1.dpad_up && SHOOTING_POWER < 1) {
-                SHOOTING_POWER += 0.1;
+            if (gamepad1.dpad_up && SHOOTING_POWER <= 1) {
+                SHOOTING_POWER += 0.05;
             }
 
-            if (gamepad1.dpad_down && SHOOTING_POWER > 0) {
-                SHOOTING_POWER -= 0.1;
+            if (gamepad1.dpad_down && SHOOTING_POWER >= 0) {
+                SHOOTING_POWER -= 0.05;
             }
 
             if (gamepad1.dpad_right && INTAKE_POWER < 1) {
