@@ -41,7 +41,7 @@ public class RoadRunnerAuto extends LinearOpMode{
 
             // Turn left 90 degrees
             Trajectory turnLeft = drive.trajectoryBuilder(moveForward.end())
-                    .splineToSplineHeading(new Pose2d(24, 0, Math.toRadians(90)), Math.toRadians(90))
+                    .turn(Math.toRadians(90));
                     .build();
 
             drive.followTrajectory(turnLeft);

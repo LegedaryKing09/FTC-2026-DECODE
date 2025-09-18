@@ -39,13 +39,21 @@ import java.util.Arrays;
 import java.util.List;
 
 @Config
-public class RoadRunnerDrive{
+public class RoadRunnerDrive {
 
-    //TODO: CHANGE PID VALUES
+
+    // Feedforward(guessing for motor power) + PID(correction)
+    public static double TRANSLATIONAL_P = DriveConstants.TRANSLATIONAL_P;
+    public static double TRANSLATIONAL_I = DriveConstants.TRANSLATIONAL_I;
+    public static double TRANSLATIONAL_D = DriveConstants.TRANSLATIONAL_D;
+    public static double HEADING_P = DriveConstants.HEADING_P;
+    public static double HEADING_I = DriveConstants.HEADING_I;
+    public static double HEADING_D = DriveConstants.HEADING_D;
     private static final TrajectoryVelocityConstraint VEL_CONSTRAINT = getVelocityConstraint(MAX_VEL, MAX_ANG_VEL, TRACK_WIDTH);
     private static final TrajectoryAccelerationConstraint ACCEL_CONSTRAINT = getAccelerationConstraint(MAX_ACCEL);
 
-    public static PIDCoefficients HEADING_PID = new PIDCoefficients(0, 0, 0);
+    public static PIDCoefficients TRANSLATIONAL_PID = new PIDCoefficients(TRANSLATIONAL_P, TRANSLATIONAL_I, TRANSLATIONAL_D);
+    public static PIDCoefficients HEADING_PID = new PIDCoefficients(HEADING_P, HEADING_I, HEADING_D);
     private TankPIDVAFollower follower;
     private final DcMotor frontLeft, frontRight, backLeft, backRight;
 
@@ -119,7 +127,7 @@ public class RoadRunnerDrive{
 
     //build trajectories
     public TrajectoryBuilder trajectoryBuilder(Pose2d startPose) {
-        return new TrajectoryBuilder(startPose,getVelocityConstraint(),getAccelerationConstraint());
+        return new TrajectoryBuilder(startPose, getVelocityConstraint(), getAccelerationConstraint());
     }
 
     //follow trajectories
@@ -130,7 +138,8 @@ public class RoadRunnerDrive{
     public void update() {
         updateOdometry();
         Pose2d currentPose = getPoseEstimate();
-        DriveSignal signal = follower.update(currentPose); //holding velocity and acceleration commands
+        DriveSignal signal = follower.update(currentPose); //compares current pose to where it should be, outputs drive signal with velocity and acceleration
+        // signal = null : trajectory finished
         if (signal != null) {
             // Convert DriveSignal to tank drive powers
             double forward = signal.getVel().getX();     // Forward/backward velocity
@@ -157,7 +166,7 @@ public class RoadRunnerDrive{
 
     //setting starting pose
     public void setPoseEstimate(Pose2d pose) {
-        double x_ = pose.getX() * 25.4;
+        double x_ = pose.getX() * 25.4;//inches to mm
         double y_ = pose.getY() * 25.4;
         double headingDegree = pose.getHeading();
         setPosition(x_, y_, Math.toRadians(headingDegree));
@@ -171,12 +180,13 @@ public class RoadRunnerDrive{
 
     private MinVelocityConstraint getVelocityConstraint() {
         return new MinVelocityConstraint(Arrays.asList(
-                new AngularVelocityConstraint(MAX_ANG_VEL),
+                new AngularVelocityConstraint(MAX_ANG_VEL),//limit for turning
                 new TankVelocityConstraint(MAX_VEL, DriveConstants.TrackWidth)
         ));
     }
+
     private ProfileAccelerationConstraint getAccelerationConstraint() {
-        return new ProfileAccelerationConstraint(MAX_ACCEL);
+        return new ProfileAccelerationConstraint(MAX_ACCEL);//limit for acceleration
     }
 
     public int getXOdoPosition() {
@@ -242,6 +252,7 @@ public class RoadRunnerDrive{
                 MAX_ANG_VEL, MAX_ANG_ACCEL
         );
     }
+
     public void turn(double angle) {
         trajectorySequenceRunner.followTrajectorySequenceAsync(
                 trajectorySequenceBuilder(getPoseEstimate())

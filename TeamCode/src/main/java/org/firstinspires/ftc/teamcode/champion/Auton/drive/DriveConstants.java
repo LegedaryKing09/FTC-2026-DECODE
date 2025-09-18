@@ -20,12 +20,21 @@ public class DriveConstants {
      * and op modes themselves.
      */
 
+    // Forward/back accuracy
+    public static double TRANSLATIONAL_P = 8.0;      // (increase if stops early)
+    public static double TRANSLATIONAL_I = 0.1;      // Eliminates steady-state error
+    public static double TRANSLATIONAL_D = 0.5;     // lower if overshoot
+    // rotation accuracy
+    public static double HEADING_P = 10.0;    // Turning slow : increase
+    public static double HEADING_I = 0.5;     // Turning doesn't reach target  : increase
+    public static double HEADING_D = 1.5;     // Turning overshoot : increase
+
     public static double TrackWidth = 12.0;
     // Movement limits
     public static double MAX_VEL = 30; // inches per second
     public static double MAX_ACCEL = 30; // inches per second squared
-    public static double MAX_ANG_VEL = Math.toRadians(120); // radians per second
-    public static double MAX_ANG_ACCEL = Math.toRadians(120); // radians per second squared
+    public static double MAX_ANG_VEL = Math.toRadians(90); // radians per second
+    public static double MAX_ANG_ACCEL = Math.toRadians(90); // radians per second squared
 
     // with pinpoint, we don't need motor encoder constants, it handles all the odometry calculations
 
