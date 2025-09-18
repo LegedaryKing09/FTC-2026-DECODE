@@ -22,7 +22,7 @@ import java.util.List;
  */
 @Config
 @Autonomous(name = "AprilTag Heading Aligner", group = "Champion")
-public class LimelightPreciseTracking extends LinearOpMode {
+public class LimelightJerky extends LinearOpMode {
 
     private SixWheelDriveController driveController;
     private Limelight3A limelight;
