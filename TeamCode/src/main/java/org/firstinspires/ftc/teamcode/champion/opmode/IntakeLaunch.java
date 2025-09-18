@@ -20,7 +20,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * - Motor 3: Shooting motor (name: "shooter")
  */
 @Autonomous(name="launchTest1")
-public class intakeLaunchTest extends LinearOpMode {
+public class IntakeLaunch extends LinearOpMode {
 
     // Declare motor objects
     private DcMotor intake = null;
