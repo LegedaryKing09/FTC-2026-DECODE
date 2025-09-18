@@ -1,12 +1,17 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import org.firstinspires.ftc.teamcode.champion.Auton.util.Encoder;
 
+@Config
 public class ShooterController {
     public static String SHOOTER_NAME1 = "shooter1";
     public static String SHOOTER_NAME2 = "shooter2";
+    public static String ENCODER_NAME = "encoder";
     public static double SHOOTER_FULL_POWER = 1;
     public static double SHOOTER_HALF_POWER = 0.5;
     public static double SHOOTER_QUARTER_POWER = 0.25;
@@ -16,13 +21,15 @@ public class ShooterController {
         SHOOT, STOP
     }
 
-    private final DcMotor shooter1;
-    private final DcMotor shooter2;
+    private final DcMotorEx shooter1;
+    private final DcMotorEx shooter2;
+    private final Encoder encoder;
     private ShooterMode shooterMode = ShooterMode.STOP;
 
     public ShooterController(LinearOpMode opMode) {
-        shooter1 = opMode.hardwareMap.get(DcMotor.class, SHOOTER_NAME1);
-        shooter2 = opMode.hardwareMap.get(DcMotor.class, SHOOTER_NAME2);
+        shooter1 = opMode.hardwareMap.get(DcMotorEx.class, SHOOTER_NAME1);
+        shooter2 = opMode.hardwareMap.get(DcMotorEx.class, SHOOTER_NAME2);
+        encoder = new Encoder(opMode.hardwareMap.get(DcMotorEx.class, ENCODER_NAME));
         shooter1.setDirection(DcMotorSimple.Direction.REVERSE);
         shooter2.setDirection(DcMotorSimple.Direction.FORWARD);
     }

@@ -36,28 +36,72 @@ public class FirstCompositeTeleop extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        if (gamepad1.y && !isPressingY) {
-            isPressingY = true;
-            intakeController.intakeFull();
-            driveController.tankDrive(0.8, 0.8);
-            sleep(300);
-            driveController.tankDrive(-0.8, -0.8);
-            sleep(300);
-            driveController.stopDrive();
-            intakeController.intakeStop();
-            transferController.transferStop();
-            shooterController.setShooterPower(SHOOTING_POWER);
-            while (!LimelightTrackingController.isAligned()) {
+
+        driveController = new SixWheelDriveController(this);
+        transferController = new TransferController(this);
+        shooterController = new ShooterController(this);
+        intakeController = new IntakeController(this);
+
+        try {
+            LimelightTrackingController = new LimelightTrackingController(this);
+        } catch (Exception e) {
+            telemetry.addData("Limelight Error", e.getMessage());
+            telemetry.addLine("Continuing without Limelight...");
+            telemetry.update();
+            LimelightTrackingController = null; // Set to null so we can check later
+        }
+
+        double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
+        double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
+
+        waitForStart();
+
+        while (opModeIsActive()) {
+            if (gamepad1.y && !isPressingY) {
+                isPressingY = true;
+                intakeController.intakeFull();
+                driveController.tankDrive(0.8, 0.8);
+                sleep(300);
+                driveController.tankDrive(-0.8, -0.8);
+                sleep(300);
+                driveController.stopDrive();
+                intakeController.intakeStop();
+                transferController.transferStop();
+                shooterController.setShooterPower(SHOOTING_POWER);
                 LimelightTrackingController.TrackingResult result = LimelightTrackingController.alignToTarget(20);
                 driveController.tankDrive(result.leftPower, result.rightPower);
+                sleep(1000);
+                driveController.stopDrive();
+                sleep(2750);
+                transferController.transferFull();
+                intakeController.intakeFull();
+                sleep(1500);
+            } else if (!gamepad1.y && isPressingY) {
+                isPressingY = false;
             }
-            driveController.stopDrive();
-            sleep(2750);
-            transferController.transferFull();
-            intakeController.intakeFull();
-            sleep(1500);
-        } else if (!gamepad1.y && isPressingY) {
-            isPressingY = false;
+
+            if (gamepad1.x && !isPressingX) {
+                isPressingX = true;
+                shooterController.shooterStop();
+                intakeController.intakeStop();
+                transferController.transferStop();
+            } else if (!gamepad1.x && isPressingX) {
+                isPressingX = false;
+            }
+
+            if (gamepad1.dpad_up && SHOOTING_POWER < 1 && !isPressingDpadUp) {
+                isPressingDpadUp = true;
+                SHOOTING_POWER = SHOOTING_POWER + 0.05;
+            } else if (!gamepad1.dpad_up && isPressingDpadUp) {
+                isPressingDpadUp = false;
+            }
+
+            if (gamepad1.dpad_down && SHOOTING_POWER < 1 && !isPressingDpadDown) {
+                isPressingDpadDown = true;
+                SHOOTING_POWER = SHOOTING_POWER - 0.05;
+            } else if (!gamepad1.dpad_down && isPressingDpadDown) {
+                isPressingDpadDown = false;
+            }
         }
     }
 }

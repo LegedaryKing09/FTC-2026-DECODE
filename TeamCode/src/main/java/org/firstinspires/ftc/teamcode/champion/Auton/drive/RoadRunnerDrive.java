@@ -211,6 +211,20 @@ public class RoadRunnerDrive {
     }
 
     public void tankDrive(double leftPower, double rightPower) {
+        // Normalize powers if they exceed 1.0
+        double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
+        if (maxPower > 1.0) {
+            leftPower /= maxPower;
+            rightPower /= maxPower;
+        }
+
+        // Set left side motors (controls front, middle, and back wheels on left)
+        frontLeft.setPower(leftPower);
+        backLeft.setPower(leftPower);
+
+        // Set right side motors (controls front, middle, and back wheels on right)
+        frontRight.setPower(rightPower);
+        backRight.setPower(rightPower);
     }
 
     public void updateOdometry() {

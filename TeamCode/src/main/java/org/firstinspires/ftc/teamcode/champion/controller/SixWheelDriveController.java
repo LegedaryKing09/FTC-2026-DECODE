@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 
 import android.annotation.SuppressLint;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
@@ -10,6 +11,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 
+@Config
 public class SixWheelDriveController {
 
     // Motor configuration names - STATIC like in version 2
@@ -37,8 +39,8 @@ public class SixWheelDriveController {
     private double robotHeading = 0.0;
 
     // Speed mode settings
-    public static double FAST_SPEED_MULTIPLIER = 2;
-    public static double FAST_TURN_MULTIPLIER = 4;
+    public static double FAST_SPEED_MULTIPLIER = 6;
+    public static double FAST_TURN_MULTIPLIER = 7;
     public static double SLOW_SPEED_MULTIPLIER = 0.8;
     public static double SLOW_TURN_MULTIPLIER = 3.5;
 
