@@ -39,8 +39,8 @@ public class SixWheelDriveController {
     private double robotHeading = 0.0;
 
     // Speed mode settings
-    public static double FAST_SPEED_MULTIPLIER = 2;
-    public static double FAST_TURN_MULTIPLIER = 4;
+    public static double FAST_SPEED_MULTIPLIER = 6;
+    public static double FAST_TURN_MULTIPLIER = 7;
     public static double SLOW_SPEED_MULTIPLIER = 0.8;
     public static double SLOW_TURN_MULTIPLIER = 3.5;
 
