@@ -1,11 +1,13 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 
 import java.util.Objects;
 
+@Config
 public class ColorSensorController {
     public static String SENSOR_NAME = "colorSensor";
     private final NormalizedColorSensor colorSensor;

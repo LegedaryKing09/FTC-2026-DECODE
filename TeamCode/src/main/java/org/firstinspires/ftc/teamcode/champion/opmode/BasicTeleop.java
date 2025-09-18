@@ -4,6 +4,7 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
+import org.firstinspires.ftc.teamcode.champion.Auton.util.Encoder;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightTrackingController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
@@ -19,6 +20,8 @@ public class BasicTeleop extends LinearOpMode {
     ShooterController shooterController;
     IntakeController intakeController;
     LimelightTrackingController LimelightTrackingController;
+
+    Encoder encoder;
     public static double SHOOTING_POWER = 0;
     public static double INTAKE_POWER = 0;
 
@@ -37,20 +40,10 @@ public class BasicTeleop extends LinearOpMode {
     @Override
     public void runOpMode() {
 
-
         driveController = new SixWheelDriveController(this);
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
-
-        try {
-            LimelightTrackingController = new LimelightTrackingController(this);
-        } catch (Exception e) {
-            telemetry.addData("Limelight Error", e.getMessage());
-            telemetry.addLine("Continuing without Limelight...");
-            telemetry.update();
-            LimelightTrackingController = null; // Set to null so we can check later
-        }
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
@@ -173,6 +166,8 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingStart = false;
             }
 
+
+
             double leftPower = drive + turn;
             double rightPower = drive - turn;
             double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
@@ -188,8 +183,11 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Expected Left Power", "%.2f", leftPower);
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
-                telemetry.addData("Shooting Power:", "%.2f", SHOOTING_POWER);
-                telemetry.addData("Intake Power:", "%.2f", INTAKE_POWER);
+                telemetry.addData("Shooting Power:", SHOOTING_POWER);
+                telemetry.addData("Intake Power:", INTAKE_POWER);
+
+                telemetry.addData("Shooter Encoder Velocity:", shooterController.shooterVel());
+                telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y", "%.2f", driveController.getY());

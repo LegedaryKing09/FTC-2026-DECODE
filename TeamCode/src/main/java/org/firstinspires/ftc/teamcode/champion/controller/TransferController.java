@@ -1,10 +1,12 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
+@Config
 public class TransferController {
     public static String TRANSFER_NAME = "transfer";
     public static double TRANSFER_FULL_POWER = 1;
