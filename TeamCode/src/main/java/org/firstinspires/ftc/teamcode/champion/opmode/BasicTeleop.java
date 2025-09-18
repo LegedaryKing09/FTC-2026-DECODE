@@ -188,8 +188,8 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Expected Left Power", "%.2f", leftPower);
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
-                telemetry.addData("Shooting Power:", "%.2f", SHOOTING_POWER);
-                telemetry.addData("Intake Power:", "%.2f", INTAKE_POWER);
+                telemetry.addData("Shooting Power:", SHOOTING_POWER);
+                telemetry.addData("Intake Power:", INTAKE_POWER);
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y", "%.2f", driveController.getY());

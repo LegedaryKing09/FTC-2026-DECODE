@@ -22,6 +22,8 @@ public class BasicMoveAuto extends LinearOpMode {
                 .forward(20)
                 .build();
 
+        waitForStart();
+
         drive.followTrajectory(forward);
         drive.turn(Math.toRadians(90));
         drive.followTrajectory(forward);
