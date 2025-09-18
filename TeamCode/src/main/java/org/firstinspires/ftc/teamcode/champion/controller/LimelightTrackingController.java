@@ -1,44 +1,25 @@
-package org.firstinspires.ftc.teamcode.champion.Auton;
+package org.firstinspires.ftc.teamcode.champion.controller;
 
-import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
-import com.acmerobotics.dashboard.FtcDashboard;
-import com.acmerobotics.dashboard.config.Config;
-import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
-
-import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Stable tracking without oscillation
- * - Dead zone to stop hunting
- * - Damped PID gains
- * - Velocity-based stopping
- */
 @Config
-@Autonomous(name = "Working Well Angle", group = "Champion")
-public class LimelightPreciseTracking extends LinearOpMode {
-
-    private SixWheelDriveController driveController;
-    private Limelight3A limelight;
-    private FtcDashboard dashboard;
-
-    private static final int TARGET_TAG_ID = 20;
-    private static final double TARGET_DISTANCE = 48.0;
-    private static final double TAG_HEIGHT = 29.5;
+public class LimelightTrackingController {
 
     @Config
     public static class TrackingParams {
         // Camera
         public static double CAMERA_HEIGHT = 14.8;
         public static double CAMERA_ANGLE = 7.9;
+        public static double TAG_HEIGHT = 29.5;
 
         // Search
         public static double SEARCH_SPEED = 0.5;
@@ -69,7 +50,42 @@ public class LimelightPreciseTracking extends LinearOpMode {
         public static double MAX_DRIVE_SPEED = 0.4;
     }
 
-    // Tracking
+    public enum TrackingState {
+        SEARCHING,
+        ALIGNING,
+        STABLE,
+        APPROACHING,
+        COMPLETE,
+        NO_TARGET,
+        ERROR
+    }
+
+    public static class TrackingResult {
+        public TrackingState state;
+        public double leftPower;
+        public double rightPower;
+        public double tx;
+        public double distance;
+        public boolean hasTarget;
+        public double errorVelocity;
+        public int oscillationCount;
+        public double stableTime;
+
+        public TrackingResult(TrackingState state, double leftPower, double rightPower) {
+            this.state = state;
+            this.leftPower = leftPower;
+            this.rightPower = rightPower;
+        }
+    }
+
+    private final Limelight3A limelight;
+
+    // Tracking state
+    private int targetTagId;
+    private double targetDistance;
+    private TrackingState currentState = TrackingState.SEARCHING;
+
+    // Tracking data
     private double tx = 0;
     private double calculatedDistance = 0;
     private boolean hasTarget = false;
@@ -87,81 +103,167 @@ public class LimelightPreciseTracking extends LinearOpMode {
     private final double[] errorHistory = new double[5];
     private int historyIndex = 0;
 
-    // State
-    private enum State {
-        SEARCHING,
-        ALIGNING,
-        STABLE,
-        APPROACHING,
-        COMPLETE
-    }
-    private State currentState = State.SEARCHING;
-
     // Statistics
     private int oscillationCount = 0;
     private double lastErrorSign = 0;
 
-    @Override
-    public void runOpMode() {
+    public LimelightTrackingController(LinearOpMode opMode) {
 
-        initializeHardware();
-
-        telemetry.addLine("═══ STABLE TRACKER ═══");
-        telemetry.addLine();
-        telemetry.addLine("• No oscillation");
-        telemetry.addLine("• Dead zone: " + TrackingParams.HEADING_DEAD_ZONE + "°");
-        telemetry.addLine("• Target: Tag " + TARGET_TAG_ID);
-        telemetry.addLine();
-        telemetry.addLine(">>> Press START <<<");
-        telemetry.update();
-
-        waitForStart();
-
-        if (isStopRequested()) return;
-
-        pidTimer.reset();
-
-        while (opModeIsActive()) {
-
-            updateTracking();
-            handleStateTransitions();
-
-            switch (currentState) {
-                case SEARCHING:
-                    executeSearch();
-                    break;
-
-                case ALIGNING:
-                    executeStableAlignment();
-                    break;
-
-                case STABLE:
-                    maintainStability();
-                    break;
-
-                case APPROACHING:
-                    executeApproach();
-                    break;
-
-                case COMPLETE:
-                    driveController.stopDrive();
-                    break;
-            }
-
-            displayTelemetry();
-            sendDashboardData();
-
-            sleep(10); // 100Hz
+        try {
+            limelight = opMode.hardwareMap.get(Limelight3A.class, "limelight");
+            limelight.pipelineSwitch(0);
+            limelight.start();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to initialize Limelight: " + e.getMessage());
         }
 
-        driveController.stopDrive();
+        pidTimer.reset();
     }
 
     /**
-     * Stable alignment without oscillation
+     * Track and align to a specific AprilTag
+     * @param targetTagId The AprilTag ID to track
+     * @param targetDistance Desired distance from the tag (inches)
+     * @return TrackingResult with motor powers and status
      */
-    private void executeStableAlignment() {
+    public TrackingResult trackTarget(int targetTagId, double targetDistance) {
+        this.targetTagId = targetTagId;
+        this.targetDistance = targetDistance;
+
+        updateTracking();
+        handleStateTransitions();
+
+        TrackingResult result = new TrackingResult(currentState, 0, 0);
+        result.tx = tx;
+        result.distance = calculatedDistance;
+        result.hasTarget = hasTarget;
+        result.errorVelocity = errorVelocity;
+        result.oscillationCount = oscillationCount;
+        result.stableTime = stableTimer.seconds();
+
+        switch (currentState) {
+            case SEARCHING:
+                executeSearch(result);
+                break;
+            case ALIGNING:
+                executeStableAlignment(result);
+                break;
+            case STABLE:
+                maintainStability(result);
+                break;
+            case APPROACHING:
+                executeApproach(result);
+                break;
+            case COMPLETE:
+            case NO_TARGET:
+            case ERROR:
+                result.leftPower = 0;
+                result.rightPower = 0;
+                break;
+        }
+
+        return result;
+    }
+
+    /**
+     * Simple alignment function - just align to target, don't approach
+     */
+    public TrackingResult alignToTarget(int targetTagId) {
+        this.targetTagId = targetTagId;
+        this.targetDistance = 0; // Not used for alignment only
+
+        updateTracking();
+
+        TrackingResult result = new TrackingResult(currentState, 0, 0);
+        result.tx = tx;
+        result.distance = calculatedDistance;
+        result.hasTarget = hasTarget;
+        result.errorVelocity = errorVelocity;
+        result.oscillationCount = oscillationCount;
+        result.stableTime = stableTimer.seconds();
+
         if (!hasTarget) {
+            executeSearch(result);
+            return result;
+        }
+
+        // Only do alignment, skip approach
+        if (Math.abs(tx) < TrackingParams.HEADING_DEAD_ZONE) {
+            result.state = TrackingState.STABLE;
+            result.leftPower = 0;
+            result.rightPower = 0;
+        } else {
+            result.state = TrackingState.ALIGNING;
+            executeStableAlignment(result);
+        }
+
+        return result;
+    }
+
+    /**
+     * Reset the controller state
+     */
+    public void reset() {
+        currentState = TrackingState.SEARCHING;
+        resetPID();
+    }
+
+    /**
+     * Check if tracking is complete
+     */
+    public boolean isTrackingComplete() {
+        return currentState == TrackingState.COMPLETE;
+    }
+
+    /**
+     * Check if target is aligned (within dead zone)
+     */
+    public boolean isAligned() {
+        return hasTarget && Math.abs(tx) < TrackingParams.HEADING_DEAD_ZONE;
+    }
+
+    /**
+     * Get current tracking state
+     */
+    public TrackingState getCurrentState() {
+        return currentState;
+    }
+
+    /**
+     * Get current target X offset
+     */
+    public double getCurrentTX() {
+        return tx;
+    }
+
+    /**
+     * Get calculated distance to target
+     */
+    public double getCurrentDistance() {
+        return calculatedDistance;
+    }
+
+    /**
+     * Check if target is visible
+     */
+    public boolean hasTarget() {
+        return hasTarget;
+    }
+
+    private void executeSearch(TrackingResult result) {
+        result.leftPower = -TrackingParams.SEARCH_SPEED;
+        result.rightPower = TrackingParams.SEARCH_SPEED;
+
+        if (hasTarget) {
+            result.leftPower = 0;
+            result.rightPower = 0;
+        }
+    }
+
+    private void executeStableAlignment(TrackingResult result) {
+        if (!hasTarget) {
+            result.leftPower = 0;
+            result.rightPower = 0;
             return;
         }
 
@@ -181,13 +283,14 @@ public class LimelightPreciseTracking extends LinearOpMode {
 
         // DEAD ZONE - Stop if close enough
         if (absError < TrackingParams.HEADING_DEAD_ZONE) {
-            driveController.stopDrive();
+            result.leftPower = 0;
+            result.rightPower = 0;
             integralSum = 0;
 
             // Check if stable
             if (absError < TrackingParams.STABLE_ERROR) {
                 if (stableTimer.seconds() > TrackingParams.STABLE_TIME) {
-                    currentState = State.STABLE;
+                    currentState = TrackingState.STABLE;
                 }
             } else {
                 stableTimer.reset();
@@ -233,20 +336,17 @@ public class LimelightPreciseTracking extends LinearOpMode {
             double turnPower = pTerm + iTerm + dTerm;
 
             // VELOCITY-BASED STOPPING
-            // If error is small and we're not moving fast toward target, stop
             if (absError < TrackingParams.HEADING_SLOW_ZONE &&
                     Math.abs(errorVelocity) < TrackingParams.VELOCITY_THRESHOLD) {
-                turnPower *= 0.5; // Reduce power in slow zone
+                turnPower *= 0.5;
             }
 
             // Speed zones
             if (absError < TrackingParams.HEADING_SLOW_ZONE) {
-                // In slow zone - cap speed
                 turnPower = Range.clip(turnPower,
                         -TrackingParams.SLOW_ZONE_SPEED,
                         TrackingParams.SLOW_ZONE_SPEED);
             } else {
-                // Normal zone
                 turnPower = Range.clip(turnPower,
                         -TrackingParams.MAX_TURN_SPEED,
                         TrackingParams.MAX_TURN_SPEED);
@@ -258,68 +358,99 @@ public class LimelightPreciseTracking extends LinearOpMode {
                 turnPower = Math.signum(turnPower) * TrackingParams.MIN_TURN_SPEED;
             }
 
-            // Apply power
-            driveController.tankDrive(turnPower, -turnPower);
+            result.leftPower = turnPower;
+            result.rightPower = -turnPower;
         }
     }
 
-    /**
-     * Maintain stability when aligned
-     */
-    private void maintainStability() {
+    private void maintainStability(TrackingResult result) {
         if (!hasTarget) {
-            currentState = State.SEARCHING;
+            currentState = TrackingState.SEARCHING;
+            result.leftPower = 0;
+            result.rightPower = 0;
             return;
         }
 
         double headingError = Math.abs(tx);
 
-        // Check if we're still stable
         if (headingError < TrackingParams.HEADING_DEAD_ZONE) {
-            // Still stable - hold position
-            driveController.stopDrive();
+            result.leftPower = 0;
+            result.rightPower = 0;
 
-            // Move to approach after being stable
-            if (stableTimer.seconds() > TrackingParams.STABLE_TIME * 2) {
-                currentState = State.APPROACHING;
+            // Move to approach after being stable (if target distance is set)
+            if (targetDistance > 0 && stableTimer.seconds() > TrackingParams.STABLE_TIME * 2) {
+                currentState = TrackingState.APPROACHING;
             }
         } else if (headingError > TrackingParams.STABLE_ERROR) {
-            // Lost stability - realign
-            currentState = State.ALIGNING;
+            currentState = TrackingState.ALIGNING;
             stableTimer.reset();
             oscillationCount = 0;
+            result.leftPower = 0;
+            result.rightPower = 0;
         } else {
             // Small correction without full PID
             double correction = TrackingParams.KP * tx * 0.5;
             correction = Range.clip(correction,
                     -TrackingParams.SLOW_ZONE_SPEED,
                     TrackingParams.SLOW_ZONE_SPEED);
-            driveController.tankDrive(correction, -correction);
+            result.leftPower = correction;
+            result.rightPower = -correction;
         }
     }
 
-    /**
-     * Handle state transitions
-     */
+    private void executeApproach(TrackingResult result) {
+        if (!hasTarget) {
+            result.leftPower = 0;
+            result.rightPower = 0;
+            return;
+        }
+
+        double headingError = tx;
+        double distanceError = targetDistance - calculatedDistance;
+
+        // Maintain heading
+        if (Math.abs(headingError) > TrackingParams.STABLE_ERROR * 2) {
+            currentState = TrackingState.ALIGNING;
+            result.leftPower = 0;
+            result.rightPower = 0;
+            return;
+        }
+
+        if (Math.abs(distanceError) < TrackingParams.DISTANCE_TOLERANCE) {
+            currentState = TrackingState.COMPLETE;
+            result.leftPower = 0;
+            result.rightPower = 0;
+            return;
+        }
+
+        // Distance control with gentle heading correction
+        double drivePower = TrackingParams.KP_DISTANCE * distanceError;
+        drivePower = Range.clip(drivePower, -TrackingParams.MAX_DRIVE_SPEED,
+                TrackingParams.MAX_DRIVE_SPEED);
+
+        // Very gentle heading correction
+        double headingCorrection = TrackingParams.KP * headingError * 0.3;
+
+        result.leftPower = drivePower + headingCorrection;
+        result.rightPower = drivePower - headingCorrection;
+    }
+
     private void handleStateTransitions() {
-        if (!hasTarget && currentState != State.SEARCHING) {
+        if (!hasTarget && currentState != TrackingState.SEARCHING) {
             if (lostTargetTimer.seconds() > TrackingParams.SEARCH_TIMEOUT) {
-                currentState = State.SEARCHING;
+                currentState = TrackingState.SEARCHING;
                 resetPID();
             }
         } else if (hasTarget) {
             lostTargetTimer.reset();
 
-            if (currentState == State.SEARCHING) {
-                currentState = State.ALIGNING;
+            if (currentState == TrackingState.SEARCHING) {
+                currentState = TrackingState.ALIGNING;
                 resetPID();
             }
         }
     }
 
-    /**
-     * Reset PID state
-     */
     private void resetPID() {
         integralSum = 0;
         lastError = 0;
@@ -334,61 +465,10 @@ public class LimelightPreciseTracking extends LinearOpMode {
         Arrays.fill(errorHistory, 0);
     }
 
-    /**
-     * Search for tag
-     */
-    private void executeSearch() {
-        driveController.tankDrive(-TrackingParams.SEARCH_SPEED, TrackingParams.SEARCH_SPEED);
-
-        if (hasTarget) {
-            driveController.stopDrive();
-            sleep(50);
-        }
-    }
-
-    /**
-     * Approach target distance
-     */
-    private void executeApproach() {
-        if (!hasTarget) {
-            return;
-        }
-
-        double headingError = tx;
-        double distanceError = TARGET_DISTANCE - calculatedDistance;
-
-        // Maintain heading
-        if (Math.abs(headingError) > TrackingParams.STABLE_ERROR * 2) {
-            currentState = State.ALIGNING;
-            return;
-        }
-
-        if (Math.abs(distanceError) < TrackingParams.DISTANCE_TOLERANCE) {
-            driveController.stopDrive();
-            currentState = State.COMPLETE;
-            return;
-        }
-
-        // Distance control with gentle heading correction
-        double drivePower = TrackingParams.KP_DISTANCE * distanceError;
-        drivePower = Range.clip(drivePower, -TrackingParams.MAX_DRIVE_SPEED,
-                TrackingParams.MAX_DRIVE_SPEED);
-
-        // Very gentle heading correction
-        double headingCorrection = TrackingParams.KP * headingError * 0.3;
-
-        double leftPower = drivePower + headingCorrection;
-        double rightPower = drivePower - headingCorrection;
-
-        driveController.tankDrive(leftPower, rightPower);
-    }
-
-    /**
-     * Update tracking
-     */
     private void updateTracking() {
         if (limelight == null) {
             hasTarget = false;
+            currentState = TrackingState.ERROR;
             return;
         }
 
@@ -399,7 +479,7 @@ public class LimelightPreciseTracking extends LinearOpMode {
                 hasTarget = false;
 
                 for (LLResultTypes.FiducialResult fiducial : fiducials) {
-                    if (fiducial.getFiducialId() == TARGET_TAG_ID) {
+                    if (fiducial.getFiducialId() == targetTagId) {
                         hasTarget = true;
                         tx = fiducial.getTargetXDegrees();
                         double ty = fiducial.getTargetYDegrees();
@@ -412,68 +492,13 @@ public class LimelightPreciseTracking extends LinearOpMode {
             }
         } catch (Exception e) {
             hasTarget = false;
+            currentState = TrackingState.ERROR;
         }
     }
 
     private double calculateDistance(double ty) {
         double totalAngle = TrackingParams.CAMERA_ANGLE + ty;
         double angleRadians = Math.toRadians(totalAngle);
-        return Math.abs((TAG_HEIGHT - TrackingParams.CAMERA_HEIGHT) / Math.tan(angleRadians));
-    }
-
-    private void initializeHardware() {
-        try {
-            driveController = new SixWheelDriveController(this);
-        } catch (Exception e) {
-            telemetry.addLine("ERROR: " + e.getMessage());
-            telemetry.update();
-            sleep(5000);
-            throw e;
-        }
-
-        dashboard = FtcDashboard.getInstance();
-
-        try {
-            limelight = hardwareMap.get(Limelight3A.class, "limelight");
-            limelight.pipelineSwitch(0);
-            limelight.start();
-        } catch (Exception e) {
-            // Continue without Limelight
-        }
-    }
-
-    private void displayTelemetry() {
-        telemetry.clear();
-        telemetry.addLine("═══ STABLE TRACKING ═══");
-        telemetry.addLine();
-
-        telemetry.addData("State", currentState);
-        telemetry.addData("TX", "%.2f°", tx);
-
-        if (currentState == State.ALIGNING) {
-            telemetry.addData("Error Velocity", "%.2f°/s", errorVelocity);
-            telemetry.addData("Oscillations", oscillationCount);
-
-            double absError = Math.abs(tx);
-            if (absError < TrackingParams.HEADING_DEAD_ZONE) {
-                telemetry.addLine(">>> IN DEAD ZONE <<<");
-            } else if (absError < TrackingParams.HEADING_SLOW_ZONE) {
-                telemetry.addLine(">> SLOW ZONE <<");
-            }
-        } else if (currentState == State.STABLE) {
-            telemetry.addLine("✓✓✓ STABLE ✓✓✓");
-            telemetry.addData("Stable Time", "%.1fs", stableTimer.seconds());
-        }
-
-        telemetry.update();
-    }
-
-    private void sendDashboardData() {
-        TelemetryPacket packet = new TelemetryPacket();
-        packet.put("State", currentState.toString());
-        packet.put("TX", tx);
-        packet.put("Error_Velocity", errorVelocity);
-        packet.put("Oscillations", oscillationCount);
-        dashboard.sendTelemetryPacket(packet);
+        return Math.abs((TrackingParams.TAG_HEIGHT - TrackingParams.CAMERA_HEIGHT) / Math.tan(angleRadians));
     }
 }
