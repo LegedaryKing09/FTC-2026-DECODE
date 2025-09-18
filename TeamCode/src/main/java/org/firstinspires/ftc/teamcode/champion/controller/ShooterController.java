@@ -1,9 +1,11 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
+@Config
 public class ShooterController {
     public static String SHOOTER_NAME1 = "shooter1";
     public static String SHOOTER_NAME2 = "shooter2";

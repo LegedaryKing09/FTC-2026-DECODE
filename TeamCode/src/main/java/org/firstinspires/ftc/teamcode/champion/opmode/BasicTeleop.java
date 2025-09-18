@@ -37,20 +37,10 @@ public class BasicTeleop extends LinearOpMode {
     @Override
     public void runOpMode() {
 
-
         driveController = new SixWheelDriveController(this);
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
-
-        try {
-            LimelightTrackingController = new LimelightTrackingController(this);
-        } catch (Exception e) {
-            telemetry.addData("Limelight Error", e.getMessage());
-            telemetry.addLine("Continuing without Limelight...");
-            telemetry.update();
-            LimelightTrackingController = null; // Set to null so we can check later
-        }
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
