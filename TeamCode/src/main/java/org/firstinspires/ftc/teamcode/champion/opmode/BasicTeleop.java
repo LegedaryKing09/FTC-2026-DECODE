@@ -1,22 +1,24 @@
-package org.firstinspires.ftc.teamcode.champion.tests;
+package org.firstinspires.ftc.teamcode.champion.opmode;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
+import org.firstinspires.ftc.teamcode.champion.controller.LimelightTrackingController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
 @Config
 @TeleOp
-public class BasicTeleopTest extends LinearOpMode {
+public class BasicTeleop extends LinearOpMode {
 
     SixWheelDriveController driveController;
     TransferController transferController;
     ShooterController shooterController;
     IntakeController intakeController;
+    LimelightTrackingController LimelightTrackingController;
     public static double SHOOTING_POWER = 0;
     public static double INTAKE_POWER = 0;
 
@@ -28,9 +30,9 @@ public class BasicTeleopTest extends LinearOpMode {
     boolean isPressingLeftBumper = false;
     boolean isPressingRightBumper = false;
     boolean isPressingDpadLeft = false;
-    boolean isPressingDpadUp = false;
-    boolean isPressingDpadDown = false;
     boolean isPressingStart = false;
+    boolean isPressingDpadDown = false;
+    boolean isPressingDpadUp = false;
 
     @Override
     public void runOpMode() {
@@ -40,6 +42,15 @@ public class BasicTeleopTest extends LinearOpMode {
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
+
+        try {
+            LimelightTrackingController = new LimelightTrackingController(this);
+        } catch (Exception e) {
+            telemetry.addData("Limelight Error", e.getMessage());
+            telemetry.addLine("Continuing without Limelight...");
+            telemetry.update();
+            LimelightTrackingController = null; // Set to null so we can check later
+        }
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
@@ -75,12 +86,6 @@ public class BasicTeleopTest extends LinearOpMode {
 
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
-                intakeController.intakeFull();
-                driveController.tankDrive(0.8,0.8);
-                sleep(300);
-                driveController.tankDrive(-0.8,-0.8);
-                sleep(300);
-                transferController.transferFull();
                 shooterController.setShooterPower(SHOOTING_POWER);
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
@@ -95,12 +100,18 @@ public class BasicTeleopTest extends LinearOpMode {
                 isPressingX = false;
             }
 
-            if (gamepad1.dpad_up && SHOOTING_POWER < 1) {
-                SHOOTING_POWER += 0.1;
+            if (gamepad1.dpad_up && SHOOTING_POWER < 1 && !isPressingDpadUp) {
+                isPressingDpadUp = true;
+                SHOOTING_POWER = SHOOTING_POWER + 0.05;
+            } else if (!gamepad1.dpad_up && isPressingDpadUp) {
+                isPressingDpadUp = false;
             }
 
-            if (gamepad1.dpad_down && SHOOTING_POWER > 0) {
-                SHOOTING_POWER -= 0.1;
+            if (gamepad1.dpad_down && SHOOTING_POWER < 1 && !isPressingDpadDown) {
+                isPressingDpadDown = true;
+                SHOOTING_POWER = SHOOTING_POWER - 0.05;
+            } else if (!gamepad1.dpad_down && isPressingDpadDown) {
+                isPressingDpadDown = false;
             }
 
             if (gamepad1.dpad_right && INTAKE_POWER < 1) {
@@ -125,20 +136,6 @@ public class BasicTeleopTest extends LinearOpMode {
 
             if (gamepad1.left_trigger < 0.1) {
                 transferController.transferStop();
-            }
-
-            if (gamepad1.dpad_up && !isPressingDpadUp && SHOOTING_POWER < 1) {
-                isPressingDpadUp = true;
-                shooterController.setShooterPower(SHOOTING_POWER + 0.05);
-            } else if (!gamepad1.dpad_up && isPressingDpadUp) {
-                isPressingDpadUp = false;
-            }
-
-            if (gamepad1.dpad_down && !isPressingDpadDown && SHOOTING_POWER > -1) {
-                isPressingDpadDown = true;
-                shooterController.setShooterPower(SHOOTING_POWER - 0.05);
-            } else if (!gamepad1.dpad_down && isPressingDpadDown) {
-                isPressingDpadDown = false;
             }
 
             if (gamepad1.right_bumper && !isPressingRightBumper) {
