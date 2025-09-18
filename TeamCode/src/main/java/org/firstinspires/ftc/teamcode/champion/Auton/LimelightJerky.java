@@ -16,275 +16,184 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import java.util.List;
 
 /**
- * Continuous AprilTag heading alignment - keeps tag centered (tx = 0)
- * Assumes target is in view at start
- * No distance control, only heading alignment
+ * Continuously corrects the robot's heading to keep an AprilTag centered.
+ * - Assumes the target is in view at the start.
+ * - Does NOT control distance; it only rotates.
+ * - The goal is to drive the horizontal offset (tx) to zero.
  */
 @Config
-@Autonomous(name = "AprilTag Heading Aligner", group = "Champion")
+@Autonomous(name = "AprilTag Centering (Heading Only)", group = "Champion")
 public class LimelightJerky extends LinearOpMode {
 
+    // Hardware
     private SixWheelDriveController driveController;
     private Limelight3A limelight;
     private FtcDashboard dashboard;
 
+    // Target
     private static final int TARGET_TAG_ID = 20;
 
     @Config
-    public static class HeadingParams {
-        // PID gains for heading control (tx = 0)
+    public static class TrackingParams {
+        // PID gains for heading control (centering the tag)
         public static double KP_HEADING = 0.025;
-        public static double KI_HEADING = 0.001;
+        public static double KI_HEADING = 0.0;
         public static double KD_HEADING = 0.015;
 
-        // Dead zone and tolerances
-        public static double HEADING_DEAD_ZONE = 1.5;     // Stop turning if within 1.0 degrees
-        public static double HEADING_TOLERANCE = 0.5;     // Perfect alignment threshold
+        // Dead zone to prevent oscillation when centered
+        public static double HEADING_DEAD_ZONE = 1.0;     // Stop turning if within 1.0 degree
 
         // Speed limits
-        public static double MAX_TURN_SPEED = 0.8;
-        public static double MIN_TURN_SPEED = 0.4;
-
-        // Integral windup limit
-        public static double INTEGRAL_LIMIT = 5.0;
+        public static double MAX_TURN_SPEED = 0.6;
+        public static double MIN_TURN_SPEED = 0.08;
     }
 
     // Tracking state
-    private double tx = 0;
-    private double ty = 0;
+    private double tx = 0; // Horizontal offset from crosshair to target
     private boolean hasTarget = false;
 
     // PID state for heading
-    private ElapsedTime pidTimer = new ElapsedTime();
-    private double integralSum = 0;
-    private double lastError = 0;
-    private double lastTime = 0;
+    private ElapsedTime headingPidTimer = new ElapsedTime();
+    private double headingIntegralSum = 0;
+    private double lastHeadingError = 0;
 
-    // State tracking
-    private enum AlignmentState {
-        ALIGNING,
-        ALIGNED,
-        TARGET_LOST
+    // Robot state
+    private enum CenteringState {
+        CENTERING,      // Actively turning to center the tag
+        CENTERED,       // Within the dead zone, holding position
+        TARGET_LOST     // Target is not visible
     }
-    private AlignmentState currentState = AlignmentState.ALIGNING;
-
-    private ElapsedTime stateTimer = new ElapsedTime();
-    private int consecutiveAlignedFrames = 0;
-    private static final int ALIGNED_FRAME_THRESHOLD = 10; // Must be aligned for 10 frames
+    private CenteringState currentState = CenteringState.CENTERING;
 
     @Override
     public void runOpMode() {
-
         initializeHardware();
 
-        telemetry.addLine("═══ HEADING ALIGNER ═══");
+        telemetry.addLine("═══ APRILTAG CENTERING ═══");
+        telemetry.addLine(" (Heading Correction Only)");
         telemetry.addLine();
-        telemetry.addLine("• Assumes target in view");
-        telemetry.addLine("• Keeps AprilTag centered (tx=0)");
-        telemetry.addLine("• Target: Tag " + TARGET_TAG_ID);
+        telemetry.addLine("• Assumes target is in view.");
+        telemetry.addLine("• Will only rotate to center tag.");
+        telemetry.addLine("• Target ID: " + TARGET_TAG_ID);
         telemetry.addLine();
         telemetry.addLine(">>> Press START <<<");
         telemetry.update();
 
         waitForStart();
-
         if (isStopRequested()) return;
 
-        pidTimer.reset();
+        headingPidTimer.reset();
 
         while (opModeIsActive()) {
+            updateTracking(); // Get the latest `tx` value from Limelight
 
-            updateTracking();
-            updateState();
-
+            // State machine to control robot behavior
             switch (currentState) {
-                case ALIGNING:
-                    executeHeadingAlignment();
+                case CENTERING:
+                    executeCentering();
                     break;
-
-                case ALIGNED:
-                    maintainAlignment();
+                case CENTERED:
+                    maintainCenter();
                     break;
-
                 case TARGET_LOST:
-                    handleTargetLost();
+                    // If target is lost, stop all movement for safety
+                    driveController.stopDrive();
+                    if (hasTarget) { // Recovered!
+                        currentState = CenteringState.CENTERING;
+                    }
                     break;
             }
 
             displayTelemetry();
             sendDashboardData();
-
-            sleep(10); // 100Hz update rate
+            sleep(10); // Loop at ~100Hz
         }
 
         driveController.stopDrive();
     }
 
     /**
-     * Main heading alignment - keeps AprilTag centered
+     * Main control loop for actively turning to center the AprilTag.
      */
-    private void executeHeadingAlignment() {
+    private void executeCentering() {
         if (!hasTarget) {
-            driveController.stopDrive();
+            currentState = CenteringState.TARGET_LOST;
             return;
         }
 
-        double headingError = tx; // Want tx = 0
-        double absError = Math.abs(headingError);
+        double headingError = tx; // The error is the horizontal offset
 
-        // Check if we're within dead zone
-        if (absError <= HeadingParams.HEADING_DEAD_ZONE) {
-            // Within dead zone - check for perfect alignment
-            if (absError <= HeadingParams.HEADING_TOLERANCE) {
-                consecutiveAlignedFrames++;
-                if (consecutiveAlignedFrames >= ALIGNED_FRAME_THRESHOLD) {
-                    currentState = AlignmentState.ALIGNED;
-                    stateTimer.reset();
-                    driveController.stopDrive();
-                    return;
-                }
-            } else {
-                consecutiveAlignedFrames = 0;
-            }
-
-            // Apply small correction if not perfectly aligned
-            double smallCorrection = HeadingParams.KP_HEADING * headingError * 0.5;
-            smallCorrection = Range.clip(smallCorrection, -0.1, 0.1);
-            applyTurn(smallCorrection);
-        } else {
-            // Outside dead zone - full PID control
-            consecutiveAlignedFrames = 0;
-            double turnPower = calculateHeadingPID(headingError);
-            applyTurn(turnPower);
+        // Check if we are within the dead zone
+        if (Math.abs(headingError) < TrackingParams.HEADING_DEAD_ZONE) {
+            driveController.stopDrive();
+            currentState = CenteringState.CENTERED;
+            return;
         }
+
+        // Calculate the power needed to correct the heading
+        double turnPower = calculateHeadingPID(headingError);
+
+        // Apply power to motors for turning
+        driveController.tankDrive(turnPower, -turnPower);
     }
 
     /**
-     * Calculate PID output for heading control
+     * Calculates the required turning power using a PID controller.
      */
-    private double calculateHeadingPID(double error) {
-        double currentTime = pidTimer.seconds();
-        double dt = currentTime - lastTime;
+    private double calculateHeadingPID(double headingError) {
+        double dt = headingPidTimer.seconds();
+        headingPidTimer.reset();
+        if (dt <= 0) return 0;
 
-        // Prevent divide by zero and handle first iteration
-        if (dt <= 0 || lastTime == 0) {
-            lastTime = currentTime;
-            lastError = error;
-            return HeadingParams.KP_HEADING * error;
-        }
+        // P (Proportional) term
+        double pTerm = TrackingParams.KP_HEADING * headingError;
 
-        lastTime = currentTime;
+        // I (Integral) term - helps overcome resistance, accumulates error over time
+        headingIntegralSum += headingError * dt;
+        headingIntegralSum = Range.clip(headingIntegralSum, -10, 10); // Prevent integral windup
+        double iTerm = TrackingParams.KI_HEADING * headingIntegralSum;
 
-        // Proportional term
-        double pTerm = HeadingParams.KP_HEADING * error;
+        // D (Derivative) term - dampens oscillation by reacting to the rate of change
+        double dTerm = TrackingParams.KD_HEADING * (headingError - lastHeadingError) / dt;
+        lastHeadingError = headingError;
 
-        // Integral term with anti-windup
-        integralSum += error * dt;
-        integralSum = Range.clip(integralSum,
-                -HeadingParams.INTEGRAL_LIMIT,
-                HeadingParams.INTEGRAL_LIMIT);
-        double iTerm = HeadingParams.KI_HEADING * integralSum;
-
-        // Derivative term
-        double derivative = (error - lastError) / dt;
-        double dTerm = HeadingParams.KD_HEADING * derivative;
-        lastError = error;
-
-        // Calculate total output
         double output = pTerm + iTerm + dTerm;
 
         // Apply speed limits
-        output = Range.clip(output, -HeadingParams.MAX_TURN_SPEED, HeadingParams.MAX_TURN_SPEED);
+        output = Range.clip(output, -TrackingParams.MAX_TURN_SPEED, TrackingParams.MAX_TURN_SPEED);
 
-        // Apply minimum speed threshold (deadband compensation)
-        if (Math.abs(output) > 0 && Math.abs(output) < HeadingParams.MIN_TURN_SPEED) {
-            output = Math.signum(output) * HeadingParams.MIN_TURN_SPEED;
+        // Apply a minimum power to overcome static friction
+        if (Math.abs(output) > 0 && Math.abs(output) < TrackingParams.MIN_TURN_SPEED) {
+            output = Math.signum(output) * TrackingParams.MIN_TURN_SPEED;
         }
 
         return output;
     }
 
     /**
-     * Apply turn power to motors (tank drive)
+     * Called when the robot is centered. Stops the robot and monitors
+     * if it has drifted out of the dead zone.
      */
-    private void applyTurn(double turnPower) {
-        // Positive turnPower = turn right (to center a target on the left)
-        // Negative turnPower = turn left (to center a target on the right)
-        driveController.tankDrive(turnPower, -turnPower);
-    }
-
-    /**
-     * Maintain alignment when already aligned
-     */
-    private void maintainAlignment() {
+    private void maintainCenter() {
         if (!hasTarget) {
-            currentState = AlignmentState.TARGET_LOST;
-            stateTimer.reset();
-            consecutiveAlignedFrames = 0;
+            currentState = CenteringState.TARGET_LOST;
             return;
         }
 
-        double absError = Math.abs(tx);
-
-        // Check if we've drifted out of alignment
-        if (absError > HeadingParams.HEADING_DEAD_ZONE * 1.5) {
-            // Significant drift - go back to aligning
-            currentState = AlignmentState.ALIGNING;
-            consecutiveAlignedFrames = 0;
-            resetPIDState();
+        // If we drift outside the allowed dead zone, go back to centering
+        if (Math.abs(tx) > TrackingParams.HEADING_DEAD_ZONE) {
+            currentState = CenteringState.CENTERING;
+            lastHeadingError = tx; // Seed the derivative term
             return;
         }
 
-        // Make tiny corrections to maintain perfect alignment
-        if (absError > HeadingParams.HEADING_TOLERANCE) {
-            double tinyCorrection = HeadingParams.KP_HEADING * tx * 0.3;
-            tinyCorrection = Range.clip(tinyCorrection, -0.08, 0.08);
-            applyTurn(tinyCorrection);
-        } else {
-            driveController.stopDrive();
-        }
-    }
-
-    /**
-     * Handle lost target
-     */
-    private void handleTargetLost() {
+        // Otherwise, stay stopped
         driveController.stopDrive();
-        consecutiveAlignedFrames = 0;
-
-        // If target comes back, resume alignment
-        if (hasTarget) {
-            currentState = AlignmentState.ALIGNING;
-            resetPIDState();
-        }
     }
 
     /**
-     * Update state based on conditions
-     */
-    private void updateState() {
-        if (!hasTarget && currentState != AlignmentState.TARGET_LOST) {
-            currentState = AlignmentState.TARGET_LOST;
-            stateTimer.reset();
-            consecutiveAlignedFrames = 0;
-        } else if (hasTarget && currentState == AlignmentState.TARGET_LOST) {
-            currentState = AlignmentState.ALIGNING;
-            resetPIDState();
-        }
-    }
-
-    /**
-     * Reset PID state
-     */
-    private void resetPIDState() {
-        integralSum = 0;
-        lastError = 0;
-        lastTime = 0;
-        pidTimer.reset();
-    }
-
-    /**
-     * Update tracking data from Limelight
+     * Fetches the latest data from the Limelight.
+     * This version only cares about `tx` and whether a target is visible.
      */
     private void updateTracking() {
         if (limelight == null) {
@@ -292,99 +201,68 @@ public class LimelightJerky extends LinearOpMode {
             return;
         }
 
-        try {
-            LLResult result = limelight.getLatestResult();
-            if (result != null && result.isValid()) {
-                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
-                hasTarget = false;
+        LLResult result = limelight.getLatestResult();
+        if (result != null && result.isValid()) {
+            List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+            hasTarget = false; // Assume no target until we find the correct one
 
-                for (LLResultTypes.FiducialResult fiducial : fiducials) {
-                    if (fiducial.getFiducialId() == TARGET_TAG_ID) {
-                        hasTarget = true;
-                        tx = fiducial.getTargetXDegrees();
-                        ty = fiducial.getTargetYDegrees();
-                        break;
-                    }
+            for (LLResultTypes.FiducialResult fiducial : fiducials) {
+                if (fiducial.getFiducialId() == TARGET_TAG_ID) {
+                    hasTarget = true;
+                    tx = fiducial.getTargetXDegrees();
+                    break; // Found our target, no need to look further
                 }
-            } else {
-                hasTarget = false;
             }
-        } catch (Exception e) {
+        } else {
             hasTarget = false;
         }
     }
+
+    // --- Initialization and Telemetry ---
 
     private void initializeHardware() {
         try {
             driveController = new SixWheelDriveController(this);
         } catch (Exception e) {
-            telemetry.addLine("ERROR: " + e.getMessage());
+            telemetry.addLine("ERROR Initializing Drivetrain: " + e.getMessage());
             telemetry.update();
             sleep(5000);
-            throw e;
+            requestOpModeStop();
         }
 
         dashboard = FtcDashboard.getInstance();
 
         try {
             limelight = hardwareMap.get(Limelight3A.class, "limelight");
-            limelight.pipelineSwitch(0);
+            limelight.pipelineSwitch(0); // Ensure AprilTag pipeline is active
             limelight.start();
         } catch (Exception e) {
-            telemetry.addLine("WARNING: Limelight not found");
+            telemetry.addLine("WARNING: Limelight not found.");
             telemetry.update();
         }
     }
 
     private void displayTelemetry() {
         telemetry.clear();
-        telemetry.addLine("═══ HEADING ALIGNMENT ═══");
-        telemetry.addLine();
-
+        telemetry.addLine("═══ APRILTAG CENTERING ═══");
         telemetry.addData("State", currentState);
-        telemetry.addData("Target Found", hasTarget ? "YES" : "NO");
-
+        telemetry.addData("Target Found", hasTarget ? "✅" : "❌");
         if (hasTarget) {
-            telemetry.addData("TX (heading error)", "%.2f°", tx);
-            telemetry.addData("TY", "%.2f°", ty);
-
-            double absError = Math.abs(tx);
-            if (absError <= HeadingParams.HEADING_TOLERANCE) {
-                telemetry.addLine("✓ PERFECTLY ALIGNED ✓");
-            } else if (absError <= HeadingParams.HEADING_DEAD_ZONE) {
-                telemetry.addLine("→ FINE TUNING ←");
-            } else {
-                telemetry.addLine(">> ALIGNING <<");
-            }
-
-            // Show PID components for debugging
-            telemetry.addData("Integral Sum", "%.3f", integralSum);
-            telemetry.addData("Aligned Frames", "%d/%d",
-                    consecutiveAlignedFrames, ALIGNED_FRAME_THRESHOLD);
+            telemetry.addData("Heading Error (tx)", "%.2f°", tx);
         }
 
-        if (currentState == AlignmentState.ALIGNED) {
-            telemetry.addLine("═══ TARGET CENTERED ═══");
-            telemetry.addData("Time Aligned", "%.1fs", stateTimer.seconds());
+        if (currentState == CenteringState.CENTERED) {
+            telemetry.addLine();
+            telemetry.addLine("🎯 CENTERED 🎯");
         }
-
         telemetry.update();
     }
 
     private void sendDashboardData() {
         TelemetryPacket packet = new TelemetryPacket();
         packet.put("State", currentState.toString());
-        packet.put("Has_Target", hasTarget);
-        packet.put("TX", tx);
-        packet.put("TY", ty);
-        packet.put("TX_Error_Abs", Math.abs(tx));
-        packet.put("Integral_Sum", integralSum);
-        packet.put("Aligned_Frames", consecutiveAlignedFrames);
-
-        if (currentState == AlignmentState.ALIGNED) {
-            packet.put("Time_Aligned", stateTimer.seconds());
-        }
-
+        packet.put("Has Target", hasTarget);
+        packet.put("Heading Error (tx)", tx);
         dashboard.sendTelemetryPacket(packet);
     }
 }
