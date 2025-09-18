@@ -16,13 +16,12 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import java.util.List;
 
 /**
- * Stable tracking without oscillation
- * - Dead zone to stop hunting
- * - Damped PID gains
- * - Velocity-based stopping
+ * Continuous AprilTag heading alignment - keeps tag centered (tx = 0)
+ * Assumes target is in view at start
+ * No distance control, only heading alignment
  */
 @Config
-@Autonomous(name = "Working Well Angle", group = "Champion")
+@Autonomous(name = "AprilTag Heading Aligner", group = "Champion")
 public class LimelightPreciseTracking extends LinearOpMode {
 
     private SixWheelDriveController driveController;
@@ -30,86 +29,58 @@ public class LimelightPreciseTracking extends LinearOpMode {
     private FtcDashboard dashboard;
 
     private static final int TARGET_TAG_ID = 20;
-    private static final double TARGET_DISTANCE = 48.0;
-    private static final double TAG_HEIGHT = 29.5;
 
     @Config
-    public static class TrackingParams {
-        // Camera
-        public static double CAMERA_HEIGHT = 14.8;
-        public static double CAMERA_ANGLE = 7.9;
+    public static class HeadingParams {
+        // PID gains for heading control (tx = 0)
+        public static double KP_HEADING = 0.025;
+        public static double KI_HEADING = 0.001;
+        public static double KD_HEADING = 0.015;
 
-        // Search
-        public static double SEARCH_SPEED = 0.5;
-        public static double SEARCH_TIMEOUT = 0.5;
-
-        // PID gains - REDUCED to prevent oscillation
-        public static double KP = 0.018;            // Much lower P gain
-        public static double KI = 0.0;              // No integral initially
-        public static double KD = 0.012;            // Higher D for damping
-
-        // Dead zones - CRITICAL for stability
-        public static double HEADING_DEAD_ZONE = 1.0;     // Stop if within 1 degree
-        public static double HEADING_SLOW_ZONE = 3.0;     // Slow down within 3 degrees
-        public static double VELOCITY_THRESHOLD = 2.0;    // Stop if error rate is low
+        // Dead zone and tolerances
+        public static double HEADING_DEAD_ZONE = 1.5;     // Stop turning if within 1.0 degrees
+        public static double HEADING_TOLERANCE = 0.5;     // Perfect alignment threshold
 
         // Speed limits
-        public static double MAX_TURN_SPEED = 0.5;        // Reduced max speed
-        public static double MIN_TURN_SPEED = 0.1;       // Lower minimum
-        public static double SLOW_ZONE_SPEED = 0.08;      // Speed in slow zone
+        public static double MAX_TURN_SPEED = 0.8;
+        public static double MIN_TURN_SPEED = 0.4;
 
-        // Stability detection
-        public static double STABLE_TIME = 0.3;           // Time to be considered stable
-        public static double STABLE_ERROR = 1.5;          // Error threshold for stability
-
-        // Distance
-        public static double KP_DISTANCE = 0.02;
-        public static double DISTANCE_TOLERANCE = 2.0;
-        public static double MAX_DRIVE_SPEED = 0.4;
+        // Integral windup limit
+        public static double INTEGRAL_LIMIT = 5.0;
     }
 
-    // Tracking
+    // Tracking state
     private double tx = 0;
     private double ty = 0;
-    private double calculatedDistance = 0;
     private boolean hasTarget = false;
 
-    // PID state
+    // PID state for heading
     private ElapsedTime pidTimer = new ElapsedTime();
-    private ElapsedTime stableTimer = new ElapsedTime();
-    private ElapsedTime lostTargetTimer = new ElapsedTime();
     private double integralSum = 0;
     private double lastError = 0;
     private double lastTime = 0;
-    private double errorVelocity = 0;
 
-    // Smoothing
-    private double[] errorHistory = new double[5];
-    private int historyIndex = 0;
-
-    // State
-    private enum State {
-        SEARCHING,
+    // State tracking
+    private enum AlignmentState {
         ALIGNING,
-        STABLE,
-        APPROACHING,
-        COMPLETE
+        ALIGNED,
+        TARGET_LOST
     }
-    private State currentState = State.SEARCHING;
+    private AlignmentState currentState = AlignmentState.ALIGNING;
 
-    // Statistics
-    private int oscillationCount = 0;
-    private double lastErrorSign = 0;
+    private ElapsedTime stateTimer = new ElapsedTime();
+    private int consecutiveAlignedFrames = 0;
+    private static final int ALIGNED_FRAME_THRESHOLD = 10; // Must be aligned for 10 frames
 
     @Override
     public void runOpMode() {
 
         initializeHardware();
 
-        telemetry.addLine("═══ STABLE TRACKER ═══");
+        telemetry.addLine("═══ HEADING ALIGNER ═══");
         telemetry.addLine();
-        telemetry.addLine("• No oscillation");
-        telemetry.addLine("• Dead zone: " + TrackingParams.HEADING_DEAD_ZONE + "°");
+        telemetry.addLine("• Assumes target in view");
+        telemetry.addLine("• Keeps AprilTag centered (tx=0)");
         telemetry.addLine("• Target: Tag " + TARGET_TAG_ID);
         telemetry.addLine();
         telemetry.addLine(">>> Press START <<<");
@@ -124,269 +95,196 @@ public class LimelightPreciseTracking extends LinearOpMode {
         while (opModeIsActive()) {
 
             updateTracking();
-            handleStateTransitions();
+            updateState();
 
             switch (currentState) {
-                case SEARCHING:
-                    executeSearch();
-                    break;
-
                 case ALIGNING:
-                    executeStableAlignment();
+                    executeHeadingAlignment();
                     break;
 
-                case STABLE:
-                    maintainStability();
+                case ALIGNED:
+                    maintainAlignment();
                     break;
 
-                case APPROACHING:
-                    executeApproach();
-                    break;
-
-                case COMPLETE:
-                    driveController.stopDrive();
+                case TARGET_LOST:
+                    handleTargetLost();
                     break;
             }
 
             displayTelemetry();
             sendDashboardData();
 
-            sleep(10); // 100Hz
+            sleep(10); // 100Hz update rate
         }
 
         driveController.stopDrive();
     }
 
     /**
-     * Stable alignment without oscillation
+     * Main heading alignment - keeps AprilTag centered
      */
-    private void executeStableAlignment() {
+    private void executeHeadingAlignment() {
         if (!hasTarget) {
+            driveController.stopDrive();
             return;
         }
 
-        double headingError = tx;
+        double headingError = tx; // Want tx = 0
         double absError = Math.abs(headingError);
 
-        // Add to error history for smoothing
-        errorHistory[historyIndex] = headingError;
-        historyIndex = (historyIndex + 1) % errorHistory.length;
-
-        // Calculate average error for smoothing
-        double avgError = 0;
-        for (double e : errorHistory) {
-            avgError += e;
-        }
-        avgError /= errorHistory.length;
-
-        // DEAD ZONE - Stop if close enough
-        if (absError < TrackingParams.HEADING_DEAD_ZONE) {
-            driveController.stopDrive();
-            integralSum = 0;
-
-            // Check if stable
-            if (absError < TrackingParams.STABLE_ERROR) {
-                if (stableTimer.seconds() > TrackingParams.STABLE_TIME) {
-                    currentState = State.STABLE;
+        // Check if we're within dead zone
+        if (absError <= HeadingParams.HEADING_DEAD_ZONE) {
+            // Within dead zone - check for perfect alignment
+            if (absError <= HeadingParams.HEADING_TOLERANCE) {
+                consecutiveAlignedFrames++;
+                if (consecutiveAlignedFrames >= ALIGNED_FRAME_THRESHOLD) {
+                    currentState = AlignmentState.ALIGNED;
+                    stateTimer.reset();
+                    driveController.stopDrive();
+                    return;
                 }
             } else {
-                stableTimer.reset();
+                consecutiveAlignedFrames = 0;
             }
-            return;
+
+            // Apply small correction if not perfectly aligned
+            double smallCorrection = HeadingParams.KP_HEADING * headingError * 0.5;
+            smallCorrection = Range.clip(smallCorrection, -0.1, 0.1);
+            applyTurn(smallCorrection);
+        } else {
+            // Outside dead zone - full PID control
+            consecutiveAlignedFrames = 0;
+            double turnPower = calculateHeadingPID(headingError);
+            applyTurn(turnPower);
         }
+    }
 
-        stableTimer.reset(); // Not stable if we're here
-
-        // Detect oscillation
-        double errorSign = Math.signum(headingError);
-        if (lastErrorSign != 0 && errorSign != lastErrorSign) {
-            oscillationCount++;
-            // Reduce gains if oscillating
-            if (oscillationCount > 2) {
-                integralSum *= 0.5; // Reduce integral
-            }
-        }
-        lastErrorSign = errorSign;
-
-        // PID Calculation
+    /**
+     * Calculate PID output for heading control
+     */
+    private double calculateHeadingPID(double error) {
         double currentTime = pidTimer.seconds();
         double dt = currentTime - lastTime;
+
+        // Prevent divide by zero and handle first iteration
+        if (dt <= 0 || lastTime == 0) {
+            lastTime = currentTime;
+            lastError = error;
+            return HeadingParams.KP_HEADING * error;
+        }
+
         lastTime = currentTime;
 
-        if (dt > 0) {
-            // Use smoothed error for P term
-            double pTerm = TrackingParams.KP * avgError;
+        // Proportional term
+        double pTerm = HeadingParams.KP_HEADING * error;
 
-            // Only accumulate integral outside dead zone
-            if (absError > TrackingParams.HEADING_DEAD_ZONE) {
-                integralSum += headingError * dt;
-                integralSum = Range.clip(integralSum, -10, 10);
-            }
-            double iTerm = TrackingParams.KI * integralSum;
+        // Integral term with anti-windup
+        integralSum += error * dt;
+        integralSum = Range.clip(integralSum,
+                -HeadingParams.INTEGRAL_LIMIT,
+                HeadingParams.INTEGRAL_LIMIT);
+        double iTerm = HeadingParams.KI_HEADING * integralSum;
 
-            // Derivative with filtering
-            errorVelocity = (headingError - lastError) / dt;
-            double dTerm = TrackingParams.KD * errorVelocity;
-            lastError = headingError;
+        // Derivative term
+        double derivative = (error - lastError) / dt;
+        double dTerm = HeadingParams.KD_HEADING * derivative;
+        lastError = error;
 
-            // Combined output
-            double turnPower = pTerm + iTerm + dTerm;
+        // Calculate total output
+        double output = pTerm + iTerm + dTerm;
 
-            // VELOCITY-BASED STOPPING
-            // If error is small and we're not moving fast toward target, stop
-            if (absError < TrackingParams.HEADING_SLOW_ZONE &&
-                    Math.abs(errorVelocity) < TrackingParams.VELOCITY_THRESHOLD) {
-                turnPower *= 0.5; // Reduce power in slow zone
-            }
+        // Apply speed limits
+        output = Range.clip(output, -HeadingParams.MAX_TURN_SPEED, HeadingParams.MAX_TURN_SPEED);
 
-            // Speed zones
-            if (absError < TrackingParams.HEADING_SLOW_ZONE) {
-                // In slow zone - cap speed
-                turnPower = Range.clip(turnPower,
-                        -TrackingParams.SLOW_ZONE_SPEED,
-                        TrackingParams.SLOW_ZONE_SPEED);
-            } else {
-                // Normal zone
-                turnPower = Range.clip(turnPower,
-                        -TrackingParams.MAX_TURN_SPEED,
-                        TrackingParams.MAX_TURN_SPEED);
-            }
-
-            // Minimum power only if outside slow zone
-            if (Math.abs(turnPower) < TrackingParams.MIN_TURN_SPEED &&
-                    absError > TrackingParams.HEADING_SLOW_ZONE) {
-                turnPower = Math.signum(turnPower) * TrackingParams.MIN_TURN_SPEED;
-            }
-
-            // Apply power
-            driveController.tankDrive(turnPower, -turnPower);
+        // Apply minimum speed threshold (deadband compensation)
+        if (Math.abs(output) > 0 && Math.abs(output) < HeadingParams.MIN_TURN_SPEED) {
+            output = Math.signum(output) * HeadingParams.MIN_TURN_SPEED;
         }
+
+        return output;
     }
 
     /**
-     * Maintain stability when aligned
+     * Apply turn power to motors (tank drive)
      */
-    private void maintainStability() {
+    private void applyTurn(double turnPower) {
+        // Positive turnPower = turn right (to center a target on the left)
+        // Negative turnPower = turn left (to center a target on the right)
+        driveController.tankDrive(turnPower, -turnPower);
+    }
+
+    /**
+     * Maintain alignment when already aligned
+     */
+    private void maintainAlignment() {
         if (!hasTarget) {
-            currentState = State.SEARCHING;
+            currentState = AlignmentState.TARGET_LOST;
+            stateTimer.reset();
+            consecutiveAlignedFrames = 0;
             return;
         }
 
-        double headingError = Math.abs(tx);
+        double absError = Math.abs(tx);
 
-        // Check if we're still stable
-        if (headingError < TrackingParams.HEADING_DEAD_ZONE) {
-            // Still stable - hold position
-            driveController.stopDrive();
+        // Check if we've drifted out of alignment
+        if (absError > HeadingParams.HEADING_DEAD_ZONE * 1.5) {
+            // Significant drift - go back to aligning
+            currentState = AlignmentState.ALIGNING;
+            consecutiveAlignedFrames = 0;
+            resetPIDState();
+            return;
+        }
 
-            // Move to approach after being stable
-            if (stableTimer.seconds() > TrackingParams.STABLE_TIME * 2) {
-                currentState = State.APPROACHING;
-            }
-        } else if (headingError > TrackingParams.STABLE_ERROR) {
-            // Lost stability - realign
-            currentState = State.ALIGNING;
-            stableTimer.reset();
-            oscillationCount = 0;
+        // Make tiny corrections to maintain perfect alignment
+        if (absError > HeadingParams.HEADING_TOLERANCE) {
+            double tinyCorrection = HeadingParams.KP_HEADING * tx * 0.3;
+            tinyCorrection = Range.clip(tinyCorrection, -0.08, 0.08);
+            applyTurn(tinyCorrection);
         } else {
-            // Small correction without full PID
-            double correction = TrackingParams.KP * tx * 0.5;
-            correction = Range.clip(correction,
-                    -TrackingParams.SLOW_ZONE_SPEED,
-                    TrackingParams.SLOW_ZONE_SPEED);
-            driveController.tankDrive(correction, -correction);
+            driveController.stopDrive();
         }
     }
 
     /**
-     * Handle state transitions
+     * Handle lost target
      */
-    private void handleStateTransitions() {
-        if (!hasTarget && currentState != State.SEARCHING) {
-            if (lostTargetTimer.seconds() > TrackingParams.SEARCH_TIMEOUT) {
-                currentState = State.SEARCHING;
-                resetPID();
-            }
-        } else if (hasTarget) {
-            lostTargetTimer.reset();
+    private void handleTargetLost() {
+        driveController.stopDrive();
+        consecutiveAlignedFrames = 0;
 
-            if (currentState == State.SEARCHING) {
-                currentState = State.ALIGNING;
-                resetPID();
-            }
+        // If target comes back, resume alignment
+        if (hasTarget) {
+            currentState = AlignmentState.ALIGNING;
+            resetPIDState();
+        }
+    }
+
+    /**
+     * Update state based on conditions
+     */
+    private void updateState() {
+        if (!hasTarget && currentState != AlignmentState.TARGET_LOST) {
+            currentState = AlignmentState.TARGET_LOST;
+            stateTimer.reset();
+            consecutiveAlignedFrames = 0;
+        } else if (hasTarget && currentState == AlignmentState.TARGET_LOST) {
+            currentState = AlignmentState.ALIGNING;
+            resetPIDState();
         }
     }
 
     /**
      * Reset PID state
      */
-    private void resetPID() {
+    private void resetPIDState() {
         integralSum = 0;
         lastError = 0;
         lastTime = 0;
-        errorVelocity = 0;
-        oscillationCount = 0;
-        lastErrorSign = 0;
-        stableTimer.reset();
         pidTimer.reset();
-
-        // Clear error history
-        for (int i = 0; i < errorHistory.length; i++) {
-            errorHistory[i] = 0;
-        }
     }
 
     /**
-     * Search for tag
-     */
-    private void executeSearch() {
-        driveController.tankDrive(-TrackingParams.SEARCH_SPEED, TrackingParams.SEARCH_SPEED);
-
-        if (hasTarget) {
-            driveController.stopDrive();
-            sleep(50);
-        }
-    }
-
-    /**
-     * Approach target distance
-     */
-    private void executeApproach() {
-        if (!hasTarget) {
-            return;
-        }
-
-        double headingError = tx;
-        double distanceError = TARGET_DISTANCE - calculatedDistance;
-
-        // Maintain heading
-        if (Math.abs(headingError) > TrackingParams.STABLE_ERROR * 2) {
-            currentState = State.ALIGNING;
-            return;
-        }
-
-        if (Math.abs(distanceError) < TrackingParams.DISTANCE_TOLERANCE) {
-            driveController.stopDrive();
-            currentState = State.COMPLETE;
-            return;
-        }
-
-        // Distance control with gentle heading correction
-        double drivePower = TrackingParams.KP_DISTANCE * distanceError;
-        drivePower = Range.clip(drivePower, -TrackingParams.MAX_DRIVE_SPEED,
-                TrackingParams.MAX_DRIVE_SPEED);
-
-        // Very gentle heading correction
-        double headingCorrection = TrackingParams.KP * headingError * 0.3;
-
-        double leftPower = drivePower + headingCorrection;
-        double rightPower = drivePower - headingCorrection;
-
-        driveController.tankDrive(leftPower, rightPower);
-    }
-
-    /**
-     * Update tracking
+     * Update tracking data from Limelight
      */
     private void updateTracking() {
         if (limelight == null) {
@@ -405,7 +303,6 @@ public class LimelightPreciseTracking extends LinearOpMode {
                         hasTarget = true;
                         tx = fiducial.getTargetXDegrees();
                         ty = fiducial.getTargetYDegrees();
-                        calculatedDistance = calculateDistance(ty);
                         break;
                     }
                 }
@@ -415,12 +312,6 @@ public class LimelightPreciseTracking extends LinearOpMode {
         } catch (Exception e) {
             hasTarget = false;
         }
-    }
-
-    private double calculateDistance(double ty) {
-        double totalAngle = TrackingParams.CAMERA_ANGLE + ty;
-        double angleRadians = Math.toRadians(totalAngle);
-        return Math.abs((TAG_HEIGHT - TrackingParams.CAMERA_HEIGHT) / Math.tan(angleRadians));
     }
 
     private void initializeHardware() {
@@ -440,31 +331,41 @@ public class LimelightPreciseTracking extends LinearOpMode {
             limelight.pipelineSwitch(0);
             limelight.start();
         } catch (Exception e) {
-            // Continue without Limelight
+            telemetry.addLine("WARNING: Limelight not found");
+            telemetry.update();
         }
     }
 
     private void displayTelemetry() {
         telemetry.clear();
-        telemetry.addLine("═══ STABLE TRACKING ═══");
+        telemetry.addLine("═══ HEADING ALIGNMENT ═══");
         telemetry.addLine();
 
         telemetry.addData("State", currentState);
-        telemetry.addData("TX", "%.2f°", tx);
+        telemetry.addData("Target Found", hasTarget ? "YES" : "NO");
 
-        if (currentState == State.ALIGNING) {
-            telemetry.addData("Error Velocity", "%.2f°/s", errorVelocity);
-            telemetry.addData("Oscillations", oscillationCount);
+        if (hasTarget) {
+            telemetry.addData("TX (heading error)", "%.2f°", tx);
+            telemetry.addData("TY", "%.2f°", ty);
 
             double absError = Math.abs(tx);
-            if (absError < TrackingParams.HEADING_DEAD_ZONE) {
-                telemetry.addLine(">>> IN DEAD ZONE <<<");
-            } else if (absError < TrackingParams.HEADING_SLOW_ZONE) {
-                telemetry.addLine(">> SLOW ZONE <<");
+            if (absError <= HeadingParams.HEADING_TOLERANCE) {
+                telemetry.addLine("✓ PERFECTLY ALIGNED ✓");
+            } else if (absError <= HeadingParams.HEADING_DEAD_ZONE) {
+                telemetry.addLine("→ FINE TUNING ←");
+            } else {
+                telemetry.addLine(">> ALIGNING <<");
             }
-        } else if (currentState == State.STABLE) {
-            telemetry.addLine("✓✓✓ STABLE ✓✓✓");
-            telemetry.addData("Stable Time", "%.1fs", stableTimer.seconds());
+
+            // Show PID components for debugging
+            telemetry.addData("Integral Sum", "%.3f", integralSum);
+            telemetry.addData("Aligned Frames", "%d/%d",
+                    consecutiveAlignedFrames, ALIGNED_FRAME_THRESHOLD);
+        }
+
+        if (currentState == AlignmentState.ALIGNED) {
+            telemetry.addLine("═══ TARGET CENTERED ═══");
+            telemetry.addData("Time Aligned", "%.1fs", stateTimer.seconds());
         }
 
         telemetry.update();
@@ -473,9 +374,17 @@ public class LimelightPreciseTracking extends LinearOpMode {
     private void sendDashboardData() {
         TelemetryPacket packet = new TelemetryPacket();
         packet.put("State", currentState.toString());
+        packet.put("Has_Target", hasTarget);
         packet.put("TX", tx);
-        packet.put("Error_Velocity", errorVelocity);
-        packet.put("Oscillations", oscillationCount);
+        packet.put("TY", ty);
+        packet.put("TX_Error_Abs", Math.abs(tx));
+        packet.put("Integral_Sum", integralSum);
+        packet.put("Aligned_Frames", consecutiveAlignedFrames);
+
+        if (currentState == AlignmentState.ALIGNED) {
+            packet.put("Time_Aligned", stateTimer.seconds());
+        }
+
         dashboard.sendTelemetryPacket(packet);
     }
 }
