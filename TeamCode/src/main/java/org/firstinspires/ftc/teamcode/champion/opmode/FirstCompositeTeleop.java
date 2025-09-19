@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.LimelightTrackingController;
+import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
@@ -18,7 +18,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
     TransferController transferController;
     ShooterController shooterController;
     IntakeController intakeController;
-    LimelightTrackingController LimelightTrackingController;
+    LimelightAlignmentController alignmentController;
     public static double SHOOTING_POWER = 0.8;
     public static double INTAKE_POWER = 0;
 
@@ -43,12 +43,11 @@ public class FirstCompositeTeleop extends LinearOpMode {
         intakeController = new IntakeController(this);
 
         try {
-            LimelightTrackingController = new LimelightTrackingController(this);
+            alignmentController = new LimelightAlignmentController(this);
         } catch (Exception e) {
-            telemetry.addData("Limelight Error", e.getMessage());
-            telemetry.addLine("Continuing without Limelight...");
-            telemetry.update();
-            LimelightTrackingController = null; // Set to null so we can check later
+            telemetry.addData("Limelight Alignment Error", e.getMessage());
+            telemetry.addLine("Continuing without alignment controller...");
+            alignmentController = null;
         }
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
@@ -68,8 +67,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
                 intakeController.intakeStop();
                 transferController.transferStop();
                 shooterController.setShooterPower(SHOOTING_POWER);
-                LimelightTrackingController.TrackingResult result = LimelightTrackingController.alignToTarget(20);
-                driveController.tankDrive(result.leftPower, result.rightPower);
+                alignmentController.align(20);
                 sleep(1000);
                 driveController.stopDrive();
                 sleep(2750);

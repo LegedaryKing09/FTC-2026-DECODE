@@ -6,7 +6,6 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.champion.Auton.util.Encoder;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.LimelightTrackingController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
@@ -19,7 +18,6 @@ public class BasicTeleop extends LinearOpMode {
     TransferController transferController;
     ShooterController shooterController;
     IntakeController intakeController;
-    LimelightTrackingController LimelightTrackingController;
 
     Encoder encoder;
     public static double SHOOTING_POWER = 0;
@@ -186,7 +184,6 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Shooting Power:", SHOOTING_POWER);
                 telemetry.addData("Intake Power:", INTAKE_POWER);
 
-                telemetry.addData("Shooter Encoder Velocity:", shooterController.shooterVel());
                 telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
