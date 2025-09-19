@@ -41,13 +41,10 @@ public class FirstCompositeTeleop extends LinearOpMode {
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
-
         try {
             alignmentController = new LimelightAlignmentController(this);
         } catch (Exception e) {
-            telemetry.addData("Limelight Alignment Error", e.getMessage());
-            telemetry.addLine("Continuing without alignment controller...");
-            alignmentController = null;
+            throw new RuntimeException(e);
         }
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
