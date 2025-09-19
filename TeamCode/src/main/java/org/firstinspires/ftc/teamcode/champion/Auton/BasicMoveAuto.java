@@ -25,7 +25,7 @@ public class BasicMoveAuto extends LinearOpMode {
                 .lineToLinearHeading(forwardPose)
                 .build();
 
-        Trajectory turnforward = drive.trajectoryBuilder(forwardPose)
+        Trajectory turnForward = drive.trajectoryBuilder(forwardPose)
                 .lineToLinearHeading(endPose)
                 .build();
 
@@ -33,7 +33,7 @@ public class BasicMoveAuto extends LinearOpMode {
 
         drive.followTrajectory(forward);
         drive.turn(Math.toRadians(90));
-        drive.followTrajectory(turnforward);
+        drive.followTrajectory(turnForward);
 
     }
 

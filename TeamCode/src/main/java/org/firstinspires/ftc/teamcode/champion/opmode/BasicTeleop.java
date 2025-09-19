@@ -186,7 +186,8 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Shooting Power:", SHOOTING_POWER);
                 telemetry.addData("Intake Power:", INTAKE_POWER);
 
-                telemetry.addData("Shooter Encoder Velocity:", shooterController.shooterVel());
+                telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
+                telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
                 telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
