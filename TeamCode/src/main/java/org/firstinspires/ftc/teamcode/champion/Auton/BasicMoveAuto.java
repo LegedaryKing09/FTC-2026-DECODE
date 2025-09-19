@@ -1,40 +1,32 @@
 package org.firstinspires.ftc.teamcode.champion.Auton;
 
-import com.acmerobotics.roadrunner.geometry.Pose2d;
-import com.acmerobotics.roadrunner.trajectory.Trajectory;
+import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
+import com.acmerobotics.roadrunner.Action;
+import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.RoadRunnerDrive;
+import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDrive;
 
 @Autonomous
 public class BasicMoveAuto extends LinearOpMode {
-    Pose2d startPose = new Pose2d(0,0, 0);
-    Pose2d forwardPose = new Pose2d(20,0, 0);
-    Pose2d endPose = new Pose2d(20,20, 90);
-
+    Pose2d startPose = new Pose2d(0, 0, 0);
 
     @Override
     public void runOpMode() {
 
-        RoadRunnerDrive drive = new RoadRunnerDrive(hardwareMap);
+        TankDrive drive = new TankDrive(hardwareMap, startPose);
 
-        drive.setPoseEstimate(startPose);
+        TrajectoryActionBuilder tab = drive.actionBuilder(startPose)
+                .lineToX(20)
+                .turn(Math.toRadians(90))
+                .lineToY(20);
 
-        Trajectory forward = drive.trajectoryBuilder(startPose)
-                .lineToLinearHeading(forwardPose)
-                .build();
-
-        Trajectory turnForward = drive.trajectoryBuilder(forwardPose)
-                .lineToLinearHeading(endPose)
-                .build();
+        Action trajectoryAction = tab.build();
 
         waitForStart();
 
-        drive.followTrajectory(forward);
-        drive.turn(Math.toRadians(90));
-        drive.followTrajectory(turnForward);
-
+        Actions.runBlocking(trajectoryAction);
     }
-
 }

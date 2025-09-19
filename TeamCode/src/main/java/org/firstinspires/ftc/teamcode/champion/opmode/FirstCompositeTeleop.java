@@ -18,7 +18,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
     TransferController transferController;
     ShooterController shooterController;
     IntakeController intakeController;
-    LimelightAlignmentController alignmentController;
+    LimelightAlignmentController LimelightAlignmentController;
     public static double SHOOTING_POWER = 0.8;
     public static double INTAKE_POWER = 0;
 
@@ -42,7 +42,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
         try {
-            alignmentController = new LimelightAlignmentController(this);
+            LimelightAlignmentController = new LimelightAlignmentController(this);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -64,8 +64,27 @@ public class FirstCompositeTeleop extends LinearOpMode {
                 intakeController.intakeStop();
                 transferController.transferStop();
                 shooterController.setShooterPower(SHOOTING_POWER);
-                alignmentController.align(20);
-                sleep(1000);
+
+                // Fix: Start alignment before calling align
+                LimelightAlignmentController.startAlignment();
+
+                // Then continuously call align until aligned or timeout
+                long alignmentStartTime = System.currentTimeMillis();
+                long alignmentTimeout = 3000; // 3 seconds timeout
+
+                while (opModeIsActive() && !LimelightAlignmentController.isAligned() &&
+                        (System.currentTimeMillis() - alignmentStartTime) < alignmentTimeout) {
+                    LimelightAlignmentController.align(20);
+                    // Optional: Add telemetry to see alignment status
+                    telemetry.addData("Alignment State", LimelightAlignmentController.getState());
+                    telemetry.addData("Has Target", LimelightAlignmentController.hasTarget());
+                    telemetry.addData("Error", LimelightAlignmentController.getTargetError());
+                    telemetry.update();
+                    sleep(20); // Small delay for smooth operation
+                }
+
+                // Stop alignment to prevent interference with subsequent operations
+                LimelightAlignmentController.stopAlignment();
                 driveController.stopDrive();
                 sleep(2750);
                 transferController.transferFull();
@@ -80,6 +99,8 @@ public class FirstCompositeTeleop extends LinearOpMode {
                 shooterController.shooterStop();
                 intakeController.intakeStop();
                 transferController.transferStop();
+                // Also stop alignment when stopping everything
+                LimelightAlignmentController.stopAlignment();
             } else if (!gamepad1.x && isPressingX) {
                 isPressingX = false;
             }
@@ -91,7 +112,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
                 isPressingDpadUp = false;
             }
 
-            if (gamepad1.dpad_down && SHOOTING_POWER < 1 && !isPressingDpadDown) {
+            if (gamepad1.dpad_down && SHOOTING_POWER > 0 && !isPressingDpadDown) {
                 isPressingDpadDown = true;
                 SHOOTING_POWER = SHOOTING_POWER - 0.05;
             } else if (!gamepad1.dpad_down && isPressingDpadDown) {
