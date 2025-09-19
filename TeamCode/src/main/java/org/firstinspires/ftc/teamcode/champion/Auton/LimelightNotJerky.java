@@ -33,8 +33,8 @@ public class LimelightNotJerky extends LinearOpMode {
     public static class PID {
         // PID gains - ALL DASHBOARD ADJUSTABLE
         public static double KP = 0.04;
-        public static double KI = 0.0005;
-        public static double KD = 0.008;
+        public static double KI = 0.0003;
+        public static double KD = 0.02;
 
         // Integral windup limit
         public static double INTEGRAL_LIMIT = 3.0;
@@ -51,8 +51,8 @@ public class LimelightNotJerky extends LinearOpMode {
     public static class Speed {
         // Speed limits
         public static double MAX_SPEED = 0.5;
-        public static double MIN_SPEED = 0.3;
-        public static double MAX_ACCELERATION = 2.0;  // Max change per second
+        public static double MIN_SPEED = 0;
+        public static double MAX_ACCELERATION = 1.5;  // Max change per second
     }
 
     @Config
