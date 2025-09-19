@@ -17,6 +17,9 @@ public class ShooterController {
     public static double SHOOTER_QUARTER_POWER = 0.25;
     public static double SHOOTER_STOP_POWER = 0;
 
+    private final double TICKS_PER_REV = 28;
+    private final double WHEEL_DIAMETER_METERS = 0.10795;
+
     private enum ShooterMode {
         SHOOT, STOP
     }
@@ -32,6 +35,20 @@ public class ShooterController {
         encoder = new Encoder(opMode.hardwareMap.get(DcMotorEx.class, ENCODER_NAME));
         shooter1.setDirection(DcMotorSimple.Direction.REVERSE);
         shooter2.setDirection(DcMotorSimple.Direction.FORWARD);
+    }
+
+    public double getShooterRPM() {
+        // velocity in rpm
+        double ticksPerSecond = shooter1.getVelocity();
+        return (ticksPerSecond / TICKS_PER_REV) * 60.0;
+    }
+
+    //shooter wheel in mps
+    public double getShooterMPS() {
+        double rpm = getShooterRPM();
+        double revsPerSecond = rpm / 60.0;
+        double circumference = Math.PI * WHEEL_DIAMETER_METERS;
+        return revsPerSecond * circumference;
     }
 
     public void shooterFull() {
