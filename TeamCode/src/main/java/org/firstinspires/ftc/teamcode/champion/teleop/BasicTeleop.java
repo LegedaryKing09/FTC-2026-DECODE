@@ -1,10 +1,9 @@
-package org.firstinspires.ftc.teamcode.champion.opmode;
+package org.firstinspires.ftc.teamcode.champion.teleop;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.champion.Auton.util.Encoder;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
@@ -18,7 +17,6 @@ public class BasicTeleop extends LinearOpMode {
     TransferController transferController;
     ShooterController shooterController;
     IntakeController intakeController;
-    Encoder encoder;
     public static double SHOOTING_POWER = 0;
     public static double INTAKE_POWER = 0;
 

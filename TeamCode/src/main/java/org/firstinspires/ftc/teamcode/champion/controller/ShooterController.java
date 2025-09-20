@@ -2,10 +2,8 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import org.firstinspires.ftc.teamcode.champion.Auton.util.Encoder;
 
 @Config
 public class ShooterController {
@@ -15,9 +13,6 @@ public class ShooterController {
     public static double SHOOTER_HALF_POWER = 0.5;
     public static double SHOOTER_QUARTER_POWER = 0.25;
     public static double SHOOTER_STOP_POWER = 0;
-
-    private final double TICKS_PER_REV = 28;
-    private final double WHEEL_DIAMETER_METERS = 0.10795;
 
     private enum ShooterMode {
         SHOOT, STOP
@@ -37,6 +32,7 @@ public class ShooterController {
     public double getShooterRPM() {
         // velocity in rpm
         double ticksPerSecond = shooter1.getVelocity();
+        double TICKS_PER_REV = 28;
         return (ticksPerSecond / TICKS_PER_REV) * 60.0;
     }
 
@@ -44,6 +40,7 @@ public class ShooterController {
     public double getShooterMPS() {
         double rpm = getShooterRPM();
         double revsPerSecond = rpm / 60.0;
+        double WHEEL_DIAMETER_METERS = 0.10795;
         double circumference = Math.PI * WHEEL_DIAMETER_METERS;
         return revsPerSecond * circumference;
     }
