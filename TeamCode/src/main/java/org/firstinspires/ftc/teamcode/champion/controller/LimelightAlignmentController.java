@@ -13,8 +13,8 @@ import com.qualcomm.robotcore.util.Range;
 import java.util.List;
 
 /**
- * Smooth AprilTag alignment controller with Dashboard-tunable PID
- * Can be used in both autonomous and teleop modes
+ * Smooth AprilTag alignment controller - Fixed version
+ * Uses exact PID values from working LimelightNotJerky code
  */
 @Config
 public class LimelightAlignmentController {
@@ -24,53 +24,49 @@ public class LimelightAlignmentController {
     private final Limelight3A limelight;
     private final FtcDashboard dashboard;
 
+    // IMPORTANT: These Config classes must have unique names to avoid conflicts!
     @Config
-    public static class PID {
-        // PID gains - ALL DASHBOARD ADJUSTABLE
+    public static class AlignmentPID {
+        // EXACT VALUES FROM YOUR WORKING CODE!
         public static double KP = 0.04;
-        public static double KI = 0.0005;
-        public static double KD = 0.008;
-
-        // Integral windup limit
+        public static double KI = 0.0003;  // Changed from 0.0005
+        public static double KD = 0.02;    // Changed from 0.008
         public static double INTEGRAL_LIMIT = 3.0;
     }
 
     @Config
-    public static class Zones {
-        // Dead zones and tolerances
-        public static double TOLERANCE = 0.5;      // Perfect alignment threshold
-        public static double DEAD_ZONE = 2.0;      // Stop turning threshold
+    public static class AlignmentZones {
+        public static double TOLERANCE = 0.5;      // Perfect alignment
+        public static double DEAD_ZONE = 2.0;      // Good enough
     }
 
     @Config
-    public static class Speed {
-        // Speed limits
+    public static class AlignmentSpeed {
         public static double MAX_SPEED = 0.5;
-        public static double MIN_SPEED = 0.3;
-        public static double MAX_ACCELERATION = 2.0;  // Max change per second
+        public static double MIN_SPEED = 0.0;      // CRITICAL! Changed from 0.3 to 0.0
+        public static double MAX_ACCELERATION = 1.5;  // Changed from 2.0
     }
 
     @Config
-    public static class Filtering {
-        // Smoothing parameters
-        public static double INPUT_FILTER = 0.7;   // Input filter (0-1, higher=less filtering)
-        public static double OUTPUT_FILTER = 0.8;  // Output filter
+    public static class AlignmentFiltering {
+        public static double INPUT_FILTER = 0.7;
+        public static double OUTPUT_FILTER = 0.8;
     }
 
     @Config
-    public static class Advanced {
-        // Advanced tuning
+    public static class AlignmentAdvanced {
         public static boolean ADAPTIVE_GAIN = true;
         public static double ADAPTIVE_FACTOR = 0.8;
-        public static int ALIGNED_FRAMES = 15;     // Frames to confirm alignment
-        public static double PROGRESSIVE_POWER = 1.5; // Power curve exponent
+        public static int ALIGNED_FRAMES = 15;
+        public static double PROGRESSIVE_POWER = 1.5;
     }
 
-    // Tracking state with filtering
+    // Tracking state
     private double tx = 0;
     private double ty = 0;
     private double filteredTx = 0;
     private boolean hasTarget = false;
+    private int targetTagId = 20;  // Default, can be changed
 
     // PID state
     private final ElapsedTime pidTimer = new ElapsedTime();
@@ -98,23 +94,12 @@ public class LimelightAlignmentController {
     private double avgError = 0;
     private int errorSamples = 0;
 
-    // Alignment result class
-    public static class AlignmentResult {
-        public final AlignmentState state;
-        public final boolean hasTarget;
-        public final double error;
-        public final double output;
-        public final boolean isAligned;
+    // Control flags
+    private boolean isActive = false;
 
-        public AlignmentResult(AlignmentState state, boolean hasTarget, double error, double output, boolean isAligned) {
-            this.state = state;
-            this.hasTarget = hasTarget;
-            this.error = error;
-            this.output = output;
-            this.isAligned = isAligned;
-        }
-    }
-
+    /**
+     * Constructor
+     */
     public LimelightAlignmentController(LinearOpMode opMode) throws Exception {
         this.opMode = opMode;
 
@@ -134,19 +119,46 @@ public class LimelightAlignmentController {
             throw new Exception("Failed to initialize Limelight: " + e.getMessage());
         }
 
-        // Initialize timers
         pidTimer.reset();
         accelerationTimer.reset();
         stateTimer.reset();
     }
 
     /**
-     * Main alignment method - call this continuously in your teleop/autonomous loop
-     * @param targetTagId The AprilTag ID to align to
-     * @return AlignmentResult containing current state and alignment info
+     * Set the target AprilTag ID
      */
-    public AlignmentResult align(int targetTagId) {
-        updateTracking(targetTagId);
+    public void setTargetTag(int tagId) {
+        this.targetTagId = tagId;
+    }
+
+    /**
+     * Start alignment process
+     */
+    public void startAlignment() {
+        isActive = true;
+        currentState = AlignmentState.TARGET_LOST;
+        consecutiveAlignedFrames = 0;
+        resetPID();
+    }
+
+    /**
+     * Stop alignment and return control to manual driving
+     */
+    public void stopAlignment() {
+        isActive = false;
+        currentState = AlignmentState.STOPPED;
+        driveController.stopDrive();
+        resetPID();
+    }
+
+    /**
+     * Main alignment update - call this continuously
+     */
+    public void align(int targetTagId) {
+        if (!isActive) return;
+
+        this.targetTagId = targetTagId;
+        updateTracking();
         updateState();
 
         switch (currentState) {
@@ -160,87 +172,45 @@ public class LimelightAlignmentController {
                 handleTargetLost();
                 break;
             case STOPPED:
-                // Do nothing - manual control
+                // Do nothing
                 break;
         }
 
         updateMetrics();
         sendDashboardData();
-
-        boolean isAligned = (currentState == AlignmentState.ALIGNED);
-        return new AlignmentResult(currentState, hasTarget, Math.abs(filteredTx), currentOutput, isAligned);
     }
 
     /**
-     * Start alignment process
-     */
-    public void startAlignment() {
-        if (hasTarget) {
-            currentState = AlignmentState.ALIGNING;
-        } else {
-            currentState = AlignmentState.TARGET_LOST;
-        }
-        consecutiveAlignedFrames = 0;
-        resetPID();
-    }
-
-    /**
-     * Stop alignment and return control to manual driving
-     */
-    public void stopAlignment() {
-        currentState = AlignmentState.STOPPED;
-        driveController.stopDrive();
-        resetPID();
-    }
-
-    /**
-     * Check if currently aligned to target
+     * Check if currently aligned
      */
     public boolean isAligned() {
         return currentState == AlignmentState.ALIGNED;
     }
 
     /**
-     * Get current alignment state
+     * Get current state
      */
     public AlignmentState getState() {
         return currentState;
     }
 
     /**
-     * Get current target info
+     * Get target status
      */
     public boolean hasTarget() {
         return hasTarget;
     }
 
+    /**
+     * Get current error
+     */
     public double getTargetError() {
         return Math.abs(filteredTx);
     }
 
     /**
-     * Reset PID controller state
+     * Main alignment execution
      */
-    public void resetPID() {
-        integralSum = 0;
-        lastError = 0;
-        lastTime = 0;
-        lastOutput = 0;
-        currentOutput = 0;
-        pidTimer.reset();
-        accelerationTimer.reset();
-    }
-
-    /**
-     * Reset performance metrics
-     */
-    public void resetMetrics() {
-        maxError = 0;
-        minError = Double.MAX_VALUE;
-        avgError = 0;
-        errorSamples = 0;
-    }
-
     private void executeSmoothedAlignment() {
         if (!hasTarget) {
             smoothStop();
@@ -251,9 +221,9 @@ public class LimelightAlignmentController {
         double absError = Math.abs(headingError);
 
         // Check alignment
-        if (absError <= Zones.TOLERANCE) {
+        if (absError <= AlignmentZones.TOLERANCE) {
             consecutiveAlignedFrames++;
-            if (consecutiveAlignedFrames >= Advanced.ALIGNED_FRAMES) {
+            if (consecutiveAlignedFrames >= AlignmentAdvanced.ALIGNED_FRAMES) {
                 currentState = AlignmentState.ALIGNED;
                 stateTimer.reset();
                 smoothStop();
@@ -267,9 +237,9 @@ public class LimelightAlignmentController {
         double turnPower = calculateSmoothedPID(headingError);
 
         // Progressive scaling near target
-        if (absError < Zones.DEAD_ZONE) {
-            double scale = absError / Zones.DEAD_ZONE;
-            scale = Math.pow(scale, Advanced.PROGRESSIVE_POWER);
+        if (absError < AlignmentZones.DEAD_ZONE) {
+            double scale = absError / AlignmentZones.DEAD_ZONE;
+            scale = Math.pow(scale, AlignmentAdvanced.PROGRESSIVE_POWER);
             turnPower *= scale;
         }
 
@@ -277,13 +247,16 @@ public class LimelightAlignmentController {
         turnPower = applyAccelerationLimit(turnPower);
 
         // Apply output filtering
-        currentOutput = (Filtering.OUTPUT_FILTER * turnPower) +
-                ((1 - Filtering.OUTPUT_FILTER) * lastOutput);
+        currentOutput = (AlignmentFiltering.OUTPUT_FILTER * turnPower) +
+                ((1 - AlignmentFiltering.OUTPUT_FILTER) * lastOutput);
         lastOutput = currentOutput;
 
         applyTurn(currentOutput);
     }
 
+    /**
+     * Calculate PID with exact logic from working code
+     */
     private double calculateSmoothedPID(double error) {
         double currentTime = pidTimer.seconds();
         double dt = currentTime - lastTime;
@@ -291,58 +264,63 @@ public class LimelightAlignmentController {
         if (dt <= 0 || lastTime == 0) {
             lastTime = currentTime;
             lastError = error;
-            return PID.KP * error;
+            return AlignmentPID.KP * error;
         }
 
         lastTime = currentTime;
 
         // Adaptive gain
         double gainMultiplier = 1.0;
-        if (Advanced.ADAPTIVE_GAIN) {
+        if (AlignmentAdvanced.ADAPTIVE_GAIN) {
             double absError = Math.abs(error);
-            if (absError < Zones.DEAD_ZONE * 2) {
-                gainMultiplier = Advanced.ADAPTIVE_FACTOR +
-                        (1 - Advanced.ADAPTIVE_FACTOR) * (absError / (Zones.DEAD_ZONE * 2));
+            if (absError < AlignmentZones.DEAD_ZONE * 2) {
+                gainMultiplier = AlignmentAdvanced.ADAPTIVE_FACTOR +
+                        (1 - AlignmentAdvanced.ADAPTIVE_FACTOR) * (absError / (AlignmentZones.DEAD_ZONE * 2));
             }
         }
 
         // P term
-        double pTerm = PID.KP * error * gainMultiplier;
+        double pTerm = AlignmentPID.KP * error * gainMultiplier;
 
         // I term with anti-oscillation
-        if (Math.signum(error) != Math.signum(lastError) && Math.abs(error) > Zones.TOLERANCE) {
+        if (Math.signum(error) != Math.signum(lastError) && Math.abs(error) > AlignmentZones.TOLERANCE) {
             integralSum *= 0.5;
         } else {
             integralSum += error * dt;
         }
-        integralSum = Range.clip(integralSum, -PID.INTEGRAL_LIMIT, PID.INTEGRAL_LIMIT);
-        double iTerm = PID.KI * integralSum;
+        integralSum = Range.clip(integralSum, -AlignmentPID.INTEGRAL_LIMIT, AlignmentPID.INTEGRAL_LIMIT);
+        double iTerm = AlignmentPID.KI * integralSum;
 
         // D term
         double derivative = (error - lastError) / dt;
         derivative = Range.clip(derivative, -50, 50);
-        double dTerm = PID.KD * derivative * gainMultiplier;
+        double dTerm = AlignmentPID.KD * derivative * gainMultiplier;
         lastError = error;
 
         double output = pTerm + iTerm + dTerm;
-        output = Range.clip(output, -Speed.MAX_SPEED, Speed.MAX_SPEED);
+        output = Range.clip(output, -AlignmentSpeed.MAX_SPEED, AlignmentSpeed.MAX_SPEED);
 
-        // Min speed only when far from target
-        if (Math.abs(error) > Zones.DEAD_ZONE &&
-                Math.abs(output) > 0 && Math.abs(output) < Speed.MIN_SPEED) {
-            output = Math.signum(output) * Speed.MIN_SPEED;
+        // CRITICAL: Only apply min speed when far from target AND min speed > 0
+        if (Math.abs(error) > AlignmentZones.DEAD_ZONE &&
+                Math.abs(output) > 0 &&
+                Math.abs(output) < AlignmentSpeed.MIN_SPEED &&
+                AlignmentSpeed.MIN_SPEED > 0) {  // Only if MIN_SPEED is not zero
+            output = Math.signum(output) * AlignmentSpeed.MIN_SPEED;
         }
 
         return output;
     }
 
+    /**
+     * Apply acceleration limiting
+     */
     private double applyAccelerationLimit(double targetPower) {
         double dt = accelerationTimer.seconds();
         accelerationTimer.reset();
 
         if (dt <= 0 || dt > 0.5) return targetPower;
 
-        double maxChange = Speed.MAX_ACCELERATION * dt;
+        double maxChange = AlignmentSpeed.MAX_ACCELERATION * dt;
         double powerDiff = targetPower - lastOutput;
 
         if (Math.abs(powerDiff) > maxChange) {
@@ -352,6 +330,9 @@ public class LimelightAlignmentController {
         return targetPower;
     }
 
+    /**
+     * Smooth stop
+     */
     private void smoothStop() {
         currentOutput *= 0.8;
         if (Math.abs(currentOutput) < 0.02) {
@@ -363,6 +344,9 @@ public class LimelightAlignmentController {
         lastOutput = currentOutput;
     }
 
+    /**
+     * Apply turn power
+     */
     private void applyTurn(double turnPower) {
         if (Math.abs(turnPower) > 0 && Math.abs(turnPower) < 0.05) {
             turnPower = 0;
@@ -370,6 +354,9 @@ public class LimelightAlignmentController {
         driveController.tankDrive(turnPower, -turnPower);
     }
 
+    /**
+     * Maintain alignment when aligned
+     */
     private void maintainAlignment() {
         if (!hasTarget) {
             currentState = AlignmentState.TARGET_LOST;
@@ -380,14 +367,14 @@ public class LimelightAlignmentController {
 
         double absError = Math.abs(filteredTx);
 
-        if (absError > Zones.DEAD_ZONE) {
+        if (absError > AlignmentZones.DEAD_ZONE) {
             currentState = AlignmentState.ALIGNING;
             consecutiveAlignedFrames = 0;
             return;
         }
 
-        if (absError > Zones.TOLERANCE) {
-            double tinyCorrection = PID.KP * filteredTx * 0.3;
+        if (absError > AlignmentZones.TOLERANCE) {
+            double tinyCorrection = AlignmentPID.KP * filteredTx * 0.3;
             tinyCorrection = Range.clip(tinyCorrection, -0.05, 0.05);
             currentOutput = (0.9 * tinyCorrection) + (0.1 * lastOutput);
             lastOutput = currentOutput;
@@ -397,6 +384,9 @@ public class LimelightAlignmentController {
         }
     }
 
+    /**
+     * Handle lost target
+     */
     private void handleTargetLost() {
         smoothStop();
         consecutiveAlignedFrames = 0;
@@ -407,6 +397,9 @@ public class LimelightAlignmentController {
         }
     }
 
+    /**
+     * Update state transitions
+     */
     private void updateState() {
         if (!hasTarget && currentState != AlignmentState.TARGET_LOST && currentState != AlignmentState.STOPPED) {
             currentState = AlignmentState.TARGET_LOST;
@@ -419,7 +412,10 @@ public class LimelightAlignmentController {
         }
     }
 
-    private void updateTracking(int targetTagId) {
+    /**
+     * Update tracking from Limelight
+     */
+    private void updateTracking() {
         if (limelight == null) {
             hasTarget = false;
             return;
@@ -441,8 +437,8 @@ public class LimelightAlignmentController {
                         if (!previousHasTarget) {
                             filteredTx = tx;
                         } else {
-                            filteredTx = (Filtering.INPUT_FILTER * tx) +
-                                    ((1 - Filtering.INPUT_FILTER) * filteredTx);
+                            filteredTx = (AlignmentFiltering.INPUT_FILTER * tx) +
+                                    ((1 - AlignmentFiltering.INPUT_FILTER) * filteredTx);
                         }
                         break;
                     }
@@ -455,6 +451,9 @@ public class LimelightAlignmentController {
         }
     }
 
+    /**
+     * Update performance metrics
+     */
     private void updateMetrics() {
         if (hasTarget) {
             double absError = Math.abs(filteredTx);
@@ -465,35 +464,53 @@ public class LimelightAlignmentController {
         }
     }
 
+    /**
+     * Reset PID state
+     */
+    public void resetPID() {
+        integralSum = 0;
+        lastError = 0;
+        lastTime = 0;
+        lastOutput = 0;
+        currentOutput = 0;
+        pidTimer.reset();
+        accelerationTimer.reset();
+    }
+
+    /**
+     * Reset performance metrics
+     */
+    public void resetMetrics() {
+        maxError = 0;
+        minError = Double.MAX_VALUE;
+        avgError = 0;
+        errorSamples = 0;
+    }
+
+    /**
+     * Send telemetry to dashboard
+     */
     private void sendDashboardData() {
         if (dashboard == null) return;
 
         TelemetryPacket packet = new TelemetryPacket();
 
-        // Live data
         packet.put("Alignment_State", currentState.toString());
         packet.put("Has_Target", hasTarget);
         packet.put("TX_Raw", tx);
         packet.put("TX_Filtered", filteredTx);
         packet.put("Error_Abs", Math.abs(filteredTx));
         packet.put("Output", currentOutput);
-
-        // PID components
-        packet.put("P_Term", PID.KP * filteredTx);
-        packet.put("I_Term", PID.KI * integralSum);
+        packet.put("P_Term", AlignmentPID.KP * filteredTx);
+        packet.put("I_Term", AlignmentPID.KI * integralSum);
         packet.put("Integral_Sum", integralSum);
-
-        // Metrics
-        packet.put("Min_Error", minError);
-        packet.put("Max_Error", maxError);
-        packet.put("Avg_Error", avgError);
         packet.put("Aligned_Frames", consecutiveAlignedFrames);
 
         dashboard.sendTelemetryPacket(packet);
     }
 
     /**
-     * Display alignment telemetry to driver station
+     * Display telemetry to driver station
      */
     public void displayTelemetry() {
         opMode.telemetry.addLine("═══ ALIGNMENT ═══");
@@ -503,6 +520,14 @@ public class LimelightAlignmentController {
         if (hasTarget) {
             opMode.telemetry.addData("Error", "%.2f°", Math.abs(filteredTx));
             opMode.telemetry.addData("Output", "%.3f", currentOutput);
+
+            // Show PID values for verification
+            opMode.telemetry.addLine();
+            opMode.telemetry.addLine("── PID VALUES ──");
+            opMode.telemetry.addData("KP", "%.4f", AlignmentPID.KP);
+            opMode.telemetry.addData("KI", "%.4f", AlignmentPID.KI);
+            opMode.telemetry.addData("KD", "%.4f", AlignmentPID.KD);
+            opMode.telemetry.addData("MIN_SPEED", "%.2f", AlignmentSpeed.MIN_SPEED);
         }
     }
 }
