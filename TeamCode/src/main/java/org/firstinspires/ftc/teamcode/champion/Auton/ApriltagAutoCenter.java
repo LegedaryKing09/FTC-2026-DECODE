@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.Auton;
 
+import androidx.annotation.NonNull;
+
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.hardware.limelightvision.LLResult;
@@ -286,22 +288,7 @@ public class ApriltagAutoCenter extends LinearOpMode {
         telemetry.addData("TX (Angle)", "%.2f°", tx);
 
         // Visual indicator
-        String indicator;
-        if (tx < -5) {
-            indicator = "<<<< LEFT";
-        } else if (tx < -2) {
-            indicator = "<< LEFT";
-        } else if (tx < -CenteringParams.CENTERING_TOLERANCE) {
-            indicator = "< LEFT";
-        } else if (tx > 5) {
-            indicator = "RIGHT >>>>";
-        } else if (tx > 2) {
-            indicator = "RIGHT >>";
-        } else if (tx > CenteringParams.CENTERING_TOLERANCE) {
-            indicator = "RIGHT >";
-        } else {
-            indicator = "[ CENTERED ]";
-        }
+        String indicator = getIndicator();
         telemetry.addLine("Direction: " + indicator);
 
         // Status
@@ -327,6 +314,27 @@ public class ApriltagAutoCenter extends LinearOpMode {
         telemetry.addData("Frames", "%d / %d", framesWithTarget, totalFrames);
 
         telemetry.update();
+    }
+
+    @NonNull
+    private String getIndicator() {
+        String indicator;
+        if (tx < -5) {
+            indicator = "<<<< LEFT";
+        } else if (tx < -2) {
+            indicator = "<< LEFT";
+        } else if (tx < -CenteringParams.CENTERING_TOLERANCE) {
+            indicator = "< LEFT";
+        } else if (tx > 5) {
+            indicator = "RIGHT >>>>";
+        } else if (tx > 2) {
+            indicator = "RIGHT >>";
+        } else if (tx > CenteringParams.CENTERING_TOLERANCE) {
+            indicator = "RIGHT >";
+        } else {
+            indicator = "[ CENTERED ]";
+        }
+        return indicator;
     }
 
     /**
