@@ -19,7 +19,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
     ShooterController shooterController;
     IntakeController intakeController;
     LimelightAlignmentController LimelightAlignmentController;
-    public static double SHOOTING_POWER = 0.8;
+    public static double SHOOTING_POWER = 0.65;
     public static double INTAKE_POWER = 0;
 
     boolean isUsingTelemetry = true;
