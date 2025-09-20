@@ -47,6 +47,8 @@ public class BasicTeleop extends LinearOpMode {
 
         while (opModeIsActive()) {
 
+            shooterController.updatePID();
+
             if (driveController.isFastSpeedMode()) {
                 drive = -gamepad1.left_stick_y * SixWheelDriveController.FAST_SPEED_MULTIPLIER;
                 turn = gamepad1.right_stick_x * SixWheelDriveController.FAST_TURN_MULTIPLIER;
@@ -177,7 +179,13 @@ public class BasicTeleop extends LinearOpMode {
                 //telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
                 telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
                 telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
-                telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
+                telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
+                telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✓ YES" : "NO");
+                if (shooterController.isInBoostMode()) {
+                    telemetry.addLine("★ BOOST MODE ACTIVE ★");
+                }
+                telemetry.addData("Shots Fired (Boost Count)", shooterController.getBoostCount());
+                //telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y", "%.2f", driveController.getY());
