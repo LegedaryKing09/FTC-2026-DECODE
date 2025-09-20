@@ -112,19 +112,12 @@ public class BasicTeleop extends LinearOpMode {
 
             if (gamepad1.right_trigger > 0.1) {
                 transferController.transferFull();
-            }
-
-            if (gamepad1.right_trigger < 0.1) {
-                transferController.transferStop();
-            }
-
-            if (gamepad1.left_trigger > 0.1) {
+            } else if (gamepad1.left_trigger > 0.1) {
                 transferController.transferEject();
-            }
-
-            if (gamepad1.left_trigger < 0.1) {
+            } else {
                 transferController.transferStop();
             }
+
 
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
@@ -179,10 +172,11 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
                 telemetry.addData("Shooting Power:", SHOOTING_POWER);
-                telemetry.addData("Intake Power:", INTAKE_POWER);
+                //telemetry.addData("Intake Power:", INTAKE_POWER);
 
-                telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
+                //telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
                 telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
+                telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
                 telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());

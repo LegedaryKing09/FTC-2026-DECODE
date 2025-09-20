@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 @Config
 public class TransferController {
     public static String TRANSFER_NAME = "transfer";
-    public static double TRANSFER_FULL_POWER = 1;
+    public static double TRANSFER_FULL_POWER = 1.0;
     public static double TRANSFER_EJECT_POWER = -1;
     public static double TRANSFER_HALF_POWER = 0.5;
     public static double TRANSFER_QUARTER_POWER = 0.25;
@@ -25,6 +25,7 @@ public class TransferController {
     public TransferController(LinearOpMode opMode) {
         transfer = opMode.hardwareMap.get(DcMotor.class, TRANSFER_NAME);
         transfer.setDirection(DcMotorSimple.Direction.REVERSE);
+        transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
     }
 
     public void transferFull() {
