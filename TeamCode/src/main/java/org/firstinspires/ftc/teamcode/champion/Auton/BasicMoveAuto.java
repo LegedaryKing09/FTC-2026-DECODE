@@ -30,6 +30,10 @@ public class BasicMoveAuto extends LinearOpMode {
 
         waitForStart();
 
-        Actions.runBlocking(trajectoryAction);
+        if (isStopRequested()) return;
+
+        if (opModeIsActive()) {
+            Actions.runBlocking(trajectoryAction);
+        }
     }
 }
