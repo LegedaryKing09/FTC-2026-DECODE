@@ -55,12 +55,6 @@ public class FirstCompositeTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
-                intakeController.intakeFull();
-                driveController.tankDrive(0.8, 0.8);
-                sleep(300);
-                driveController.tankDrive(-0.8, -0.8);
-                sleep(300);
-                driveController.stopDrive();
                 intakeController.intakeStop();
                 transferController.transferStop();
                 shooterController.setShooterPower(SHOOTING_POWER);

@@ -95,7 +95,7 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingDpadUp = false;
             }
 
-            if (gamepad1.dpad_down && SHOOTING_POWER < 1 && !isPressingDpadDown) {
+            if (gamepad1.dpad_down && SHOOTING_POWER > 0 && !isPressingDpadDown) {
                 isPressingDpadDown = true;
                 SHOOTING_POWER = SHOOTING_POWER - 0.05;
             } else if (!gamepad1.dpad_down && isPressingDpadDown) {
