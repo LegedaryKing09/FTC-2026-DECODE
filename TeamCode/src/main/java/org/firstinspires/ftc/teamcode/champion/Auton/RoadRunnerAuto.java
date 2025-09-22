@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.champion.Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -30,16 +31,25 @@ public class RoadRunnerAuto extends LinearOpMode {
 
         TankDrive drive = new TankDrive(hardwareMap, startPose);
 
+//        TrajectoryActionBuilder forwardsTurnAndReturn = drive.actionBuilder(startPose)
+//                .lineToX(20)
+//                .turn(Math.toRadians(90))
+//                .lineToY(20)
+//                .splineTo(endPose, Math.toRadians(90));
+//
+//        Action build = forwardsTurnAndReturn.build();
+
+        // Create trajectory actions using actionBuilder
+        Action moveForwardAndTurn = drive.actionBuilder(startPose)
+                .lineToX(24)  // Move forward 24 inches
+                .turn(Math.toRadians(90))  // Turn left 90 degrees
+                .build();
+
         waitForStart();
 
         if (isStopRequested()) return;
 
         try {
-            // Create trajectory actions using actionBuilder
-            Action moveForwardAndTurn = drive.actionBuilder(startPose)
-                    .lineToX(24)  // Move forward 24 inches
-                    .turn(Math.toRadians(90))  // Turn left 90 degrees
-                    .build();
 
             // action sequence
             Actions.runBlocking(moveForwardAndTurn);
