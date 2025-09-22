@@ -3,6 +3,8 @@ package org.firstinspires.ftc.teamcode.champion.teleop;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
@@ -39,6 +41,7 @@ public class BasicTeleop extends LinearOpMode {
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
@@ -46,6 +49,8 @@ public class BasicTeleop extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+
+            shooterController.updatePID();
 
             if (driveController.isFastSpeedMode()) {
                 drive = -gamepad1.left_stick_y * SixWheelDriveController.FAST_SPEED_MULTIPLIER;
@@ -112,19 +117,12 @@ public class BasicTeleop extends LinearOpMode {
 
             if (gamepad1.right_trigger > 0.1) {
                 transferController.transferFull();
-            }
-
-            if (gamepad1.right_trigger < 0.1) {
-                transferController.transferStop();
-            }
-
-            if (gamepad1.left_trigger > 0.1) {
+            } else if (gamepad1.left_trigger > 0.1) {
                 transferController.transferEject();
-            }
-
-            if (gamepad1.left_trigger < 0.1) {
+            } else {
                 transferController.transferStop();
             }
+
 
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
@@ -179,11 +177,18 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
                 telemetry.addData("Shooting Power:", SHOOTING_POWER);
-                telemetry.addData("Intake Power:", INTAKE_POWER);
+                //telemetry.addData("Intake Power:", INTAKE_POWER);
 
-                telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
+                //telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
                 telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
-                telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
+                telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
+                telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
+                telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✓ YES" : "NO");
+                if (shooterController.isInBoostMode()) {
+                    telemetry.addLine("★ BOOST MODE ACTIVE ★");
+                }
+                telemetry.addData("Shots Fired (Boost Count)", shooterController.getBoostCount());
+                //telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y", "%.2f", driveController.getY());
