@@ -28,13 +28,13 @@ public class ShooterController {
     public static double WHEEL_DIAMETER_METERS = 0.10795;
 
     // Velocity control tolerances
-    public static double RPM_TOLERANCE = 25; // RPM tolerance for "at target" check
+    public static double RPM_TOLERANCE = 100; // RPM tolerance for "at target" check
 
     // PID Constants - Tunable via FTC Dashboard
     // Conservative values to prevent overshoot
-    public static double kP = 0.00008;    // Power per RPM error - reduced to prevent overshoot
+    public static double kP = 0.85;    // Power per RPM error - reduced to prevent overshoot
     public static double kI = 0.0;    // Start with 0, add later for steady-state correction
-    public static double kD = 0.003;   // Derivative for stability - reduced for smoother response
+    public static double kD = 0.02;   // Derivative for stability - reduced for smoother response
 
     // PID limits
     public static double MAX_INTEGRAL = 2000;  // Integral windup limit in RPM*seconds
