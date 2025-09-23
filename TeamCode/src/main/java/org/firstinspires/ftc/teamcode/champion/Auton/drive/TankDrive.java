@@ -69,15 +69,16 @@ public final class TankDrive {
         public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
                 RevHubOrientationOnRobot.LogoFacingDirection.UP;
         public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
-                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD;
+                RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD;
 
         // drive model parameters
-        public double wheelRadius = 3.78;
+        public double wheelRadius = 1.89;
         public double gearRatio = 1;
         public double ticksPerRev = 537.7;
         public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
 
         public double trackWidthTicks = 15 / inPerTick;
+        public double trackWidthInches = 15;
 
         // feedforward parameters (in tick units)
         public double kS = 0.1;
@@ -90,8 +91,8 @@ public final class TankDrive {
         public double maxProfileAccel = 30;
 
         // turn profile parameters (in radians)
-        public double maxAngVel = (2 * maxWheelVel) / trackWidthTicks; // shared with path
-        public double maxAngAccel = (2 * maxWheelVel) / trackWidthTicks;
+        public double maxAngVel = (2 * maxWheelVel) / trackWidthInches; // shared with path
+        public double maxAngAccel = (2 * maxProfileAccel) / trackWidthInches;
 
         // path controller gains
         public double ramseteZeta = 0.7; // in the range (0, 1)
@@ -116,6 +117,7 @@ public final class TankDrive {
     public final AccelConstraint defaultAccelConstraint =
             new ProfileAccelConstraint(PARAMS.minProfileAccel, PARAMS.maxProfileAccel);
 
+    public final DcMotorEx leftFront, rightFront, rightBack, leftBack;
     public final List<DcMotorEx> leftMotors, rightMotors;
 
     public final LazyImu lazyImu;
@@ -241,19 +243,24 @@ public final class TankDrive {
         // TODO: make sure your config has motors with these names (or change them)
         //   add additional motors on each side if you have them
         //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
-        leftMotors = Arrays.asList(hardwareMap.get(DcMotorEx.class, "lf"),hardwareMap.get(DcMotorEx.class, "lb"));
-        rightMotors = Arrays.asList(hardwareMap.get(DcMotorEx.class, "rf"),hardwareMap.get(DcMotorEx.class, "rb"));
+        leftFront = hardwareMap.get(DcMotorEx.class, "lf");
+        leftBack = hardwareMap.get(DcMotorEx.class, "lb");
+        rightFront = hardwareMap.get(DcMotorEx.class, "rf");
+        rightBack = hardwareMap.get(DcMotorEx.class, "rb");
+
+        leftMotors = Arrays.asList(leftFront, leftBack);
+        rightMotors = Arrays.asList(rightFront, rightBack);
 
 
-        leftMotors.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
-        leftMotors.get(1).setDirection(DcMotorSimple.Direction.FORWARD);
-        rightMotors.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
-        rightMotors.get(1).setDirection(DcMotorSimple.Direction.FORWARD);
+        leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
+        rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
 
-        leftMotors.get(0).setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
-        leftMotors.get(1).setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
-        rightMotors.get(0).setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
-        rightMotors.get(1).setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
+        leftFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rightFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rightBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         for (DcMotorEx m : leftMotors) {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
