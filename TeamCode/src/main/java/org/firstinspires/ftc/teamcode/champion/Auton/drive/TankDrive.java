@@ -244,15 +244,23 @@ public final class TankDrive {
         leftMotors = Arrays.asList(hardwareMap.get(DcMotorEx.class, "lf"),hardwareMap.get(DcMotorEx.class, "lb"));
         rightMotors = Arrays.asList(hardwareMap.get(DcMotorEx.class, "rf"),hardwareMap.get(DcMotorEx.class, "rb"));
 
+
+        leftMotors.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
+        leftMotors.get(1).setDirection(DcMotorSimple.Direction.FORWARD);
+        rightMotors.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
+        rightMotors.get(1).setDirection(DcMotorSimple.Direction.FORWARD);
+
+        leftMotors.get(0).setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
+        leftMotors.get(1).setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
+        rightMotors.get(0).setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
+        rightMotors.get(1).setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
+
         for (DcMotorEx m : leftMotors) {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            leftMotors.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
-            leftMotors.get(1).setDirection(DcMotorSimple.Direction.FORWARD);
         }
+
         for (DcMotorEx m : rightMotors) {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            rightMotors.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
-            rightMotors.get(1).setDirection(DcMotorSimple.Direction.FORWARD);
         }
 
         // TODO: reverse motor directions if needed

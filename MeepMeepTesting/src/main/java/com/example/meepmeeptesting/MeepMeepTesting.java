@@ -27,8 +27,6 @@ public class MeepMeepTesting {
         myFirstBot.runAction(myFirstBot.getDrive().actionBuilder(new Pose2d(0, 0, 0))
                 .lineToX(20)
                 .turn(Math.toRadians(90))
-                .lineToY(20)
-                .splineTo(endPose, Math.toRadians(0))
                 .build());
 
 //        // Declare out second bot

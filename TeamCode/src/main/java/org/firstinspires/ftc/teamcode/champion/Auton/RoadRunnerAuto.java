@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode.champion.Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -13,36 +12,20 @@ import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDrive;
 @Autonomous
 public class RoadRunnerAuto extends LinearOpMode {
 
+    public static double ForwardInch = 24.0;
+    public static double TurnAngle = 90.0;
+
     @Override
     public void runOpMode() {
-        TankDrive.PARAMS.inPerTick = 0.02;
-        TankDrive.PARAMS.trackWidthTicks = 600;
-        TankDrive.PARAMS.kS = 0.1;
-        TankDrive.PARAMS.kV = 0.01;
-        TankDrive.PARAMS.kA = 0.002;
-        TankDrive.PARAMS.maxWheelVel = 20;
-        TankDrive.PARAMS.maxProfileAccel = 15;
-        TankDrive.PARAMS.minProfileAccel = -15;
-        TankDrive.PARAMS.maxAngVel = Math.toRadians(60);
-        TankDrive.PARAMS.maxAngAccel = Math.toRadians(60);
 
         // starting pose
         Pose2d startPose = new Pose2d(0, 0, 0);
 
         TankDrive drive = new TankDrive(hardwareMap, startPose);
 
-//        TrajectoryActionBuilder forwardsTurnAndReturn = drive.actionBuilder(startPose)
-//                .lineToX(20)
-//                .turn(Math.toRadians(90))
-//                .lineToY(20)
-//                .splineTo(endPose, Math.toRadians(90));
-//
-//        Action build = forwardsTurnAndReturn.build();
-
-        // Create trajectory actions using actionBuilder
         Action moveForwardAndTurn = drive.actionBuilder(startPose)
-                .lineToX(24)  // Move forward 24 inches
-                .turn(Math.toRadians(90))  // Turn left 90 degrees
+                .lineToX(ForwardInch)  // Move forward 24 inches
+                .turn(Math.toRadians(TurnAngle))  // Turn left 90 degrees
                 .build();
 
         waitForStart();
@@ -50,7 +33,6 @@ public class RoadRunnerAuto extends LinearOpMode {
         if (isStopRequested()) return;
 
         try {
-
             // action sequence
             Actions.runBlocking(moveForwardAndTurn);
 
@@ -76,5 +58,5 @@ public class RoadRunnerAuto extends LinearOpMode {
                     drive.rightMotors.get(i).setPower(0);
                 }
             }
-
-}}
+    }
+}
