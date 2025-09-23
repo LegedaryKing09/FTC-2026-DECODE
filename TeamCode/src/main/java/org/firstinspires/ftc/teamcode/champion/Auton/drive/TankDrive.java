@@ -72,7 +72,7 @@ public final class TankDrive {
                 RevHubOrientationOnRobot.UsbFacingDirection.FORWARD;
 
         // drive model parameters
-        public double wheelRadius = 3.78;
+        public double wheelRadius = 1.89;
         public double gearRatio = 1;
         public double ticksPerRev = 537.7;
         public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
