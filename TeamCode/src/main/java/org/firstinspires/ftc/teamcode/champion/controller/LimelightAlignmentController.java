@@ -13,8 +13,9 @@ import com.qualcomm.robotcore.util.Range;
 import java.util.List;
 
 /**
- * Smooth AprilTag alignment controller - Fixed version
+ * Smooth AprilTag alignment controller with target search - Enhanced version
  * Uses exact PID values from working LimelightNotJerky code
+ * Added: Automatic right turn search when target is lost during alignment
  */
 @Config
 public class LimelightAlignmentController {
@@ -61,9 +62,17 @@ public class LimelightAlignmentController {
         public static double PROGRESSIVE_POWER = 1.5;
     }
 
+    // NEW: Target search configuration
+    @Config
+    public static class TargetSearch {
+        public static boolean ENABLE_SEARCH = true;        // Enable/disable search feature
+        public static double SEARCH_SPEED = 0.25;          // Speed for searching (right turn)
+        public static double SEARCH_DELAY_MS = 500;        // Wait time before starting search
+        public static double MAX_SEARCH_TIME_MS = 5000;    // Maximum search time before giving up
+    }
+
     // Tracking state
     private double tx = 0;
-    private double ty = 0;
     private double filteredTx = 0;
     private boolean hasTarget = false;
     private int targetTagId = 20;  // Default, can be changed
@@ -79,14 +88,18 @@ public class LimelightAlignmentController {
     private double currentOutput = 0;
     private final ElapsedTime accelerationTimer = new ElapsedTime();
 
-    // State tracking
+    // State tracking - ENHANCED with search state
     public enum AlignmentState {
-        ALIGNING, ALIGNED, TARGET_LOST, STOPPED
+        ALIGNING, ALIGNED, TARGET_LOST, SEARCHING, STOPPED
     }
     private AlignmentState currentState = AlignmentState.STOPPED;
 
     private final ElapsedTime stateTimer = new ElapsedTime();
     private int consecutiveAlignedFrames = 0;
+
+    // NEW: Search state tracking
+    private final ElapsedTime searchTimer = new ElapsedTime();
+    private boolean wasAligning = false;  // Track if we were previously aligning
 
     // Performance metrics
     private double maxError = 0;
@@ -122,6 +135,7 @@ public class LimelightAlignmentController {
         pidTimer.reset();
         accelerationTimer.reset();
         stateTimer.reset();
+        searchTimer.reset();
     }
 
     /**
@@ -138,7 +152,9 @@ public class LimelightAlignmentController {
         isActive = true;
         currentState = AlignmentState.TARGET_LOST;
         consecutiveAlignedFrames = 0;
+        wasAligning = false;
         resetPID();
+        resetSearchState();
     }
 
     /**
@@ -149,6 +165,7 @@ public class LimelightAlignmentController {
         currentState = AlignmentState.STOPPED;
         driveController.stopDrive();
         resetPID();
+        resetSearchState();
     }
 
     /**
@@ -171,6 +188,9 @@ public class LimelightAlignmentController {
             case TARGET_LOST:
                 handleTargetLost();
                 break;
+            case SEARCHING:
+                executeTargetSearch();
+                break;
             case STOPPED:
                 // Do nothing
                 break;
@@ -184,7 +204,14 @@ public class LimelightAlignmentController {
      * Check if currently aligned
      */
     public boolean isAligned() {
-        return currentState == AlignmentState.ALIGNED;
+        return currentState != AlignmentState.ALIGNED;
+    }
+
+    /**
+     * Check if currently searching
+     */
+    public boolean isSearching() {
+        return currentState == AlignmentState.SEARCHING;
     }
 
     /**
@@ -209,7 +236,41 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Main alignment execution
+     * NEW: Execute target search by turning right
+     */
+    private void executeTargetSearch() {
+        if (!TargetSearch.ENABLE_SEARCH) {
+            // If search is disabled, just handle as normal target lost
+            handleTargetLostNoSearch();
+            return;
+        }
+
+        // Check if we found the target
+        if (hasTarget) {
+            currentState = AlignmentState.ALIGNING;
+            resetSearchState();
+            return;
+        }
+
+        // Check search timeout
+        if (searchTimer.milliseconds() > TargetSearch.MAX_SEARCH_TIME_MS) {
+            currentState = AlignmentState.TARGET_LOST;
+            resetSearchState();
+            smoothStop();
+            return;
+        }
+
+        // Execute search turn (right turn = positive power for left wheels, negative for right)
+        double searchPower = TargetSearch.SEARCH_SPEED;
+        driveController.tankDrive(searchPower, -searchPower);  // Turn right
+
+        // Update tracking for smooth output
+        currentOutput = searchPower;
+        lastOutput = currentOutput;
+    }
+
+    /**
+     * Main alignment execution (unchanged from working version)
      */
     private void executeSmoothedAlignment() {
         if (!hasTarget) {
@@ -255,7 +316,7 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Calculate PID with exact logic from working code
+     * Calculate PID with exact logic from working code (unchanged)
      */
     private double calculateSmoothedPID(double error) {
         double currentTime = pidTimer.seconds();
@@ -312,7 +373,7 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Apply acceleration limiting
+     * Apply acceleration limiting (unchanged)
      */
     private double applyAccelerationLimit(double targetPower) {
         double dt = accelerationTimer.seconds();
@@ -331,7 +392,7 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Smooth stop
+     * Smooth stop (unchanged)
      */
     private void smoothStop() {
         currentOutput *= 0.8;
@@ -345,7 +406,7 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Apply turn power
+     * Apply turn power (unchanged)
      */
     private void applyTurn(double turnPower) {
         if (Math.abs(turnPower) > 0 && Math.abs(turnPower) < 0.05) {
@@ -355,13 +416,14 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Maintain alignment when aligned
+     * Maintain alignment when aligned (unchanged)
      */
     private void maintainAlignment() {
         if (!hasTarget) {
             currentState = AlignmentState.TARGET_LOST;
             stateTimer.reset();
             consecutiveAlignedFrames = 0;
+            wasAligning = false;  // Reset alignment tracking
             return;
         }
 
@@ -370,6 +432,7 @@ public class LimelightAlignmentController {
         if (absError > AlignmentZones.DEAD_ZONE) {
             currentState = AlignmentState.ALIGNING;
             consecutiveAlignedFrames = 0;
+            wasAligning = true;  // We're now aligning
             return;
         }
 
@@ -385,35 +448,69 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Handle lost target
+     * ENHANCED: Handle lost target with search logic
      */
     private void handleTargetLost() {
+        // If search is enabled and we were previously aligning, start search
+        if (TargetSearch.ENABLE_SEARCH && wasAligning && stateTimer.milliseconds() > TargetSearch.SEARCH_DELAY_MS) {
+            currentState = AlignmentState.SEARCHING;
+            searchTimer.reset();
+            return;
+        }
+
+        // Default behavior: smooth stop and wait
+        handleTargetLostNoSearch();
+    }
+
+    /**
+     * Handle target lost without search (original behavior)
+     */
+    private void handleTargetLostNoSearch() {
         smoothStop();
         consecutiveAlignedFrames = 0;
 
         if (hasTarget) {
             currentState = AlignmentState.ALIGNING;
             integralSum *= 0.5;
+            wasAligning = true;
         }
     }
 
     /**
-     * Update state transitions
+     * ENHANCED: Update state transitions with search logic
      */
     private void updateState() {
-        if (!hasTarget && currentState != AlignmentState.TARGET_LOST && currentState != AlignmentState.STOPPED) {
+        // Handle target found during search
+        if (currentState == AlignmentState.SEARCHING && hasTarget) {
+            currentState = AlignmentState.ALIGNING;
+            resetSearchState();
+            return;
+        }
+
+        // Handle target lost
+        if (!hasTarget && currentState != AlignmentState.TARGET_LOST &&
+                currentState != AlignmentState.SEARCHING && currentState != AlignmentState.STOPPED) {
             currentState = AlignmentState.TARGET_LOST;
             stateTimer.reset();
             consecutiveAlignedFrames = 0;
-        } else if (hasTarget && currentState == AlignmentState.TARGET_LOST) {
+            // Don't reset wasAligning here - we need it for search decision
+        }
+        // Handle target found from lost state
+        else if (hasTarget && currentState == AlignmentState.TARGET_LOST) {
             currentState = AlignmentState.ALIGNING;
             integralSum *= 0.5;
             lastError *= 0.5;
+            wasAligning = true;
+            resetSearchState();
+        }
+        // Track when we start aligning
+        else if (currentState == AlignmentState.ALIGNING) {
+            wasAligning = true;
         }
     }
 
     /**
-     * Update tracking from Limelight
+     * Update tracking from Limelight (unchanged)
      */
     private void updateTracking() {
         if (limelight == null) {
@@ -432,7 +529,6 @@ public class LimelightAlignmentController {
                     if (fiducial.getFiducialId() == targetTagId) {
                         hasTarget = true;
                         tx = fiducial.getTargetXDegrees();
-                        ty = fiducial.getTargetYDegrees();
 
                         if (!previousHasTarget) {
                             filteredTx = tx;
@@ -452,7 +548,7 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Update performance metrics
+     * Update performance metrics (unchanged)
      */
     private void updateMetrics() {
         if (hasTarget) {
@@ -465,7 +561,7 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Reset PID state
+     * Reset PID state (unchanged)
      */
     public void resetPID() {
         integralSum = 0;
@@ -478,7 +574,14 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Reset performance metrics
+     * NEW: Reset search state
+     */
+    private void resetSearchState() {
+        searchTimer.reset();
+    }
+
+    /**
+     * Reset performance metrics (unchanged)
      */
     public void resetMetrics() {
         maxError = 0;
@@ -488,7 +591,7 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Send telemetry to dashboard
+     * ENHANCED: Send telemetry to dashboard with search info
      */
     private void sendDashboardData() {
         if (dashboard == null) return;
@@ -506,11 +609,16 @@ public class LimelightAlignmentController {
         packet.put("Integral_Sum", integralSum);
         packet.put("Aligned_Frames", consecutiveAlignedFrames);
 
+        // NEW: Search telemetry
+        packet.put("Was_Aligning", wasAligning);
+        packet.put("Search_Time_MS", searchTimer.milliseconds());
+        packet.put("Search_Enabled", TargetSearch.ENABLE_SEARCH);
+
         dashboard.sendTelemetryPacket(packet);
     }
 
     /**
-     * Display telemetry to driver station
+     * ENHANCED: Display telemetry to driver station with search info
      */
     public void displayTelemetry() {
         opMode.telemetry.addLine("═══ ALIGNMENT ═══");
@@ -520,14 +628,26 @@ public class LimelightAlignmentController {
         if (hasTarget) {
             opMode.telemetry.addData("Error", "%.2f°", Math.abs(filteredTx));
             opMode.telemetry.addData("Output", "%.3f", currentOutput);
-
-            // Show PID values for verification
-            opMode.telemetry.addLine();
-            opMode.telemetry.addLine("── PID VALUES ──");
-            opMode.telemetry.addData("KP", "%.4f", AlignmentPID.KP);
-            opMode.telemetry.addData("KI", "%.4f", AlignmentPID.KI);
-            opMode.telemetry.addData("KD", "%.4f", AlignmentPID.KD);
-            opMode.telemetry.addData("MIN_SPEED", "%.2f", AlignmentSpeed.MIN_SPEED);
         }
+
+        // NEW: Search status
+        if (currentState == AlignmentState.SEARCHING) {
+            opMode.telemetry.addData("Search Time", "%.1fs", searchTimer.seconds());
+            opMode.telemetry.addData("Search Max", "%.1fs", TargetSearch.MAX_SEARCH_TIME_MS / 1000.0);
+        }
+
+        // Show PID values for verification
+        opMode.telemetry.addLine();
+        opMode.telemetry.addLine("── PID VALUES ──");
+        opMode.telemetry.addData("KP", "%.4f", AlignmentPID.KP);
+        opMode.telemetry.addData("KI", "%.4f", AlignmentPID.KI);
+        opMode.telemetry.addData("KD", "%.4f", AlignmentPID.KD);
+        opMode.telemetry.addData("MIN_SPEED", "%.2f", AlignmentSpeed.MIN_SPEED);
+
+        // NEW: Search settings
+        opMode.telemetry.addLine();
+        opMode.telemetry.addLine("── SEARCH ──");
+        opMode.telemetry.addData("Search Enabled", TargetSearch.ENABLE_SEARCH);
+        opMode.telemetry.addData("Search Speed", "%.2f", TargetSearch.SEARCH_SPEED);
     }
 }

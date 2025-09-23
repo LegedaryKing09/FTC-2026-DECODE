@@ -177,9 +177,9 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
                 telemetry.addData("Shooting Power:", SHOOTING_POWER);
-                //telemetry.addData("Intake Power:", INTAKE_POWER);
+                telemetry.addData("Intake Power:", INTAKE_POWER);
 
-                //telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
+                telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
                 telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
                 telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
                 telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());

@@ -72,7 +72,7 @@ public class WorkingCompositeTeleop extends LinearOpMode {
                 long alignmentStartTime = System.currentTimeMillis();
                 long alignmentTimeout = 3000; // 3 seconds timeout
 
-                while (opModeIsActive() && !LimelightAlignmentController.isAligned() &&
+                while (opModeIsActive() && LimelightAlignmentController.isAligned() &&
                         (System.currentTimeMillis() - alignmentStartTime) < alignmentTimeout) {
                     LimelightAlignmentController.align(20);
                     // Optional: Add telemetry to see alignment status
@@ -107,14 +107,14 @@ public class WorkingCompositeTeleop extends LinearOpMode {
 
             if (gamepad1.dpad_up && SHOOTING_POWER < 1 && !isPressingDpadUp) {
                 isPressingDpadUp = true;
-                SHOOTING_POWER = SHOOTING_POWER + 0.05;
+                SHOOTING_POWER = SHOOTING_POWER + 0.01;
             } else if (!gamepad1.dpad_up && isPressingDpadUp) {
                 isPressingDpadUp = false;
             }
 
             if (gamepad1.dpad_down && SHOOTING_POWER > 0 && !isPressingDpadDown) {
                 isPressingDpadDown = true;
-                SHOOTING_POWER = SHOOTING_POWER - 0.05;
+                SHOOTING_POWER = SHOOTING_POWER - 0.01;
             } else if (!gamepad1.dpad_down && isPressingDpadDown) {
                 isPressingDpadDown = false;
             }
