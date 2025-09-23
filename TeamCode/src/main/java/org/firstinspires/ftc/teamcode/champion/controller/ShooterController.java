@@ -32,8 +32,8 @@ public class ShooterController {
 
     // PID Constants - Tunable via FTC Dashboard
     // AGGRESSIVE values for fast response and zero steady-state error
-    public static double kP = 0.001;    // Power per RPM error
-    public static double kI = 0.0008;    // Builds up quickly to eliminate steady-state error
+    public static double kP = 0.0005;    // Power per RPM error
+    public static double kI = 0.0;    // Builds up quickly to eliminate steady-state error
     public static double kD = 0.015;   // Derivative for stability
 
     // PID limits
