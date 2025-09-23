@@ -184,10 +184,6 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
                 telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
                 telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✓ YES" : "NO");
-                if (shooterController.isInBoostMode()) {
-                    telemetry.addLine("★ BOOST MODE ACTIVE ★");
-                }
-                telemetry.addData("Shots Fired (Boost Count)", shooterController.getBoostCount());
                 //telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
 
                 telemetry.addData("Robot X", "%.2f", driveController.getX());

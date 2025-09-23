@@ -31,24 +31,17 @@ public class ShooterController {
     public static double RPM_TOLERANCE = 25; // RPM tolerance for "at target" check
 
     // PID Constants - Tunable via FTC Dashboard
-    // AGGRESSIVE values for fast response and zero steady-state error
-    public static double kP = 0.0005;    // Power per RPM error
-    public static double kI = 0.0;    // Builds up quickly to eliminate steady-state error
-    public static double kD = 0.015;   // Derivative for stability
+    // Conservative values to prevent overshoot
+    public static double kP = 0.00008;    // Power per RPM error - reduced to prevent overshoot
+    public static double kI = 0.0;    // Start with 0, add later for steady-state correction
+    public static double kD = 0.003;   // Derivative for stability - reduced for smoother response
 
     // PID limits
     public static double MAX_INTEGRAL = 2000;  // Integral windup limit in RPM*seconds
     public static double DERIVATIVE_FILTER_GAIN = 0.7; // 0-1, higher = less filtering
 
-    // BOOST RECOVERY SYSTEM - For rapid recovery after shooting
-    public static double BOOST_TRIGGER_DROP = 150;    // RPM drop that triggers boost mode
-    public static double BOOST_RECOVERY_TARGET = 0.9;  // Recover to 90% of target before exiting boost
-    public static double BOOST_POWER = 1.0;            // Full power during boost
-    public static double BOOST_TIMEOUT = 1.0;          // Max boost duration in seconds
-    public static double DROP_DETECTION_TIME = 0.05;   // Time window for detecting drops
-
     private enum ShooterMode {
-        VELOCITY_CONTROL, STOP, BOOST_RECOVERY
+        VELOCITY_CONTROL, STOP
     }
 
     private final DcMotorEx shooter1;
@@ -67,14 +60,6 @@ public class ShooterController {
     // PID output tracking
     private double pidOutput = 0;
 
-    // Boost recovery system variables
-    private double lastRPM = 0;
-    private double lastRPMCheckTime = 0;
-    private final ElapsedTime boostTimer = new ElapsedTime();
-    private boolean inBoostMode = false;
-    private int boostCount = 0;
-    private double rpmBeforeBoost = 0;
-
     public ShooterController(LinearOpMode opMode) {
         shooter1 = opMode.hardwareMap.get(DcMotorEx.class, SHOOTER_NAME1);
         shooter2 = opMode.hardwareMap.get(DcMotorEx.class, SHOOTER_NAME2);
@@ -90,7 +75,6 @@ public class ShooterController {
 
         // Initialize timers
         pidTimer.reset();
-        boostTimer.reset();
     }
 
     // Get raw encoder position from shooter1
@@ -127,22 +111,7 @@ public class ShooterController {
         return Math.abs(getShooterRPM() - targetRPM) <= RPM_TOLERANCE;
     }
 
-    // Detect sudden RPM drops from shooting balls
-    private boolean detectShotFired(double currentRPM, double currentTime) {
-        double timeSinceLastCheck = currentTime - lastRPMCheckTime;
-
-        if (timeSinceLastCheck > 0 && timeSinceLastCheck < DROP_DETECTION_TIME) {
-            double rpmDropRate = (lastRPM - currentRPM) / timeSinceLastCheck;
-            // Check for rapid RPM drop
-            if ((lastRPM - currentRPM) > BOOST_TRIGGER_DROP && rpmDropRate > 1000) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    // Main PID update function with boost recovery - should be called regularly from opMode loop
+    // Main PID update function - should be called regularly from opMode loop
     public void updatePID() {
         if (shooterMode != ShooterMode.STOP && targetRPM > 0) {
             double currentTime = pidTimer.seconds();
@@ -152,57 +121,7 @@ public class ShooterController {
                 double currentRPM = getShooterRPM();
                 double error = targetRPM - currentRPM;
 
-                // BOOST RECOVERY DETECTION
-                // Check if we should enter boost mode (shot detected)
-                if (!inBoostMode && shooterMode == ShooterMode.VELOCITY_CONTROL) {
-                    if (detectShotFired(currentRPM, currentTime)) {
-                        // Enter boost mode
-                        inBoostMode = true;
-                        shooterMode = ShooterMode.BOOST_RECOVERY;
-                        boostTimer.reset();
-                        boostCount++;
-                        rpmBeforeBoost = currentRPM;
-
-                        // Apply maximum power immediately
-                        shooter1.setPower(BOOST_POWER);
-                        shooter2.setPower(-BOOST_POWER);
-                    }
-                }
-
-                // BOOST MODE HANDLING
-                if (inBoostMode) {
-                    // Check if we should exit boost mode
-                    boolean exitBoost = false;
-
-                    // Exit if RPM recovered to target threshold
-                    if (currentRPM >= targetRPM * BOOST_RECOVERY_TARGET) {
-                        exitBoost = true;
-                    }
-
-                    // Exit if timeout exceeded
-                    if (boostTimer.seconds() > BOOST_TIMEOUT) {
-                        exitBoost = true;
-                    }
-
-                    if (exitBoost) {
-                        inBoostMode = false;
-                        shooterMode = ShooterMode.VELOCITY_CONTROL;
-                        // Reset integral to prevent overshoot when exiting boost
-                        integralSum = 0;
-                    } else {
-                        // Continue boost - maintain full power
-                        shooter1.setPower(BOOST_POWER);
-                        shooter2.setPower(-BOOST_POWER);
-
-                        // Update tracking variables but skip PID
-                        lastRPM = currentRPM;
-                        lastRPMCheckTime = currentTime;
-                        lastPidTime = currentTime;
-                        return;
-                    }
-                }
-
-                // NORMAL PID CONTROL (when not in boost mode)
+                // NORMAL PID CONTROL
                 if (shooterMode == ShooterMode.VELOCITY_CONTROL) {
                     // Proportional term - immediate response to error
                     double pTerm = kP * error;
@@ -228,11 +147,8 @@ public class ShooterController {
                     // Calculate total PID output as motor power adjustment
                     double pidCorrection = pTerm + iTerm + dTerm;
 
-                    // Base power estimate with slight boost for faster response
-                    double basePower = (targetRPM / SHOOTER_FULL_RPM) * 0.95; // Slight underestimate
-
-                    // Total motor power = base + PID correction
-                    double motorPower = basePower + pidCorrection;
+                    // Total motor power = PID correction only (no feedforward)
+                    double motorPower = pidCorrection;
 
                     // Aggressive clamping - allow full power when needed
                     motorPower = Math.max(0.0, Math.min(1.0, motorPower));
@@ -250,8 +166,6 @@ public class ShooterController {
 
                 // Update state for next iteration
                 lastError = error;
-                lastRPM = currentRPM;
-                lastRPMCheckTime = currentTime;
                 lastPidTime = currentTime;
             }
         }
@@ -271,8 +185,6 @@ public class ShooterController {
             lastError = 0;
             lastDerivative = 0;
             pidOutput = 0;
-            inBoostMode = false;
-            boostCount = 0;
         } else {
             shooterMode = ShooterMode.VELOCITY_CONTROL;
 
@@ -281,36 +193,14 @@ public class ShooterController {
             if (Math.abs(rpm - lastTargetRPM) > 500) {
                 integralSum = 0;
                 lastError = 0;
-                inBoostMode = false;
             }
 
-            // Set initial power based on target RPM
-            // Aggressive initial estimate for faster response
-            double initialPower = (rpm / SHOOTER_FULL_RPM) * 1.05; // 5% boost for faster spinup
-            initialPower = Math.max(0, Math.min(1, initialPower));
-
+            // Set initial power to 0 - let PID handle everything
             // Apply initial power to get motors spinning immediately
-            shooter1.setPower(initialPower);
-            shooter2.setPower(-initialPower); // Opposite direction
+            shooter1.setPower(0);
+            shooter2.setPower(0);
 
             lastTargetRPM = targetRPM;
-            lastRPM = getShooterRPM();
-            lastRPMCheckTime = pidTimer.seconds();
-        }
-    }
-
-    // Manual boost trigger - can be called when you know a shot was fired
-    public void triggerBoost() {
-        if (shooterMode == ShooterMode.VELOCITY_CONTROL && targetRPM > 0) {
-            inBoostMode = true;
-            shooterMode = ShooterMode.BOOST_RECOVERY;
-            boostTimer.reset();
-            boostCount++;
-            rpmBeforeBoost = getShooterRPM();
-
-            // Apply maximum power immediately
-            shooter1.setPower(BOOST_POWER);
-            shooter2.setPower(-BOOST_POWER);
         }
     }
 
@@ -353,14 +243,6 @@ public class ShooterController {
         return shooterMode != ShooterMode.STOP;
     }
 
-    public boolean isInBoostMode() {
-        return inBoostMode;
-    }
-
-    public int getBoostCount() {
-        return boostCount;
-    }
-
     // Get current RPM error for debugging
     public double getRPMError() {
         return targetRPM - getShooterRPM();
@@ -387,11 +269,6 @@ public class ShooterController {
         return kD * lastDerivative;
     }
 
-    // Reset boost counter
-    public void resetBoostCount() {
-        boostCount = 0;
-    }
-
     // Add telemetry data to the telemetry object
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Shooter Status", shooterMode);
@@ -402,14 +279,6 @@ public class ShooterController {
         telemetry.addData("Shooter1 Power", "%.3f", getShooterPower());
         telemetry.addData("Shooter2 Power", "%.3f", getShooter2Power());
         telemetry.addData("Encoder Velocity", "%.1f tps", getEncoderVelocity());
-
-        // Boost mode telemetry
-        if (inBoostMode) {
-            telemetry.addLine("★★★ BOOST MODE ACTIVE ★★★");
-            telemetry.addData("Boost Time", "%.2f s", boostTimer.seconds());
-            telemetry.addData("RPM Before Boost", "%.0f", rpmBeforeBoost);
-        }
-        telemetry.addData("Boost Count", boostCount);
 
         // PID debugging telemetry
         telemetry.addData("PID Output", "%.1f RPM", pidOutput);
@@ -422,8 +291,7 @@ public class ShooterController {
     // Get telemetry data as string (alternative method)
     @SuppressLint("DefaultLocale")
     public String getTelemetryData() {
-        String boostIndicator = inBoostMode ? " [BOOST]" : "";
-        return String.format("Target: %.0f RPM | Current: %.0f RPM | Error: %.0f | At Target: %s%s",
-                targetRPM, getShooterRPM(), getRPMError(), isAtTargetRPM() ? "YES" : "NO", boostIndicator);
+        return String.format("Target: %.0f RPM | Current: %.0f RPM | Error: %.0f | At Target: %s",
+                targetRPM, getShooterRPM(), getRPMError(), isAtTargetRPM() ? "YES" : "NO");
     }
 }
