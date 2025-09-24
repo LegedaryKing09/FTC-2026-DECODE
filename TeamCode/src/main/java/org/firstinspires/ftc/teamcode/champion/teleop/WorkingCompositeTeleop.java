@@ -19,7 +19,8 @@ public class WorkingCompositeTeleop extends LinearOpMode {
     ShooterController shooterController;
     IntakeController intakeController;
     LimelightAlignmentController LimelightAlignmentController;
-    public static double SHOOTING_POWER = 0.67;
+    public static double SHOOTING_RPM = 2850;
+    public static double RPM_INCREMENT = 100;
     public static double INTAKE_POWER = 0;
 
     boolean isUsingTelemetry = true;
@@ -53,18 +54,19 @@ public class WorkingCompositeTeleop extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            shooterController.updatePID();
+
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
                 intakeController.intakeFull();
                 driveController.tankDrive(0.8, 0.8);
                 sleep(300);
                 driveController.tankDrive(-0.8, -0.8);
-                sleep(300);
+                sleep(350);
                 driveController.stopDrive();
                 intakeController.intakeStop();
                 transferController.transferStop();
-                shooterController.setShooterPower(SHOOTING_POWER);
-
+                shooterController.setShooterRPM(SHOOTING_RPM);
                 // Fix: Start alignment before calling align
                 LimelightAlignmentController.startAlignment();
 
@@ -86,10 +88,46 @@ public class WorkingCompositeTeleop extends LinearOpMode {
                 // Stop alignment to prevent interference with subsequent operations
                 LimelightAlignmentController.stopAlignment();
                 driveController.stopDrive();
-                sleep(2750);
-                transferController.transferFull();
-                intakeController.intakeFull();
-                sleep(1500);
+                shooterController.setShooterRPM(SHOOTING_RPM);
+
+                long shooterStartTime = System.currentTimeMillis();
+                long shooterTimeout = 3000; // 3 seconds max to reach RPM
+
+                telemetry.addLine("Waiting for shooter to reach target RPM...");
+                telemetry.update();
+
+                while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
+                        (System.currentTimeMillis() - shooterStartTime) < shooterTimeout) {
+                    // Keep updating PID while waiting
+                    shooterController.updatePID();
+
+                    telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
+                    telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
+                    telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
+                    telemetry.addData("At Target", shooterController.isAtTargetRPM());
+                    telemetry.update();
+                    sleep(10);
+                }
+
+                if (shooterController.isAtTargetRPM()) {
+                    telemetry.addLine("Shooter at target RPM - FIRING!");
+                    telemetry.update();
+
+                    // Transfer and shoot
+                    transferController.transferFull();
+                    intakeController.intakeFull();
+
+                    // Keep updating PID during shooting to maintain RPM
+                    long shootingTime = System.currentTimeMillis();
+                    while (opModeIsActive() && (System.currentTimeMillis() - shootingTime) < 1500) {
+                        shooterController.updatePID();
+                        sleep(10);
+                    }
+                } else {
+                    telemetry.addLine("Failed to reach target RPM - aborting shot");
+                    telemetry.update();
+                    sleep(500);
+                }
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
             }
@@ -105,16 +143,20 @@ public class WorkingCompositeTeleop extends LinearOpMode {
                 isPressingX = false;
             }
 
-            if (gamepad1.dpad_up && SHOOTING_POWER < 1 && !isPressingDpadUp) {
+            if (gamepad1.dpad_up && SHOOTING_RPM < ShooterController.SHOOTER_FULL_RPM && !isPressingDpadUp) {
                 isPressingDpadUp = true;
-                SHOOTING_POWER = SHOOTING_POWER + 0.01;
+                SHOOTING_RPM = Math.min(SHOOTING_RPM + RPM_INCREMENT, ShooterController.SHOOTER_FULL_RPM);
+                telemetry.addData("Shooting RPM adjusted to", "%.0f", SHOOTING_RPM);
+                telemetry.update();
             } else if (!gamepad1.dpad_up && isPressingDpadUp) {
                 isPressingDpadUp = false;
             }
 
-            if (gamepad1.dpad_down && SHOOTING_POWER > 0 && !isPressingDpadDown) {
+            if (gamepad1.dpad_down && SHOOTING_RPM > 0 && !isPressingDpadDown) {
                 isPressingDpadDown = true;
-                SHOOTING_POWER = SHOOTING_POWER - 0.01;
+                SHOOTING_RPM = Math.max(SHOOTING_RPM - RPM_INCREMENT, 0);
+                telemetry.addData("Shooting RPM adjusted to", "%.0f", SHOOTING_RPM);
+                telemetry.update();
             } else if (!gamepad1.dpad_down && isPressingDpadDown) {
                 isPressingDpadDown = false;
             }

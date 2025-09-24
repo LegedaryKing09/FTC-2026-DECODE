@@ -77,7 +77,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
                 shooterController.setShooterRPM(SHOOTING_RPM);
 
                 // Start alignment
-                LimelightAlignmentController.startAlignment();
+                LimelightAlignmentController.align(20);
 
                 // Align to target
                 long alignmentStartTime = System.currentTimeMillis();
