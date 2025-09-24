@@ -26,8 +26,8 @@ public class LimelightAlignmentController {
 
     @Config
     public static class AlignmentPID {
-        public static double KP = 0.04;
-        public static double KI = 0.0003;
+        public static double KP = 0.08;
+        public static double KI = 0.0;
         public static double KD = 0.02;
         public static double INTEGRAL_LIMIT = 3.0;
     }
