@@ -3,196 +3,349 @@ package org.firstinspires.ftc.teamcode.champion.teleop;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
+import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 
+/**
+ * Streamlined Composite Shooter TeleOp
+ *
+ * ASSUMPTIONS:
+ * - AprilTag is already in vision (no search needed)
+ * - 2 balls are already intaked
+ *
+ * SEQUENCE:
+ * 1. Spin up shooter to target RPM
+ * 2. Align to target (within error threshold OR timeout)
+ * 3. Stop alignment, wait briefly for stability
+ * 4. Shoot immediately
+ *
+ * KEY FEATURES:
+ * - Uses practical alignment threshold (adjustable, default 1.5°)
+ * - 2-second alignment timeout ensures shooting happens
+ * - Thread-based execution like the working RPM test
+ * - Direct error checking without complex state tracking
+ *
+ * CONTROLS:
+ * - Gamepad1 Left Stick Y: Drive forward/backward
+ * - Gamepad1 Right Stick X: Turn
+ * - Gamepad1 A: Execute auto shoot sequence
+ * - Gamepad1 B: Manual alignment toggle
+ * - Gamepad1 X: Emergency stop all systems
+ * - Gamepad1 Y: Manual shoot (transfer/intake only)
+ * - Gamepad1 Right Bumper: Manual shooter toggle
+ */
 @Config
-@TeleOp
+@TeleOp(name = "Streamlined Composite Shooter", group = "Competition")
 public class FirstCompositeTeleop extends LinearOpMode {
 
+    // Controllers
     SixWheelDriveController driveController;
     TransferController transferController;
     ShooterController shooterController;
     IntakeController intakeController;
-    LimelightAlignmentController LimelightAlignmentController;
+    LimelightAlignmentController limelightController;
 
-    // Changed from SHOOTING_POWER to SHOOTING_RPM
-    public static double SHOOTING_RPM = 2850;  // Adjust this value based on your needs (67% of 5000 RPM)
-    public static double RPM_INCREMENT = 100;  // How much to adjust RPM with dpad
-    public static double INTAKE_POWER = 0;
+    // Dashboard config values
+    public static double TARGET_RPM = 2850;         // Target RPM for shooting
+    public static int APRILTAG_ID = 20;             // AprilTag to align to
+    public static double ALIGNMENT_THRESHOLD = 1.5; // Alignment error threshold in degrees
+    public static long ALIGNMENT_TIMEOUT = 2000;    // Max time to wait for alignment (ms)
+    public static long RPM_TIMEOUT = 3000;          // Max time to wait for RPM (ms)
+    public static long SHOOT_DURATION = 1000;       // Duration to run transfer/intake (ms)
+    public static long STABILITY_DELAY = 200;       // Delay after stopping alignment (ms)
 
-    boolean isUsingTelemetry = true;
-    boolean isPressingB = false;
-    boolean isPressingA = false;
-    boolean isPressingY = false;
-    boolean isPressingX = false;
-    boolean isPressingLeftBumper = false;
-    boolean isPressingRightBumper = false;
-    boolean isPressingDpadLeft = false;
-    boolean isPressingDpadUp = false;
-    boolean isPressingDpadDown = false;
-    boolean isPressingStart = false;
+    // State tracking
+    private boolean isAutoShooting = false;
+    private boolean isManualAligning = false;
+    private boolean shooterOn = false;
+
+    // Button tracking
+    private boolean lastA = false;
+    private boolean lastB = false;
+    private boolean lastX = false;
+    private boolean lastY = false;
+    private boolean lastRB = false;
+
+    // Performance tracking
+    private int shotsCompleted = 0;
+    private double lastShotTime = 0;
+    private ElapsedTime sessionTimer = new ElapsedTime();
 
     @Override
     public void runOpMode() {
-
+        // Initialize controllers
         driveController = new SixWheelDriveController(this);
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
+
         try {
-            LimelightAlignmentController = new LimelightAlignmentController(this);
+            limelightController = new LimelightAlignmentController(this);
+            limelightController.setTargetTag(APRILTAG_ID);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
+            telemetry.update();
         }
 
-        double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
-        double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
+        // Setup dashboard telemetry
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
+
+        telemetry.addLine("=== STREAMLINED SHOOTER READY ===");
+        telemetry.addLine("Assumptions: AprilTag visible, balls loaded");
+        telemetry.addLine("Press A to execute auto shoot sequence");
+        telemetry.update();
 
         waitForStart();
+        sessionTimer.reset();
 
         while (opModeIsActive()) {
-            // CRITICAL: Update PID controller every loop iteration
+            // CRITICAL: Always update shooter PID
             shooterController.updatePID();
 
-            // Autonomous shooting sequence with Y button
-            if (gamepad1.y && !isPressingY) {
-                isPressingY = true;
+            // Manual drive control (disabled during auto shoot)
+            if (!isAutoShooting && !isManualAligning) {
+                double drive = -gamepad1.left_stick_y * 0.8;
+                double turn = gamepad1.right_stick_x * 0.7;
+                driveController.arcadeDrive(drive, turn);
+            }
 
-                // Initial intake and movement sequence
-                intakeController.intakeFull();
-                driveController.tankDrive(0.8, 0.8);
-                sleep(300);
-                driveController.tankDrive(-0.8, -0.8);
-                sleep(300);
-                driveController.stopDrive();
-                intakeController.intakeStop();
-                transferController.transferStop();
-
-                // Set shooter to target RPM instead of power
-                shooterController.setShooterRPM(SHOOTING_RPM);
-
-                // Start alignment
-                LimelightAlignmentController.align(20);
-
-                // Align to target
-                long alignmentStartTime = System.currentTimeMillis();
-                long alignmentTimeout = 3000; // 3 seconds timeout
-
-                while (opModeIsActive() && !LimelightAlignmentController.isAligned() &&
-                        (System.currentTimeMillis() - alignmentStartTime) < alignmentTimeout) {
-                    // Update shooter PID while aligning
-                    shooterController.updatePID();
-                    LimelightAlignmentController.align(20);
-
-                    // Telemetry for alignment and shooter status
-                    telemetry.addData("Alignment State", LimelightAlignmentController.getState());
-                    telemetry.addData("Has Target", LimelightAlignmentController.hasTarget());
-                    telemetry.addData("Alignment Error", LimelightAlignmentController.getTargetError());
-                    telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
-                    telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
-                    telemetry.addData("At Target RPM", shooterController.isAtTargetRPM());
-                    telemetry.update();
-                    sleep(20);
+            // Update manual alignment if active
+            if (isManualAligning) {
+                limelightController.align(APRILTAG_ID);
+                if (limelightController.hasTarget() &&
+                        limelightController.getTargetError() <= ALIGNMENT_THRESHOLD) {
+                    telemetry.addLine(">>> ALIGNED - Ready to shoot!");
                 }
+            }
 
-                // Stop alignment
-                LimelightAlignmentController.stopAlignment();
+            // A Button - Auto shoot sequence (thread-based like working version)
+            if (gamepad1.a && !lastA && !isAutoShooting) {
+                executeAutoShootSequence();
+            }
+            lastA = gamepad1.a;
+
+            // B Button - Manual alignment toggle
+            if (gamepad1.b && !lastB) {
+                if (!isManualAligning && !isAutoShooting) {
+                    isManualAligning = true;
+                    limelightController.startAlignment();
+                } else if (isManualAligning) {
+                    isManualAligning = false;
+                    limelightController.stopAlignment();
+                    driveController.stopDrive();
+                }
+            }
+            lastB = gamepad1.b;
+
+            // X Button - Emergency stop
+            if (gamepad1.x && !lastX) {
+                emergencyStop();
+            }
+            lastX = gamepad1.x;
+
+            // Y Button - Manual shoot (transfer/intake only)
+            if (gamepad1.y && !lastY) {
+                manualShoot();
+            }
+            lastY = gamepad1.y;
+
+            // Right Bumper - Manual shooter toggle
+            if (gamepad1.right_bumper && !lastRB) {
+                if (!shooterOn) {
+                    shooterController.setShooterRPM(TARGET_RPM);
+                    shooterOn = true;
+                } else {
+                    shooterController.shooterStop();
+                    shooterOn = false;
+                }
+            }
+            lastRB = gamepad1.right_bumper;
+
+            // Display telemetry
+            displayTelemetry();
+            telemetry.update();
+        }
+    }
+
+    private void executeAutoShootSequence() {
+        isAutoShooting = true;
+
+        // Use a thread like the working version
+        new Thread(() -> {
+            try {
+                // Step 1: Stop any existing movement
                 driveController.stopDrive();
 
-                // Wait for shooter to reach target RPM before shooting
-                // This is the critical change - wait for stable RPM
-                long shooterStartTime = System.currentTimeMillis();
-                long shooterTimeout = 3000; // 3 seconds max to reach RPM
+                // Step 2: Start spinning up shooter
+                shooterController.setShooterRPM(TARGET_RPM);
 
-                telemetry.addLine("Waiting for shooter to reach target RPM...");
-                telemetry.update();
-
+                // Step 3: Wait for shooter to reach target RPM (with timeout)
+                long rpmStartTime = System.currentTimeMillis();
                 while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
-                        (System.currentTimeMillis() - shooterStartTime) < shooterTimeout) {
-                    // Keep updating PID while waiting
-                    shooterController.updatePID();
-
-                    telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
-                    telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
-                    telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
-                    telemetry.addData("At Target", shooterController.isAtTargetRPM());
-                    telemetry.update();
-                    sleep(10);
+                        (System.currentTimeMillis() - rpmStartTime) < RPM_TIMEOUT) {
+                    Thread.sleep(10);
                 }
 
-                // Only shoot if we reached target RPM
-                if (shooterController.isAtTargetRPM()) {
-                    telemetry.addLine("Shooter at target RPM - FIRING!");
-                    telemetry.update();
+                // Step 4: Align to target (with error threshold check)
+                if (limelightController != null) {
+                    limelightController.startAlignment();
 
-                    // Transfer and shoot
+                    long alignStartTime = System.currentTimeMillis();
+                    boolean alignmentGoodEnough = false;
+
+                    // Keep aligning until within threshold OR timeout
+                    while (opModeIsActive() &&
+                            (System.currentTimeMillis() - alignStartTime) < ALIGNMENT_TIMEOUT) {
+
+                        limelightController.align(APRILTAG_ID);
+
+                        // Check if we're within acceptable error threshold
+                        if (limelightController.hasTarget() &&
+                                limelightController.getTargetError() <= ALIGNMENT_THRESHOLD) {
+                            alignmentGoodEnough = true;
+                            break;
+                        }
+
+                        Thread.sleep(20);
+                    }
+
+                    // Stop alignment and motors
+                    limelightController.stopAlignment();
+                    driveController.stopDrive();
+
+                    // Brief stabilization delay
+                    Thread.sleep(STABILITY_DELAY);
+                }
+
+                // Step 5: Execute the shot!
+                // Ensure shooter is still at RPM
+                if (shooterController.isAtTargetRPM() ||
+                        Math.abs(shooterController.getRPMError()) < 200) {
+
+                    // Run transfer and intake to shoot
                     transferController.transferFull();
                     intakeController.intakeFull();
+                    Thread.sleep(SHOOT_DURATION);
 
-                    // Keep updating PID during shooting to maintain RPM
-                    long shootingTime = System.currentTimeMillis();
-                    while (opModeIsActive() && (System.currentTimeMillis() - shootingTime) < 1500) {
-                        shooterController.updatePID();
-                        sleep(10);
-                    }
-                } else {
-                    telemetry.addLine("Failed to reach target RPM - aborting shot");
-                    telemetry.update();
-                    sleep(500);
+                    // Stop transfer and intake
+                    transferController.transferStop();
+                    intakeController.intakeStop();
+
+                    shotsCompleted++;
+                    lastShotTime = sessionTimer.seconds();
+
+                    telemetry.addLine(">>> SHOT COMPLETED <<<");
+                    telemetry.addData("Shot #", shotsCompleted);
                 }
 
-            } else if (!gamepad1.y && isPressingY) {
-                isPressingY = false;
-            }
+                // Keep shooter running for next shot
 
-            // Emergency stop with X button
-            if (gamepad1.x && !isPressingX) {
-                isPressingX = true;
-                shooterController.shooterStop();
-                intakeController.intakeStop();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                isAutoShooting = false;
+            }
+        }).start();
+    }
+
+    private void manualShoot() {
+        // Manual shoot - just run transfer/intake
+        new Thread(() -> {
+            try {
+                transferController.transferFull();
+                intakeController.intakeFull();
+                Thread.sleep(SHOOT_DURATION);
                 transferController.transferStop();
-                LimelightAlignmentController.stopAlignment();
-                telemetry.addLine("All systems stopped");
-                telemetry.update();
-            } else if (!gamepad1.x && isPressingX) {
-                isPressingX = false;
+                intakeController.intakeStop();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
+        }).start();
+    }
 
-            // Adjust shooting RPM with dpad (changed from power to RPM)
-            if (gamepad1.dpad_up && SHOOTING_RPM < ShooterController.SHOOTER_FULL_RPM && !isPressingDpadUp) {
-                isPressingDpadUp = true;
-                SHOOTING_RPM = Math.min(SHOOTING_RPM + RPM_INCREMENT, ShooterController.SHOOTER_FULL_RPM);
-                telemetry.addData("Shooting RPM adjusted to", "%.0f", SHOOTING_RPM);
-                telemetry.update();
-            } else if (!gamepad1.dpad_up && isPressingDpadUp) {
-                isPressingDpadUp = false;
-            }
+    private void emergencyStop() {
+        // Stop everything
+        isAutoShooting = false;
+        isManualAligning = false;
+        shooterOn = false;
 
-            if (gamepad1.dpad_down && SHOOTING_RPM > 0 && !isPressingDpadDown) {
-                isPressingDpadDown = true;
-                SHOOTING_RPM = Math.max(SHOOTING_RPM - RPM_INCREMENT, 0);
-                telemetry.addData("Shooting RPM adjusted to", "%.0f", SHOOTING_RPM);
-                telemetry.update();
-            } else if (!gamepad1.dpad_down && isPressingDpadDown) {
-                isPressingDpadDown = false;
-            }
+        shooterController.shooterStop();
+        intakeController.intakeStop();
+        transferController.transferStop();
+        driveController.stopDrive();
 
-            // Add continuous telemetry for debugging
-            if (isUsingTelemetry) {
-                telemetry.addData("Target Shooting RPM", "%.0f", SHOOTING_RPM);
-                telemetry.addData("Current Shooter RPM", "%.0f", shooterController.getShooterRPM());
-                telemetry.addData("Shooter Active", shooterController.isDoingShooter());
-                if (shooterController.isDoingShooter()) {
-                    telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
-                    telemetry.addData("At Target", shooterController.isAtTargetRPM());
-                }
-                telemetry.update();
-            }
+        if (limelightController != null) {
+            limelightController.stopAlignment();
         }
+
+        telemetry.addLine(">>> EMERGENCY STOP ACTIVATED <<<");
+    }
+
+    private void displayTelemetry() {
+        telemetry.addLine("╔════════════════════════════╗");
+        telemetry.addLine("║  STREAMLINED SHOOTER MODE  ║");
+        telemetry.addLine("╚════════════════════════════╝");
+
+        // Status
+        telemetry.addLine();
+        if (isAutoShooting) {
+            telemetry.addLine(">>> AUTO SHOOT IN PROGRESS <<<");
+        } else if (isManualAligning) {
+            telemetry.addLine(">>> MANUAL ALIGNMENT ACTIVE <<<");
+        }
+
+        // Shooter status
+        telemetry.addLine();
+        telemetry.addLine("── SHOOTER STATUS ──");
+        telemetry.addData("Target RPM", "%.0f", TARGET_RPM);
+        telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
+        telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
+        telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✓ YES" : "NO");
+        telemetry.addData("Power", "%.3f", shooterController.getShooterPower());
+
+        // Alignment status (when relevant)
+        if (limelightController != null && (isManualAligning || isAutoShooting)) {
+            telemetry.addLine();
+            telemetry.addLine("── ALIGNMENT ──");
+            telemetry.addData("Has Target", limelightController.hasTarget() ? "✓" : "✗");
+            telemetry.addData("Error", "%.2f°", limelightController.getTargetError());
+            telemetry.addData("Threshold", "%.1f°", ALIGNMENT_THRESHOLD);
+            telemetry.addData("Within Threshold",
+                    limelightController.hasTarget() &&
+                            limelightController.getTargetError() <= ALIGNMENT_THRESHOLD ? "✓ YES" : "NO");
+        }
+
+        // Session statistics
+        telemetry.addLine();
+        telemetry.addLine("── SESSION STATS ──");
+        telemetry.addData("Shots Completed", shotsCompleted);
+        if (shotsCompleted > 0) {
+            telemetry.addData("Last Shot", "%.1fs ago",
+                    sessionTimer.seconds() - lastShotTime);
+            telemetry.addData("Avg Time/Shot", "%.1fs",
+                    lastShotTime / shotsCompleted);
+        }
+
+        // Controls
+        telemetry.addLine();
+        telemetry.addLine("── CONTROLS ──");
+        telemetry.addLine("A: Auto Shoot | B: Manual Align");
+        telemetry.addLine("Y: Manual Feed | RB: Toggle Shooter");
+        telemetry.addLine("X: Emergency Stop");
+
+        // Settings
+        telemetry.addLine();
+        telemetry.addLine("── SETTINGS (Dashboard) ──");
+        telemetry.addData("Target RPM", TARGET_RPM);
+        telemetry.addData("Alignment Threshold", "%.1f°", ALIGNMENT_THRESHOLD);
+        telemetry.addData("Alignment Timeout", "%dms", ALIGNMENT_TIMEOUT);
+        telemetry.addData("AprilTag ID", APRILTAG_ID);
     }
 }
