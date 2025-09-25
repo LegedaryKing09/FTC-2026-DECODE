@@ -14,8 +14,12 @@ import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDrive;
 @Autonomous
 public class RoadRunnerAuto extends LinearOpMode {
 
-    public static double ForwardInch = 24.0;
-    public static double TurnAngle = 90.0;
+    public static double ForwardInch = 8.0;
+    public static double BackwardInch = -8.0;
+    public static double TurnAngle = 40.0;
+    public static double SecondForward = 4.0;
+    public static double SecondTurn = -40.0;
+
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -27,7 +31,9 @@ public class RoadRunnerAuto extends LinearOpMode {
 
         Action moveForwardAndTurn = drive.actionBuilder(startPose)
                 .lineToX(ForwardInch)  // Move forward 24 inches
-                .turn(Math.toRadians(TurnAngle))  // Turn left 90 degrees
+                .lineToX(0)
+              //  .turn(Math.toRadians(TurnAngle))  // Turn left 90 degrees
+               // .turn(Math.toRadians(SecondTurn)) //Turn right 90 degrees
                 .build();
 
         waitForStart();

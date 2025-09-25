@@ -74,7 +74,7 @@ public final class TankDrive {
         // drive model parameters
         public double wheelRadius = 1.89;
         public double gearRatio = 1;
-        public double ticksPerRev = 537.7;
+        public double ticksPerRev = 537.7 / 2.67;
         public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
 
         public double trackWidthTicks = 15.0 / inPerTick;
