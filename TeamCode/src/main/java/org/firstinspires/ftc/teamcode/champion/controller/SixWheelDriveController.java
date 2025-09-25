@@ -129,8 +129,8 @@ public class SixWheelDriveController {
 
         // Get the current position and heading from the Pinpoint driver
         Pose2D pose = pinpoint.getPosition();
-        robotX = pose.getX(DistanceUnit.MM);
-        robotY = pose.getY(DistanceUnit.MM);
+        robotX = pose.getX(DistanceUnit.CM);
+        robotY = pose.getY(DistanceUnit.CM);
         robotHeading = pose.getHeading(AngleUnit.RADIANS);
     }
 
