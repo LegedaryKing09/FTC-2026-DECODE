@@ -252,7 +252,7 @@ public final class TankDrive {
         leftMotors = Arrays.asList(leftFront, leftBack);
         rightMotors = Arrays.asList(rightFront, rightBack);
 
-        leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
         leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
