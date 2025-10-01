@@ -74,7 +74,7 @@ public final class TankDrive {
         // drive model parameters
         public double wheelRadius = 1.89;
         public double gearRatio = 1;
-        public double ticksPerRev = 537.7;
+        public double ticksPerRev = 71.27;
         public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
 
         public double trackWidthTicks = 15.0 / inPerTick;
@@ -158,7 +158,10 @@ public final class TankDrive {
                 }
                 this.rightEncs = Collections.unmodifiableList(rightEncs);
             }
-
+               leftEncs.get(0).setDirection(DcMotorSimple.Direction.FORWARD);
+               rightEncs.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
+                leftEncs.get(1).setDirection(DcMotorSimple.Direction.REVERSE);
+                rightEncs.get(1).setDirection(DcMotorSimple.Direction.FORWARD);
             // TODO: reverse encoder directions if needed
             //   leftEncs.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
 
@@ -251,8 +254,8 @@ public final class TankDrive {
         leftMotors = Arrays.asList(leftFront, leftBack);
         rightMotors = Arrays.asList(rightFront, rightBack);
 
-        leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
-        leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
+        leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
+        leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
 
@@ -284,7 +287,7 @@ public final class TankDrive {
     }
 
     public void setDrivePowers(PoseVelocity2d powers) {
-        TankKinematics.WheelVelocities<Time> wheelVels = new TankKinematics(2).inverse(
+        TankKinematics.WheelVelocities<Time> wheelVels = new TankKinematics(15).inverse(
                 PoseVelocity2dDual.constant(powers, 1));
 
         double maxPowerMag = 1;

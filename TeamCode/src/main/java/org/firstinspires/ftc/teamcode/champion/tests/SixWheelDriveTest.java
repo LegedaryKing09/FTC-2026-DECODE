@@ -205,8 +205,8 @@ public class SixWheelDriveTest extends LinearOpMode {
 
         // Odometry data
         telemetry.addLine("ODOMETRY:");
-        telemetry.addData("  X Position", "%.1f mm", driveController.getX());
-        telemetry.addData("  Y Position", "%.1f mm", driveController.getY());
+        telemetry.addData("  X Position", "%.1f cm", driveController.getX());
+        telemetry.addData("  Y Position", "%.1f cm", driveController.getY());
         telemetry.addData("  Heading", "%.1f°", driveController.getHeadingDegrees());
         telemetry.addLine();
 
