@@ -18,7 +18,7 @@ public class RoadRunnerAuto extends LinearOpMode {
     public static double BackwardInch = -8.0;
     public static double TurnAngle = 90.0;
     public static double SecondForward = 4.0;
-    public static double SecondTurn = -40.0;
+    public static double SecondTurn = 180.0;
 
 
     @Override
@@ -30,10 +30,10 @@ public class RoadRunnerAuto extends LinearOpMode {
         TankDrive drive = new TankDrive(hardwareMap, startPose);
 
         Action moveForwardAndTurn = drive.actionBuilder(startPose)
-                .lineToX(ForwardInch)  // Move forward 24 inches
-                .turn(Math.toRadians(TurnAngle))  // Turn left 90 degrees
-                .turn(Math.toRadians(TurnAngle)) //Turn left 90 degrees
-                .lineToX(ForwardInch)
+            .lineToX(ForwardInch)  // Move forward 24 inches
+          //  .turn(Math.toRadians(TurnAngle))  // Turn left 90 degree
+                 .turn(Math.toRadians(SecondTurn)) //Turn left 90 degrees
+                 //.lineToX(0)
                 .build();
 
         waitForStart();
