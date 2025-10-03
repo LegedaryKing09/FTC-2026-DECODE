@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.acmerobotics.roadrunner.PoseVelocity2d;
@@ -8,7 +11,9 @@ import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 
 import java.util.Objects;
@@ -55,7 +60,24 @@ public final class PinpointLocalizer implements org.firstinspires.ftc.teamcode.c
 
     @Override
     public Pose2d getPose() {
+        driver.update();
         return txWorldPinpoint.times(txPinpointRobot);
+    }
+    @Nullable
+    public Pose2D getPoseEstimate() {
+        return driver.getPosition();
+    }
+
+    public void setPoseEstimate(@NonNull Pose2D pose2d) {
+        driver.setPosition(pose2d);
+    }
+
+    public PoseVelocity2d getPoseVelocity() {
+        driver.update();
+        return new PoseVelocity2d(
+                new Vector2d(driver.getVelX(DistanceUnit.INCH), driver.getVelY(DistanceUnit.INCH)),
+                driver.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS)
+        );
     }
 
     @Override
@@ -69,5 +91,10 @@ public final class PinpointLocalizer implements org.firstinspires.ftc.teamcode.c
             return new PoseVelocity2d(robotVelocity, driver.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS));
         }
         return new PoseVelocity2d(new Vector2d(0, 0), 0);
+    }
+
+    public boolean isReady() {
+        driver.update();
+        return driver.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY;
     }
 }
