@@ -29,15 +29,13 @@ public class RoadRunnerAuto extends LinearOpMode {
 
         TankDrive drive = new TankDrive(hardwareMap, startPose);
 
-        Action moveForwardAndTurn = drive.actionBuilder(startPose)
-                .lineToX(ForwardInch)  // Move forward 24 inches
-              //  .turn(Math.toRadians(TurnAngle))  // Turn left 90 degrees
-               // .turn(Math.toRadians(SecondTurn)) //Turn right 90 degrees
-                .build();
+
 
         waitForStart();
 
-        Actions.runBlocking(moveForwardAndTurn);
-
+        Actions.runBlocking(
+                drive.actionBuilder(new Pose2d(0, 0, 0))
+                        .lineToX(ForwardInch)
+                        .build());
     }
 }
