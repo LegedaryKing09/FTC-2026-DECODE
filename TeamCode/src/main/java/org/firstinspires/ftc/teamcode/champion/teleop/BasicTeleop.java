@@ -33,6 +33,7 @@ public class BasicTeleop extends LinearOpMode {
     boolean isPressingStart = false;
     boolean isPressingDpadDown = false;
     boolean isPressingDpadUp = false;
+    boolean isPressingBack = false;
 
     @Override
     public void runOpMode() {
@@ -124,7 +125,6 @@ public class BasicTeleop extends LinearOpMode {
                 transferController.transferStop();
             }
 
-
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
                 intakeController.intakeFull();
@@ -133,23 +133,23 @@ public class BasicTeleop extends LinearOpMode {
                 intakeController.intakeStop();
             }
 
-            if (gamepad1.dpad_left && !isPressingDpadLeft) {
-                isPressingDpadLeft = true;
+            if (gamepad1.left_bumper && !isPressingLeftBumper) {
+                isPressingLeftBumper = true;
                 intakeController.intakeEject();
-            } else if (!gamepad1.dpad_left && isPressingDpadLeft) {
-                isPressingDpadLeft = false;
+            } else if (!gamepad1.left_bumper && isPressingLeftBumper) {
+                isPressingLeftBumper = false;
                 intakeController.intakeStop();
             }
 
-            if (gamepad1.left_bumper && !isPressingLeftBumper) {
-                isPressingLeftBumper = true;
+            if (gamepad1.back && !isPressingBack) {
+                isPressingBack = true;
                 if (driveController.isFastSpeedMode()) {
                     driveController.setSlowSpeed();
                 } else {
                     driveController.setFastSpeed();
                 }
-            } else if (!gamepad1.left_bumper && isPressingLeftBumper) {
-                isPressingLeftBumper = false;
+            } else if (!gamepad1.back && isPressingBack) {
+                isPressingBack = false;
             }
 
             if (gamepad1.start && !isPressingStart) {
@@ -159,8 +159,6 @@ public class BasicTeleop extends LinearOpMode {
             } else if (!gamepad1.start && isPressingStart) {
                 isPressingStart = false;
             }
-
-
 
             double leftPower = drive + turn;
             double rightPower = drive - turn;

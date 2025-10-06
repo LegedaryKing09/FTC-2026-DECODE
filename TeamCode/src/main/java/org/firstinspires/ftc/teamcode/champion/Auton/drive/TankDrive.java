@@ -77,13 +77,13 @@ public final class TankDrive {
         public double ticksPerRev = 71.27;//537.7 / 2.67
         public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
 
-        public double trackWidthTicks = 15.0 / inPerTick;
-        public double trackWidthInches = 15.0;
+        public double trackWidthTicks = 15.5 / inPerTick;
+        public double trackWidthInches = 15.5;
 
         // feedforward parameters (in tick units)
-        public double kS = 0.1;
-        public double kV = 0.01;
-        public double kA = 0.002;
+        public double kS = 0.9;
+        public double kV = 0.022;
+        public double kA = 0.0002;
 
         // path profile parameters (in inches)
         public double maxWheelVel = 2796 * inPerTick;
