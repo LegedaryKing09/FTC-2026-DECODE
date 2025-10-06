@@ -5,6 +5,16 @@ import androidx.annotation.NonNull;
 import com.acmerobotics.dashboard.canvas.Canvas;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
+import com.acmerobotics.roadrunner.*; // imports all roadrunner classes
+
+import com.qualcomm.hardware.lynx.LynxModule;
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.*;
+
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
+import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.*;
+
 import com.acmerobotics.roadrunner.AccelConstraint;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Actions;
@@ -42,18 +52,21 @@ import com.acmerobotics.roadrunner.ftc.PositionVelocityPair;
 import com.acmerobotics.roadrunner.ftc.RawEncoder;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.Localizer;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.DriveCommandMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.PoseMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankCommandMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankLocalizerInputsMessage;
 
+import java.lang.Math;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -61,52 +74,58 @@ import java.util.LinkedList;
 import java.util.List;
 
 @Config
-public final class TankDrive {
+public final class TankDriveWithPinPoint {
+    // Parameters for the tank drive, adjustable from dashboard
     public static class Params {
         // IMU orientation
         // TODO: fill in these values based on
         //   see https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html?highlight=imu#physical-hub-mounting
+        // IMU orientation relative to the hub (check FTC Docs for correct mounting)
         public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
-                RevHubOrientationOnRobot.LogoFacingDirection.UP;
+                RevHubOrientationOnRobot.LogoFacingDirection.BACKWARD; // adjust if IMU headings are inverted
         public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
-                RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD;
+                RevHubOrientationOnRobot.UsbFacingDirection.LEFT; // adjust if pitch/roll readings are wrong
 
-        // drive model parameters
-        public double wheelRadius = 1.89;
-        public double gearRatio = 1;
-        public double ticksPerRev = 71.27;//537.7 / 2.67
-        public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
+        // Physical drivetrain constants
+        public double wheelRadius = 1.89; // in inches
+        public double gearRatio = 1; // output (wheel) / input (motor)
+        public double ticksPerRev = 71.27; // encoder ticks per motor revolution
+        public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev; // conversion from ticks → inches
 
-        public double trackWidthTicks = 15.5 / inPerTick;
-        public double trackWidthInches = 15.5;
+        // Track width (distance between left & right wheels)
+        public double trackWidthTicks = 12.0 / inPerTick; // track width converted into encoder ticks
+        public double trackWidthInches = 12.0; // track width in inches
 
-        // feedforward parameters (in tick units)
-        public double kS = 0.9;
-        public double kV = 0.022;
-        public double kA = 0.0002;
+        // Feedforward constants (used for power calculation)
+        public double kS = 0.1; // static gain
+        public double kV = 0.01; // velocity gain
+        public double kA = 0.002; // acceleration gain
 
-        // path profile parameters (in inches)
-        public double maxWheelVel = 2796 * inPerTick;
-        public double minProfileAccel = -30;
-        public double maxProfileAccel = 30;
+        // Motion profiling parameters (path following)
+        public double maxWheelVel = 2796 * inPerTick; // max wheel velocity in in/s (from motor rpm)
+        public double minProfileAccel = -30; // minimum acceleration (deceleration)
+        public double maxProfileAccel = 30; // maximum acceleration
 
-        // turn profile parameters (in radians)
-        public double maxAngVel = (2 * maxWheelVel) / trackWidthInches; // shared with path
-        public double maxAngAccel = (2 * maxProfileAccel) / trackWidthInches;
+        // Turning constraints
+        public double maxAngVel = (2 * maxWheelVel) / trackWidthTicks; // maximum angular velocity (rad/s)
+        public double maxAngAccel = (2 * maxProfileAccel) / trackWidthTicks; // maximum angular acceleration (rad/s²)
 
-        // path controller gains
-        public double ramseteZeta = 0.7; // in the range (0, 1)
-        public double ramseteBBar = 2.0; // positive
+        // Ramsete controller tuning parameters
+        public double ramseteZeta = 0.7; // damping coefficient (0 < zeta < 1)
+        public double ramseteBBar = 2.0; // aggressiveness (> 0)
 
-        // turn controller gains
-        public double turnGain = 0.01;
-        public double turnVelGain = 0.001;
+        // Turn controller PID-like gains
+        public double turnGain = 0.01; // proportional gain for heading error
+        public double turnVelGain = 0.001; // derivative gain for angular velocity error
     }
 
+    // Global static params object
     public static Params PARAMS = new Params();
 
+    // Tank drive kinematics (handles forward/inverse calculations)
     public final TankKinematics kinematics = new TankKinematics(PARAMS.inPerTick * PARAMS.trackWidthTicks);
 
+    // Default motion constraints for turns and velocity
     public final TurnConstraints defaultTurnConstraints = new TurnConstraints(
             PARAMS.maxAngVel, -PARAMS.maxAngAccel, PARAMS.maxAngAccel);
     public final VelConstraint defaultVelConstraint =
@@ -117,39 +136,46 @@ public final class TankDrive {
     public final AccelConstraint defaultAccelConstraint =
             new ProfileAccelConstraint(PARAMS.minProfileAccel, PARAMS.maxProfileAccel);
 
+    // Motors
     public final DcMotorEx leftFront, rightFront, rightBack, leftBack;
     public final List<DcMotorEx> leftMotors, rightMotors;
 
+    // IMU wrapper
     public final LazyImu lazyImu;
 
+    // Localizers
+    public PinpointLocalizer pinpointLocalizer; // uses Pinpoint module
+    public Localizer localizer; // general interface
+
+    // Voltage sensor for feedforward compensation
     public final VoltageSensor voltageSensor;
 
-    public final Localizer localizer;
+    // Pose history for debugging and field drawing
     private final LinkedList<Pose2d> poseHistory = new LinkedList<>();
 
+    // Data writers for dashboard visualization
     private final DownsampledWriter estimatedPoseWriter = new DownsampledWriter("ESTIMATED_POSE", 50_000_000);
     private final DownsampledWriter targetPoseWriter = new DownsampledWriter("TARGET_POSE", 50_000_000);
     private final DownsampledWriter driveCommandWriter = new DownsampledWriter("DRIVE_COMMAND", 50_000_000);
-
     private final DownsampledWriter tankCommandWriter = new DownsampledWriter("TANK_COMMAND", 50_000_000);
 
+    // Internal localizer implementation using motor encoders
     public class DriveLocalizer implements Localizer {
-        public final List<Encoder> leftEncs, rightEncs;
-        private Pose2d pose;
-
-        private double lastLeftPos, lastRightPos;
-        private boolean initialized;
+        public final List<Encoder> leftEncs, rightEncs; // encoders on each side
+        private Pose2d pose; // estimated robot pose
+        private double lastLeftPos, lastRightPos; // previous encoder positions
+        private boolean initialized; // flag to skip first delta
 
         public DriveLocalizer(Pose2d pose) {
+            // Initialize encoders from motors
             {
                 List<Encoder> leftEncs = new ArrayList<>();
                 for (DcMotorEx m : leftMotors) {
-                    Encoder e = new OverflowEncoder(new RawEncoder(m));
+                    Encoder e = new OverflowEncoder(new RawEncoder(m)); // wraps encoder to handle overflow
                     leftEncs.add(e);
                 }
                 this.leftEncs = Collections.unmodifiableList(leftEncs);
             }
-
             {
                 List<Encoder> rightEncs = new ArrayList<>();
                 for (DcMotorEx m : rightMotors) {
@@ -158,14 +184,16 @@ public final class TankDrive {
                 }
                 this.rightEncs = Collections.unmodifiableList(rightEncs);
             }
-               leftEncs.get(0).setDirection(DcMotorSimple.Direction.FORWARD);
-               rightEncs.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
+            // Set encoder directions (adjust if odometry is reversed)
+            leftEncs.get(0).setDirection(DcMotorSimple.Direction.FORWARD);
+            rightEncs.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
             leftEncs.get(1).setDirection(DcMotorSimple.Direction.REVERSE);
             rightEncs.get(1).setDirection(DcMotorSimple.Direction.FORWARD);
             // TODO: reverse encoder directions if needed
             //   leftEncs.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
+            // TODO: reverse encoder directions if needed for correct forward motion
 
-            this.pose = pose;
+            this.pose = pose; // initial pose
         }
 
         @Override
@@ -180,8 +208,10 @@ public final class TankDrive {
 
         @Override
         public PoseVelocity2d update() {
+            // Calculates current velocity and updates pose based on encoder deltas
             Twist2dDual<Time> delta;
 
+            // Average encoder positions and velocities for both sides
             List<PositionVelocityPair> leftReadings = new ArrayList<>(), rightReadings = new ArrayList<>();
             double meanLeftPos = 0.0, meanLeftVel = 0.0;
             for (Encoder e : leftEncs) {
@@ -203,19 +233,19 @@ public final class TankDrive {
             meanRightPos /= rightEncs.size();
             meanRightVel /= rightEncs.size();
 
+            // Log inputs to dashboard
             FlightRecorder.write("TANK_LOCALIZER_INPUTS",
                     new TankLocalizerInputsMessage(leftReadings, rightReadings));
 
+            // Skip first update to initialize
             if (!initialized) {
                 initialized = true;
-
                 lastLeftPos = meanLeftPos;
                 lastRightPos = meanRightPos;
-
                 return new PoseVelocity2d(new Vector2d(0.0, 0.0), 0.0);
-
             }
 
+            // Compute incremental motion using kinematics
             Twist2dDual<Time> twist = kinematics.forward(new TankKinematics.WheelIncrements<>(
                     new DualNum<Time>(new double[]{
                             meanLeftPos - lastLeftPos,
@@ -227,18 +257,23 @@ public final class TankDrive {
                     }).times(PARAMS.inPerTick)
             ));
 
+            // Update last positions
             lastLeftPos = meanLeftPos;
             lastRightPos = meanRightPos;
 
+            // Update pose
             pose = pose.plus(twist.value());
 
-            return twist.velocity().value();
+            return twist.velocity().value(); // return current velocity
         }
     }
 
-    public TankDrive(HardwareMap hardwareMap, Pose2d pose) {
+    // TankDrive constructor
+    public TankDriveWithPinPoint(HardwareMap hardwareMap, Pose2d pose) {
+        // Check firmware version for Lynx modules
         LynxFirmware.throwIfModulesAreOutdated(hardwareMap);
 
+        // Enable automatic bulk reads for performance
         for (LynxModule module : hardwareMap.getAll(LynxModule.class)) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
@@ -246,24 +281,29 @@ public final class TankDrive {
         // TODO: make sure your config has motors with these names (or change them)
         //   add additional motors on each side if you have them
         //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
+        // Map motors from configuration
         leftFront = hardwareMap.get(DcMotorEx.class, "lf");
         leftBack = hardwareMap.get(DcMotorEx.class, "lb");
         rightFront = hardwareMap.get(DcMotorEx.class, "rf");
         rightBack = hardwareMap.get(DcMotorEx.class, "rb");
 
+        // Group motors
         leftMotors = Arrays.asList(leftFront, leftBack);
         rightMotors = Arrays.asList(rightFront, rightBack);
 
+        // Set directions (adjust as needed)
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
         leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
 
+        // Use encoders for control
         leftFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         leftBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         rightFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         rightBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
+        // Brake when power = 0
         for (DcMotorEx m : leftMotors) {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
@@ -276,16 +316,34 @@ public final class TankDrive {
 //        leftMotors.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
         // TODO: make sure your config has an IMU with this name (can be BNO or BHI)
         //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
+        // Initialize IMU
         lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
                 PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
 
+        // Get voltage sensor
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
 
+        // Initialize localizers
         localizer = new DriveLocalizer(pose);
+        pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, new Pose2d(0, 0, 0));
 
+        // Log parameters
         FlightRecorder.write("TANK_PARAMS", PARAMS);
     }
 
+    // Waits until Pinpoint is ready before setting pose
+    public void initializePinpointPosition(LinearOpMode opMode, Pose2D pose2d) {
+        while (!pinpointIsReady() && !opMode.isStopRequested()) {
+            opMode.sleep(100);
+        }
+        pinpointLocalizer.setPoseEstimate(pose2d);
+    }
+
+    public boolean pinpointIsReady() {
+        return pinpointLocalizer.isReady();
+    }
+
+    // Sets wheel powers from a desired chassis velocity
     public void setDrivePowers(PoseVelocity2d powers) {
         TankKinematics.WheelVelocities<Time> wheelVels = new TankKinematics(PARAMS.trackWidthInches).inverse(
                 PoseVelocity2dDual.constant(powers, 1));

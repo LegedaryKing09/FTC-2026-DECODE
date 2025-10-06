@@ -9,10 +9,11 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDrive;
+import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDriveWithPinPoint;
 
 @Config
 @Autonomous
-public class RoadRunnerAuto extends LinearOpMode {
+public class RoadRunnerAutoPinPoint extends LinearOpMode {
 
     public static double ForwardInch = 24.0;
     public static double BackwardInch = -8.0;
@@ -27,15 +28,18 @@ public class RoadRunnerAuto extends LinearOpMode {
         // starting pose
         Pose2d startPose = new Pose2d(0, 0, 0);
 
-        TankDrive drive = new TankDrive(hardwareMap, startPose);
+        TankDriveWithPinPoint drive = new TankDriveWithPinPoint(hardwareMap, startPose);
 
-
+        Action moveForwardAndTurn = drive.actionBuilder(startPose)
+                .lineToX(ForwardInch)  // Move forward 24 inches
+                //  .turn(Math.toRadians(TurnAngle))  // Turn left 90 degree
+                .turn(Math.toRadians(SecondTurn)) //Turn left 90 degrees
+                //.lineToX(0)
+                .build();
 
         waitForStart();
 
-        Actions.runBlocking(
-                drive.actionBuilder(new Pose2d(0, 0, 0))
-                        .lineToX(ForwardInch)
-                        .build());
+        Actions.runBlocking(moveForwardAndTurn);
+
     }
 }
