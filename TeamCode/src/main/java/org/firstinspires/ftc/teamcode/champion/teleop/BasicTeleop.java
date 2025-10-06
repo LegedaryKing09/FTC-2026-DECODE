@@ -44,6 +44,7 @@ public class BasicTeleop extends LinearOpMode {
     boolean isPressingX = false;
     boolean isPressingLeftBumper = false;
     boolean isPressingRightBumper = false;
+    boolean isPressingRightTrigger = false;
     boolean isPressingStart = false;
     boolean isPressingDpadDown = false;
     boolean isPressingDpadUp = false;
@@ -132,12 +133,12 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingDpadDown = false;
             }
 
-            if (gamepad1.right_trigger > 0.1) {
+            if (gamepad1.right_trigger > 0.1 && !isPressingRightTrigger) {
+                isPressingRightTrigger = true;
                 transferController.transferFull();
-            } else if (gamepad1.left_trigger > 0.1) {
-                transferController.transferEject();
-            } else {
-                transferController.transferStop();
+            } else if (gamepad1.right_trigger < 0.1 && isPressingRightTrigger) {
+                isPressingRightTrigger = false;
+                transferController.transferFull();
             }
 
             if (gamepad1.right_bumper && !isPressingRightBumper) {
