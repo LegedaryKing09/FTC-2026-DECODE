@@ -79,6 +79,7 @@ public class BasicTeleop extends LinearOpMode {
 
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
+                // setShooterPower already converts power (0-1) to RPM by multiplying with SHOOTER_FULL_RPM
                 shooterController.setShooterPower(SHOOTING_POWER);
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
@@ -95,14 +96,14 @@ public class BasicTeleop extends LinearOpMode {
 
             if (gamepad1.dpad_up && SHOOTING_POWER < 1 && !isPressingDpadUp) {
                 isPressingDpadUp = true;
-                SHOOTING_POWER = SHOOTING_POWER + 0.004;
+                SHOOTING_POWER = SHOOTING_POWER + 0.01;
             } else if (!gamepad1.dpad_up && isPressingDpadUp) {
                 isPressingDpadUp = false;
             }
 
             if (gamepad1.dpad_down && SHOOTING_POWER > 0 && !isPressingDpadDown) {
                 isPressingDpadDown = true;
-                SHOOTING_POWER = SHOOTING_POWER - 0.004;
+                SHOOTING_POWER = SHOOTING_POWER - 0.01;
             } else if (!gamepad1.dpad_down && isPressingDpadDown) {
                 isPressingDpadDown = false;
             }
@@ -176,7 +177,8 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Expected Left Power", "%.2f", leftPower);
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
-                telemetry.addData("Shooting Power:", SHOOTING_POWER);
+                telemetry.addData("Shooting Power", "%.2f%% (%.0f RPM)",
+                        SHOOTING_POWER * 100, SHOOTING_POWER * ShooterController.SHOOTER_FULL_RPM);
                 telemetry.addData("Intake Power:", INTAKE_POWER);
 
                 telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
