@@ -7,6 +7,7 @@ import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
@@ -22,21 +23,12 @@ public class BasicTeleop extends LinearOpMode {
     ShooterController shooterController;
     IntakeController intakeController;
     LimelightAlignmentController limelightController;
+    AutoShootController autoShootController;
     public static double SHOOTING_POWER = 0.55;
     public static double INTAKE_POWER = 0;
-    public static double TARGET_RPM = 2850;         // Target RPM for shooting
-    public static int APRILTAG_ID = 20;             // AprilTag to align to
-    public static double ALIGNMENT_THRESHOLD = 1.5; // Alignment error threshold in degrees
-    public static long ALIGNMENT_TIMEOUT = 2000;    // Max time to wait for alignment (ms)
-    public static long RPM_TIMEOUT = 3000;          // Max time to wait for RPM (ms)
-    public static long SHOOT_DURATION = 1000;       // Duration to run transfer/intake (ms)
-    public static long STABILITY_DELAY = 200;       // Delay after stopping alignment (ms)
-    boolean isAutoShooting = false;
     boolean isManualAligning = false;
     boolean lastdpadLeft = false;
     boolean lastdpadRight = false;
-    double lastShotTime = 0;
-    int shotsCompleted = 0;
     boolean isUsingTelemetry = true;
     boolean isPressingB = false;
     boolean isPressingA = false;
@@ -49,7 +41,6 @@ public class BasicTeleop extends LinearOpMode {
     boolean isPressingDpadDown = false;
     boolean isPressingDpadUp = false;
     boolean isPressingBack = false;
-    private ElapsedTime sessionTimer = new ElapsedTime();
 
     @Override
     public void runOpMode() {
@@ -60,13 +51,17 @@ public class BasicTeleop extends LinearOpMode {
         intakeController = new IntakeController(this);
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
+        LimelightAlignmentController tempLimelight = null;
         try {
-            limelightController = new LimelightAlignmentController(this);
-            limelightController.setTargetTag(APRILTAG_ID);
+            tempLimelight = new LimelightAlignmentController(this);
+            tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
             telemetry.update();
         }
+        limelightController = tempLimelight;
+
+        autoShootController = new AutoShootController(this, driveController, shooterController, intakeController, transferController, limelightController);
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
@@ -180,20 +175,20 @@ public class BasicTeleop extends LinearOpMode {
             }
 
             if (isManualAligning) {
-                limelightController.align(APRILTAG_ID);
+                limelightController.align(AutoShootController.APRILTAG_ID);
                 if (limelightController.hasTarget() &&
-                        limelightController.getTargetError() <= ALIGNMENT_THRESHOLD) {
+                        limelightController.getTargetError() <= AutoShootController.ALIGNMENT_THRESHOLD) {
                     telemetry.addLine(">>> ALIGNED - Ready to shoot!");
                 }
             }
 
-            if (gamepad1.dpad_left && !lastdpadLeft && !isAutoShooting) {
-                executeAutoShootSequence();
+            if (gamepad1.dpad_left && !lastdpadLeft && !autoShootController.isAutoShooting()) {
+                autoShootController.executeAutoShootSequence();
             }
             lastdpadLeft = gamepad1.dpad_left;
 
             if (gamepad1.dpad_right && !lastdpadRight) {
-                if (!isManualAligning && !isAutoShooting) {
+                if (!isManualAligning && !autoShootController.isAutoShooting()) {
                     isManualAligning = true;
                     limelightController.startAlignment();
                 } else if (isManualAligning) {
@@ -232,90 +227,12 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Robot X", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y", "%.2f", driveController.getY());
                 telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
+
+                autoShootController.addTelemetry(telemetry);
             }
 
             telemetry.update();
 
         }
-    }
-    private void executeAutoShootSequence() {
-        isAutoShooting = true;
-
-        // Use a thread like the working version
-        new Thread(() -> {
-            try {
-                // Step 1: Stop any existing movement
-                driveController.stopDrive();
-
-                // Step 2: Start spinning up shooter
-                shooterController.setShooterRPM(TARGET_RPM);
-
-                // Step 3: Wait for shooter to reach target RPM (with timeout)
-                long rpmStartTime = System.currentTimeMillis();
-                while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
-                        (System.currentTimeMillis() - rpmStartTime) < RPM_TIMEOUT) {
-                    Thread.sleep(10);
-                }
-
-                // Step 4: Align to target (with error threshold check)
-                if (limelightController != null) {
-                    limelightController.startAlignment();
-
-                    long alignStartTime = System.currentTimeMillis();
-                    boolean alignmentGoodEnough = false;
-
-                    // Keep aligning until within threshold OR timeout
-                    while (opModeIsActive() &&
-                            (System.currentTimeMillis() - alignStartTime) < ALIGNMENT_TIMEOUT) {
-
-                        limelightController.align(APRILTAG_ID);
-
-                        // Check if we're within acceptable error threshold
-                        if (limelightController.hasTarget() &&
-                                limelightController.getTargetError() <= ALIGNMENT_THRESHOLD) {
-                            alignmentGoodEnough = true;
-                            break;
-                        }
-
-                        Thread.sleep(20);
-                    }
-
-                    // Stop alignment and motors
-                    limelightController.stopAlignment();
-                    driveController.stopDrive();
-
-                    // Brief stabilization delay
-                    Thread.sleep(STABILITY_DELAY);
-                }
-
-                // Step 5: Execute the shot!
-                // Ensure shooter is still at RPM
-                if (shooterController.isAtTargetRPM() ||
-                        Math.abs(shooterController.getRPMError()) < 200) {
-
-                    // Run transfer and intake to shoot
-                    transferController.transferFull();
-                    intakeController.intakeFull();
-                    Thread.sleep(SHOOT_DURATION);
-
-                    // Stop transfer and intake
-                    transferController.transferStop();
-                    intakeController.intakeStop();
-
-                    shotsCompleted++;
-                    lastShotTime = sessionTimer.seconds();
-
-                    telemetry.addLine(">>> SHOT COMPLETED <<<");
-                    telemetry.addData("Shot #", shotsCompleted);
-                }
-
-                // Keep shooter running for next shot
-
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } finally {
-                isAutoShooting = false;
-            }
-        }).start();
     }
 }
