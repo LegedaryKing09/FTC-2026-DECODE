@@ -22,7 +22,7 @@ public class BasicTeleop extends LinearOpMode {
     ShooterController shooterController;
     IntakeController intakeController;
     LimelightAlignmentController limelightController;
-    public static double SHOOTING_POWER = 0;
+    public static double SHOOTING_POWER = 0.55;
     public static double INTAKE_POWER = 0;
     public static double TARGET_RPM = 2850;         // Target RPM for shooting
     public static int APRILTAG_ID = 20;             // AprilTag to align to
@@ -106,6 +106,9 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingY = true;
                 // setShooterPower already converts power (0-1) to RPM by multiplying with SHOOTER_FULL_RPM
                 shooterController.setShooterPower(SHOOTING_POWER);
+                sleep(1000);
+                intakeController.intakeFull();
+                transferController.transferFull();
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
             }
