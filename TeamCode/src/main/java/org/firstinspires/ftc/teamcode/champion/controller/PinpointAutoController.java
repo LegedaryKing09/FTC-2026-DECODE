@@ -1,6 +1,9 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 public class PinpointAutoController {
 
@@ -13,21 +16,28 @@ public class PinpointAutoController {
     private static final double POSITION_TOLERANCE_INCH = 1.0; // inches
     private static final double HEADING_TOLERANCE_DEG = 5.0; // degrees
 
-    public PinpointAutoController(LinearOpMode opMode, SixWheelDriveController driveController) {
-        this.opMode = opMode;
+    public PinpointAutoController(OpMode opMode, SixWheelDriveController driveController) {
+        this.opMode = (LinearOpMode) opMode;
         this.driveController = driveController;
     }
 
     // Move forward by a specified distance in inches
     public void moveForward(double distanceInches) {
-        double startX = driveController.getX() * 0.393701; // Convert cm to inches (1 cm = 0.393701 inches)
+        double startX = driveController.getX(DistanceUnit.INCH); // Get X in inches
         double targetX = startX + distanceInches;
+        long startTime = System.currentTimeMillis();
+        long timeoutMs = 10000; // 10 second timeout
 
-        while (opMode.opModeIsActive() && Math.abs(driveController.getX() * 0.393701 - targetX) > POSITION_TOLERANCE_INCH) {
+        while (opMode.opModeIsActive() &&
+               Math.abs(driveController.getX(DistanceUnit.INCH) - targetX) > POSITION_TOLERANCE_INCH &&
+               (System.currentTimeMillis() - startTime) < timeoutMs) {
             driveController.tankDrive(DRIVE_POWER, DRIVE_POWER);
             driveController.updateOdometry();
-            opMode.telemetry.addData("Current X", driveController.getX() * 0.393701);
+            double currentX = driveController.getX(DistanceUnit.INCH);
+            opMode.telemetry.addData("Start X", startX);
+            opMode.telemetry.addData("Current X", currentX);
             opMode.telemetry.addData("Target X", targetX);
+            opMode.telemetry.addData("Error", Math.abs(currentX - targetX));
             opMode.telemetry.update();
         }
         driveController.stopDrive();
@@ -40,8 +50,10 @@ public class PinpointAutoController {
         double targetHeading = startHeading + degrees;
         // Normalize to 0-360
         targetHeading = (targetHeading % 360 + 360) % 360;
+        long startTime = System.currentTimeMillis();
+        long timeoutMs = 10000; // 10 second timeout
 
-        while (opMode.opModeIsActive()) {
+        while (opMode.opModeIsActive() && (System.currentTimeMillis() - startTime) < timeoutMs) {
             double currentHeading = Math.toDegrees(driveController.getHeading());
             // Normalize current heading
             currentHeading = (currentHeading % 360 + 360) % 360;
@@ -55,6 +67,7 @@ public class PinpointAutoController {
 
             driveController.tankDrive(-TURN_POWER, TURN_POWER);
             driveController.updateOdometry();
+            opMode.telemetry.addData("Start Heading", startHeading);
             opMode.telemetry.addData("Current Heading", currentHeading);
             opMode.telemetry.addData("Target Heading", targetHeading);
             opMode.telemetry.addData("Error", error);
