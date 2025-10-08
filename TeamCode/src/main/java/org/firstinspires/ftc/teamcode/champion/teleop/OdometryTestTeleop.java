@@ -39,13 +39,13 @@ public class OdometryTestTeleop extends OpMode {
         driveController.arcadeDrive(drive, turn);
 
         // Display odometry data
-        telemetry.addData("Position X (inches)", driveController.getX(DistanceUnit.INCH) * driveController.odoMultiplier);
-        telemetry.addData("Position Y (inches)", driveController.getY(DistanceUnit.INCH) * driveController.odoMultiplier);
+        telemetry.addData("Position X (inches)", driveController.getX());
+        telemetry.addData("Position Y (inches)", driveController.getY());
         telemetry.addData("Heading (degrees)", driveController.getHeadingDegrees());
         telemetry.addData("Raw Encoder X", driveController.getXOdoPosition());
         telemetry.addData("Raw Encoder Y", driveController.getYOdoPosition());
-        telemetry.addData("Velocity X (mm/s)", driveController.getVelocityX() * driveController.odoMultiplie);
-        telemetry.addData("Velocity Y (mm/s)", driveController.getVelocityY() * driveController.odoMultiplie);
+        telemetry.addData("Velocity X (mm/s)", driveController.getVelocityX());
+        telemetry.addData("Velocity Y (mm/s)", driveController.getVelocityY());
         telemetry.addData("Heading Velocity (rad/s)", driveController.getHeadingVelocity());
         telemetry.addData("Pinpoint Status", driveController.getPinpointStatus());
         telemetry.addData("Pinpoint Loop Time (μs)", driveController.getPinpointLoopTime());
