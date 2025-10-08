@@ -32,7 +32,7 @@ public class RoadRunnerAuto extends LinearOpMode {
         Action moveForwardAndTurn = drive.actionBuilder(startPose)
             .lineToX(ForwardInch)  // Move forward 24 inches
           //  .turn(Math.toRadians(TurnAngle))  // Turn left 90 degree
-                 .turn(Math.toRadians(SecondTurn)) //Turn left 90 degrees
+                .turn(Math.toRadians(SecondTurn)) //Turn left 90 degrees
                  //.lineToX(0)
                 .build();
 
