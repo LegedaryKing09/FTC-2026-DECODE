@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 import android.annotation.SuppressLint;
 
 import com.acmerobotics.dashboard.config.Config;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -46,8 +46,8 @@ public class SixWheelDriveController {
 
     private boolean isFastSpeedMode = false;
 
-    // Constructor - EMPTY like version 1
-    public SixWheelDriveController(LinearOpMode opMode) {
+    // Constructor
+    public SixWheelDriveController(OpMode opMode) {
         frontLeft = opMode.hardwareMap.get(DcMotor.class, LF_NAME);
         frontRight = opMode.hardwareMap.get(DcMotor.class, RF_NAME);
         backLeft = opMode.hardwareMap.get(DcMotor.class, LB_NAME);
@@ -86,7 +86,7 @@ public class SixWheelDriveController {
         // X offset: positive = left of center, negative = right of center
         // Y offset: positive = forward of center, negative = behind center
         // Adjust these values based on your robot's physical configuration
-        pinpoint.setOffsets(-84.0, -168.0, DistanceUnit.MM); // Example values - ADJUST FOR YOUR ROBOT
+        pinpoint.setOffsets(-91.4, 152.4, DistanceUnit.MM); // Example values - ADJUST FOR YOUR ROBOT
 
         // Set yaw scalar if needed (usually not necessary as devices come pre-calibrated)
         // pinpoint.setYawScalar(1.0);
@@ -183,11 +183,11 @@ public class SixWheelDriveController {
 
     // Get position in different units
     public double getX(DistanceUnit unit) {
-        return unit.fromMm(robotX);
+        return unit.fromMm(robotX * 10); // robotX is in cm, convert to mm first
     }
 
     public double getY(DistanceUnit unit) {
-        return unit.fromMm(robotY);
+        return unit.fromMm(robotY * 10); // robotY is in cm, convert to mm first
     }
 
     public double getHeading(AngleUnit unit) {
