@@ -72,18 +72,19 @@ public final class TankDrive {
                 RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD;
 
         // drive model parameters
-        public double wheelRadius = 1.89;
+        public double wheelRadius = 2.3;
         public double gearRatio = 1;
-        public double ticksPerRev = 71.27;//537.7 / 2.67
-        public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
-
-        public double trackWidthTicks = 15.0 / inPerTick;
-        public double trackWidthInches = 15.0;
+        public double ticksPerRev = 71.27;
+        public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev; // 0.20276871343500838
+        //inPerTick : if the robot overshoots, decrease it
+        public double physicalTrackWidthInches = 15.0;
+        public double turnMultiplier = 2.7;
+        public double trackWidthInches = physicalTrackWidthInches * turnMultiplier; //40.5
 
         // feedforward parameters (in tick units)
-        public double kS = 0.1;
-        public double kV = 0.01;
-        public double kA = 0.002;
+        public double kS = 0.148;
+        public double kV = 0.0135;
+        public double kA = 0.003;
 
         // path profile parameters (in inches)
         public double maxWheelVel = 2796 * inPerTick;
@@ -105,7 +106,8 @@ public final class TankDrive {
 
     public static Params PARAMS = new Params();
 
-    public final TankKinematics kinematics = new TankKinematics(PARAMS.inPerTick * PARAMS.trackWidthTicks);
+    public final TankKinematics kinematics = new TankKinematics(PARAMS.physicalTrackWidthInches);
+    private final TankKinematics turnKinematics = new TankKinematics(PARAMS.trackWidthInches);
 
     public final TurnConstraints defaultTurnConstraints = new TurnConstraints(
             PARAMS.maxAngVel, -PARAMS.maxAngAccel, PARAMS.maxAngAccel);
@@ -216,16 +218,18 @@ public final class TankDrive {
 
             }
 
-            Twist2dDual<Time> twist = kinematics.forward(new TankKinematics.WheelIncrements<>(
-                    new DualNum<Time>(new double[]{
-                            meanLeftPos - lastLeftPos,
-                            meanLeftVel
-                    }).times(PARAMS.inPerTick),
-                    new DualNum<Time>(new double[]{
-                            meanRightPos - lastRightPos,
-                            meanRightVel,
-                    }).times(PARAMS.inPerTick)
-            ));
+            Twist2dDual<Time> twist = kinematics.forward(
+                    new TankKinematics.WheelIncrements<>(
+                            new DualNum<Time>(new double[]{
+                                    meanLeftPos - lastLeftPos,
+                                    meanLeftVel
+                            }).times(PARAMS.inPerTick),
+                            new DualNum<Time>(new double[]{
+                                    meanRightPos - lastRightPos,
+                                    meanRightVel,
+                            }).times(PARAMS.inPerTick)
+                    )
+            );
 
             lastLeftPos = meanLeftPos;
             lastRightPos = meanRightPos;
@@ -352,7 +356,10 @@ public final class TankDrive {
 
             updatePoseEstimate();
 
-            PoseVelocity2dDual<Time> command = new RamseteController(kinematics.trackWidth, PARAMS.ramseteZeta, PARAMS.ramseteBBar)
+            PoseVelocity2dDual<Time> command = new RamseteController(
+                    PARAMS.physicalTrackWidthInches,
+                    PARAMS.ramseteZeta,
+                    PARAMS.ramseteBBar)
                     .compute(x, txWorldTarget, localizer.getPose());
             driveCommandWriter.write(new DriveCommandMessage(command));
 
@@ -449,7 +456,7 @@ public final class TankDrive {
             );
             driveCommandWriter.write(new DriveCommandMessage(command));
 
-            TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
+            TankKinematics.WheelVelocities<Time> wheelVels = turnKinematics.inverse(command);
             double voltage = voltageSensor.getVoltage();
             final MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS,
                     PARAMS.kV / PARAMS.inPerTick, PARAMS.kA / PARAMS.inPerTick);
