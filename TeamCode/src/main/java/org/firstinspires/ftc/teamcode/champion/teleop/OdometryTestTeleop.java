@@ -24,19 +24,28 @@ public class OdometryTestTeleop extends OpMode {
         driveController.updateOdometry();
 
         // Simple tank drive controls
-        double leftPower = -gamepad1.left_stick_y;
-        double rightPower = -gamepad1.right_stick_y;
+        double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
+        double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
 
-        driveController.tankDrive(leftPower, rightPower);
+        if (driveController.isFastSpeedMode()) {
+                drive = -gamepad1.left_stick_y * SixWheelDriveController.FAST_SPEED_MULTIPLIER;
+                turn = gamepad1.right_stick_x * SixWheelDriveController.FAST_TURN_MULTIPLIER;
+            }
+            if (!driveController.isFastSpeedMode()) {
+                drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
+                turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
+            }
+
+        driveController.arcadeDrive(drive, turn);
 
         // Display odometry data
-        telemetry.addData("Position X (inches)", driveController.getX(DistanceUnit.INCH));
-        telemetry.addData("Position Y (inches)", driveController.getY(DistanceUnit.INCH));
+        telemetry.addData("Position X (inches)", driveController.getX(DistanceUnit.INCH) * driveController.odoMultiplier);
+        telemetry.addData("Position Y (inches)", driveController.getY(DistanceUnit.INCH) * driveController.odoMultiplier);
         telemetry.addData("Heading (degrees)", driveController.getHeadingDegrees());
         telemetry.addData("Raw Encoder X", driveController.getXOdoPosition());
         telemetry.addData("Raw Encoder Y", driveController.getYOdoPosition());
-        telemetry.addData("Velocity X (mm/s)", driveController.getVelocityX());
-        telemetry.addData("Velocity Y (mm/s)", driveController.getVelocityY());
+        telemetry.addData("Velocity X (mm/s)", driveController.getVelocityX() * driveController.odoMultiplie);
+        telemetry.addData("Velocity Y (mm/s)", driveController.getVelocityY() * driveController.odoMultiplie);
         telemetry.addData("Heading Velocity (rad/s)", driveController.getHeadingVelocity());
         telemetry.addData("Pinpoint Status", driveController.getPinpointStatus());
         telemetry.addData("Pinpoint Loop Time (μs)", driveController.getPinpointLoopTime());
