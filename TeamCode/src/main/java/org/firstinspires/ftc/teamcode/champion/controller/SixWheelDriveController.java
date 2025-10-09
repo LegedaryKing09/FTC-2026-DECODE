@@ -9,7 +9,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 
 @Config
 public class SixWheelDriveController {
@@ -86,7 +87,7 @@ public class SixWheelDriveController {
         // X offset: positive = left of center, negative = right of center
         // Y offset: positive = forward of center, negative = behind center
         // Adjust these values based on your robot's physical configuration
-        pinpoint.setOffsets(-91.4, 152.4, DistanceUnit.MM); // Example values - ADJUST FOR YOUR ROBOT
+        pinpoint.setOffsets(-3.59, 6, DistanceUnit.INCH); // Example values - ADJUST FOR YOUR ROBOT
 
         // Set yaw scalar if needed (usually not necessary as devices come pre-calibrated)
         // pinpoint.setYawScalar(1.0);
@@ -254,7 +255,7 @@ public class SixWheelDriveController {
     }
 
     public double getHeadingVelocity() {
-        return pinpoint.getHeadingVelocity();
+        return pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
     }
 
     // Individual motor control
