@@ -14,6 +14,14 @@ public class ServoController {
     public static double AXON_MINI_QUARTER_POSITION = 0.25;
     public static double AXON_MINI_THREE_QUARTER_POSITION = 0.75;
 
+    // Backward compatibility constants (now represent positions)
+    public static double AXON_MINI_FULL_POWER = AXON_MINI_MAX_POSITION;
+    public static double AXON_MINI_REVERSE_POWER = AXON_MINI_MIN_POSITION;
+    public static double AXON_MINI_STOP_POWER = AXON_MINI_HALF_POSITION;
+    public static double AXON_MINI_HALF_POWER = AXON_MINI_HALF_POSITION;
+    public static double AXON_MINI_QUARTER_POWER = AXON_MINI_QUARTER_POSITION;
+    public static double AXON_MINI_SLOW_POWER = 0.1; // Approximate
+
     private enum ServoMode {
         POSITION
     }
