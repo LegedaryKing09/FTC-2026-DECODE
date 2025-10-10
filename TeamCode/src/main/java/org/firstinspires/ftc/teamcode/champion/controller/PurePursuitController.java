@@ -14,6 +14,8 @@ public class PurePursuitController {
     private double maxSpeed = 0.7;
     private double trackWidth = 15.0; // inches
     private double minSpeed = 0.25;
+    private double maxCurvatureLeft = 1.5; // Maximum curvature for left turns (positive)
+    private double maxCurvatureRight = 1.5; // Maximum curvature for right turns (negative)
     private Vector2d targetPosition;
 
     public PurePursuitController() {
@@ -63,6 +65,10 @@ public class PurePursuitController {
         Vector2d robotHeadingVec = new Vector2d(Math.cos(heading), Math.sin(heading));
         double cross = robotHeadingVec.x * toLookAhead.y - robotHeadingVec.y * toLookAhead.x;
         double curvature = 2 * cross / (distToLookAhead * distToLookAhead);
+
+        // Clamp curvature to prevent over-turning, using different limits for left/right
+        double maxCurv = (curvature > 0) ? maxCurvatureLeft : maxCurvatureRight;
+        curvature = Math.max(-maxCurvatureRight, Math.min(maxCurvatureLeft, curvature));
 
         // Speed based on distance to end
         double distToEnd = currentPose.position.minus(path.get(path.size() - 1)).norm();
