@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.tests;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -8,13 +9,15 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.PurePursuitController;
 
-
+@Config
 @TeleOp(name = "Pure Pursuit Test", group = "Tests")
 public class PurePursuitTest extends OpMode {
 
     private SixWheelDriveController driveController;
     private PurePursuitController pursuitController;
     private Vector2d targetPosition;
+    public static double targetX = 48;
+    public static double targetY = 48;
 
     @Override
     public void init() {
@@ -23,10 +26,10 @@ public class PurePursuitTest extends OpMode {
 
         // Initialize pure pursuit controller
         pursuitController = new PurePursuitController();
-        pursuitController.setParameters(12.0, 0.5, 12.0); // look ahead, max speed, track width
+        pursuitController.setParameters(12.0, 0.5, 15.0); // look ahead, max speed, track width
 
         // Set target position: go to (48,48)
-        targetPosition = new Vector2d(48, 48);
+        targetPosition = new Vector2d(targetX, targetY);
         pursuitController.setTargetPosition(targetPosition);
 
         telemetry.addData("Status", "Initialized");

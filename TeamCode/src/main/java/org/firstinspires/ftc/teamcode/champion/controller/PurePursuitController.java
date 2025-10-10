@@ -5,14 +5,15 @@ import com.acmerobotics.roadrunner.Pose2d;
 
 import java.util.List;
 import java.util.Arrays;
+import java.util.ArrayList;
 
 public class PurePursuitController {
 
     private List<Vector2d> path;
     private double lookAheadDistance = 12.0; // inches
-    private double maxSpeed = 0.5;
-    private double trackWidth = 12.0; // inches
-    private double minSpeed = 0.1;
+    private double maxSpeed = 0.7;
+    private double trackWidth = 15.0; // inches
+    private double minSpeed = 0.25;
     private Vector2d targetPosition;
 
     public PurePursuitController() {
@@ -84,7 +85,24 @@ public class PurePursuitController {
     private void generatePath(Pose2d currentPose) {
         Vector2d start = currentPose.position;
         Vector2d end = targetPosition;
-        this.path = Arrays.asList(start, end);
+        // Calculate vector from start to end
+        Vector2d direction = end.minus(start);
+        double distance = direction.norm();
+
+        // Add intermediate points to smooth the path and reduce snaking
+        List<Vector2d> waypoints = new java.util.ArrayList<>();
+        waypoints.add(start);
+
+        // Add points every 6 inches (half look ahead distance) for ultra-smooth motion
+        double spacing = lookAheadDistance / 2.0; // 6 inches
+        int numSegments = Math.max(1, (int) Math.ceil(distance / spacing));
+        for (int i = 1; i <= numSegments; i++) {
+            double fraction = (double) i / numSegments;
+            Vector2d point = start.plus(direction.times(fraction));
+            waypoints.add(point);
+        }
+
+        this.path = waypoints;
     }
 
     private int findClosestPoint(Vector2d position) {

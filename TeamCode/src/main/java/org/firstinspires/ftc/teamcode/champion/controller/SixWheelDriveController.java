@@ -87,7 +87,7 @@ public class SixWheelDriveController {
         // X offset: positive = left of center, negative = right of center
         // Y offset: positive = forward of center, negative = behind center
         // Adjust these values based on your robot's physical configuration
-        pinpoint.setOffsets(-3.59, 6, DistanceUnit.INCH); // Example values - ADJUST FOR YOUR ROBOT
+        pinpoint.setOffsets(6, 3, DistanceUnit.INCH); // Example values - ADJUST FOR YOUR ROBOT
 
         // Set yaw scalar if needed (usually not necessary as devices come pre-calibrated)
         // pinpoint.setYawScalar(1.0);
