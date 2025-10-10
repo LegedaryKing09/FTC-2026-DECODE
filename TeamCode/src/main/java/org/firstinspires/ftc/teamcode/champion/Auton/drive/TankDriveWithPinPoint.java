@@ -117,6 +117,7 @@ public final class TankDriveWithPinPoint {
         // Turn controller PID-like gains
         public double turnGain = 0.01; // proportional gain for heading error
         public double turnVelGain = 0.001; // derivative gain for angular velocity error
+
     }
 
     // Global static params object

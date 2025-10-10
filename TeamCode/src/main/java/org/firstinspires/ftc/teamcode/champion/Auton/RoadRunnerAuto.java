@@ -5,8 +5,7 @@ import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;    
 
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDrive;
 
@@ -28,6 +27,8 @@ public class RoadRunnerAuto extends LinearOpMode {
         Pose2d startPose = new Pose2d(0, 0, 0);
 
         TankDrive drive = new TankDrive(hardwareMap, startPose);
+
+        drive.initializePinpoint(this,startPose);
 
         Action moveForwardAndTurn = drive.actionBuilder(startPose)
             .lineToX(ForwardInch)  // Move forward 24 inches
