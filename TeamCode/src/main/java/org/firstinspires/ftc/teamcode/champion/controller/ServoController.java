@@ -2,105 +2,127 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.Servo;
 
 @Config
 public class ServoController {
 
     public static String AXON_MINI_NAME = "spin_indexer";
-    public static double AXON_MINI_FULL_POWER = 1.0;
-    public static double AXON_MINI_REVERSE_POWER = -1.0;
-    public static double AXON_MINI_STOP_POWER = 0.0;
-    public static double AXON_MINI_HALF_POWER = 0.5;
-    public static double AXON_MINI_QUARTER_POWER = 0.25;
-    public static double AXON_MINI_SLOW_POWER = 0.1;
+    public static double AXON_MINI_MIN_POSITION = 0.0;
+    public static double AXON_MINI_MAX_POSITION = 1.0;
+    public static double AXON_MINI_HALF_POSITION = 0.5;
+    public static double AXON_MINI_QUARTER_POSITION = 0.25;
+    public static double AXON_MINI_THREE_QUARTER_POSITION = 0.75;
 
-    private enum AxonMiniMode {
-        FORWARD, REVERSE, STOP
+    // Backward compatibility constants (now represent positions)
+    public static double AXON_MINI_FULL_POWER = AXON_MINI_MAX_POSITION;
+    public static double AXON_MINI_REVERSE_POWER = AXON_MINI_MIN_POSITION;
+    public static double AXON_MINI_STOP_POWER = AXON_MINI_HALF_POSITION;
+    public static double AXON_MINI_HALF_POWER = AXON_MINI_HALF_POSITION;
+    public static double AXON_MINI_QUARTER_POWER = AXON_MINI_QUARTER_POSITION;
+    public static double AXON_MINI_SLOW_POWER = 0.1; // Approximate
+
+    private enum ServoMode {
+        POSITION
     }
 
-    private final CRServo axonMini;
-    private AxonMiniMode axonMiniMode = AxonMiniMode.STOP;
+    private final Servo axonMini;
+    private ServoMode servoMode = ServoMode.POSITION;
 
     public ServoController(LinearOpMode opMode) {
-        axonMini = opMode.hardwareMap.get(CRServo.class, AXON_MINI_NAME);
+        axonMini = opMode.hardwareMap.get(Servo.class, AXON_MINI_NAME);
         // Uncomment the line below if you need to reverse the servo direction
-        // axonMini.setDirection(DcMotorSimple.Direction.REVERSE);
+        // axonMini.setDirection(Servo.Direction.REVERSE);
+    }
+
+    public void setPosition(double position) {
+        axonMini.setPosition(position);
+    }
+
+    public double getPosition() {
+        return axonMini.getPosition();
+    }
+
+    public void setToMin() {
+        setPosition(AXON_MINI_MIN_POSITION);
+    }
+
+    public void setToMax() {
+        setPosition(AXON_MINI_MAX_POSITION);
+    }
+
+    public void setToHalf() {
+        setPosition(AXON_MINI_HALF_POSITION);
+    }
+
+    public void setToQuarter() {
+        setPosition(AXON_MINI_QUARTER_POSITION);
+    }
+
+    public void setToThreeQuarter() {
+        setPosition(AXON_MINI_THREE_QUARTER_POSITION);
     }
 
     public void stop() {
-        axonMini.setPower(AXON_MINI_STOP_POWER);
-        axonMiniMode = AxonMiniMode.STOP;
+        setPosition(AXON_MINI_HALF_POSITION);
     }
 
     public void forwardFull() {
-        axonMini.setPower(AXON_MINI_FULL_POWER);
-        axonMiniMode = AxonMiniMode.FORWARD;
+        setPosition(AXON_MINI_MAX_POSITION);
     }
 
     public void forwardHalf() {
-        axonMini.setPower(AXON_MINI_HALF_POWER);
-        axonMiniMode = AxonMiniMode.FORWARD;
+        setPosition(0.75);
     }
 
     public void forwardQuarter() {
-        axonMini.setPower(AXON_MINI_QUARTER_POWER);
-        axonMiniMode = AxonMiniMode.FORWARD;
+        setPosition(0.625);
     }
 
     public void forwardSlow() {
-        axonMini.setPower(AXON_MINI_SLOW_POWER);
-        axonMiniMode = AxonMiniMode.FORWARD;
+        setPosition(0.55);
     }
 
     public void reverseFull() {
-        axonMini.setPower(AXON_MINI_REVERSE_POWER);
-        axonMiniMode = AxonMiniMode.REVERSE;
+        setPosition(AXON_MINI_MIN_POSITION);
     }
 
     public void reverseHalf() {
-        axonMini.setPower(-AXON_MINI_HALF_POWER);
-        axonMiniMode = AxonMiniMode.REVERSE;
+        setPosition(0.25);
     }
 
     public void reverseQuarter() {
-        axonMini.setPower(-AXON_MINI_QUARTER_POWER);
-        axonMiniMode = AxonMiniMode.REVERSE;
+        setPosition(0.375);
     }
 
     public void reverseSlow() {
-        axonMini.setPower(-AXON_MINI_SLOW_POWER);
-        axonMiniMode = AxonMiniMode.REVERSE;
+        setPosition(0.45);
     }
 
     public double getPower() {
-        return axonMini.getPower();
+        // Map position back to power (-1 to 1)
+        return (getPosition() * 2.0) - 1.0;
     }
 
     public boolean isMovingForward() {
-        return axonMiniMode == AxonMiniMode.FORWARD;
+        return getPosition() > AXON_MINI_HALF_POSITION;
     }
 
     public boolean isMovingReverse() {
-        return axonMiniMode == AxonMiniMode.REVERSE;
+        return getPosition() < AXON_MINI_HALF_POSITION;
     }
 
     public boolean isStopped() {
-        return axonMiniMode == AxonMiniMode.STOP;
+        return getPosition() == AXON_MINI_HALF_POSITION;
     }
 
     public void setPower(double power) {
-        axonMini.setPower(power);
-        if (power > 0) {
-            axonMiniMode = AxonMiniMode.FORWARD;
-        } else if (power < 0) {
-            axonMiniMode = AxonMiniMode.REVERSE;
-        } else {
-            axonMiniMode = AxonMiniMode.STOP;
-        }
+        // Map power (-1 to 1) to position (0 to 1)
+        double position = (power + 1.0) / 2.0;
+        setPosition(position);
     }
 
-    public AxonMiniMode getMode() {
-        return axonMiniMode;
+    public ServoMode getMode() {
+        return servoMode;
     }
 }

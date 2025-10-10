@@ -23,17 +23,17 @@ public class PinpointAutoController {
 
     // Move forward by a specified distance in inches
     public void moveForward(double distanceInches) {
-        double startX = driveController.getX(DistanceUnit.INCH); // Get X in inches
+        double startX = driveController.getX(); // Get X in inches
         double targetX = startX + distanceInches;
         long startTime = System.currentTimeMillis();
         long timeoutMs = 10000; // 10 second timeout
 
         while (opMode.opModeIsActive() &&
-               Math.abs(driveController.getX(DistanceUnit.INCH) - targetX) > POSITION_TOLERANCE_INCH &&
-               (System.currentTimeMillis() - startTime) < timeoutMs) {
+                Math.abs(driveController.getX() - targetX) > POSITION_TOLERANCE_INCH &&
+                (System.currentTimeMillis() - startTime) < timeoutMs) {
             driveController.tankDrive(DRIVE_POWER, DRIVE_POWER);
             driveController.updateOdometry();
-            double currentX = driveController.getX(DistanceUnit.INCH);
+            double currentX = driveController.getX();
             opMode.telemetry.addData("Start X", startX);
             opMode.telemetry.addData("Current X", currentX);
             opMode.telemetry.addData("Target X", targetX);

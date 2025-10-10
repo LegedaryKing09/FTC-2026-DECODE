@@ -9,7 +9,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 
 @Config
 public class SixWheelDriveController {
@@ -58,7 +59,7 @@ public class SixWheelDriveController {
 
         // Set motor directions
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
-        backLeft.setDirection(DcMotor.Direction.FORWARD);
+        backLeft.setDirection(DcMotor.Direction.REVERSE);
         frontRight.setDirection(DcMotor.Direction.REVERSE);
         backRight.setDirection(DcMotor.Direction.FORWARD);
 
@@ -86,7 +87,7 @@ public class SixWheelDriveController {
         // X offset: positive = left of center, negative = right of center
         // Y offset: positive = forward of center, negative = behind center
         // Adjust these values based on your robot's physical configuration
-        pinpoint.setOffsets(-91.4, 152.4, DistanceUnit.MM); // Example values - ADJUST FOR YOUR ROBOT
+        pinpoint.setOffsets(6, 3, DistanceUnit.INCH); // Example values - ADJUST FOR YOUR ROBOT
 
         // Set yaw scalar if needed (usually not necessary as devices come pre-calibrated)
         // pinpoint.setYawScalar(1.0);
@@ -129,8 +130,8 @@ public class SixWheelDriveController {
 
         // Get the current position and heading from the Pinpoint driver
         Pose2D pose = pinpoint.getPosition();
-        robotX = pose.getX(DistanceUnit.CM);
-        robotY = pose.getY(DistanceUnit.CM);
+        robotX = pose.getX(DistanceUnit.INCH);
+        robotY = pose.getY(DistanceUnit.INCH);
         robotHeading = pose.getHeading(AngleUnit.RADIANS);
     }
 
@@ -183,11 +184,11 @@ public class SixWheelDriveController {
 
     // Get position in different units
     public double getX(DistanceUnit unit) {
-        return unit.fromMm(robotX * 10); // robotX is in cm, convert to mm first
+        return unit.fromMm(robotX * 25.4); // robotX is in inches, convert to mm first
     }
 
     public double getY(DistanceUnit unit) {
-        return unit.fromMm(robotY * 10); // robotY is in cm, convert to mm first
+        return unit.fromMm(robotY * 25.4); // robotY is in inches, convert to mm first
     }
 
     public double getHeading(AngleUnit unit) {
@@ -198,19 +199,19 @@ public class SixWheelDriveController {
     public void setPosition(double x, double y, double heading) {
         Pose2D newPose = new Pose2D(DistanceUnit.MM, x, y, AngleUnit.RADIANS, heading);
         pinpoint.setPosition(newPose);
-        robotX = x;
-        robotY = y;
+        robotX = DistanceUnit.MM.toInches(x);
+        robotY = DistanceUnit.MM.toInches(y);
         robotHeading = heading;
     }
 
     public void setX(double x) {
         pinpoint.setPosX(x, DistanceUnit.MM);
-        robotX = x;
+        robotX = DistanceUnit.MM.toInches(x);
     }
 
     public void setY(double y) {
         pinpoint.setPosY(y, DistanceUnit.MM);
-        robotY = y;
+        robotY = DistanceUnit.MM.toInches(y);
     }
 
     public void setHeading(double heading) {
@@ -254,7 +255,7 @@ public class SixWheelDriveController {
     }
 
     public double getHeadingVelocity() {
-        return pinpoint.getHeadingVelocity();
+        return pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
     }
 
     // Individual motor control

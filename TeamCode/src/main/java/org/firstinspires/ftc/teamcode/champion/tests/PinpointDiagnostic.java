@@ -6,7 +6,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 
 @TeleOp(name = "Pinpoint Diagnostic", group = "Testing")
 public class PinpointDiagnostic extends LinearOpMode {
@@ -181,7 +182,7 @@ public class PinpointDiagnostic extends LinearOpMode {
             telemetry.addData("Velocities", "X: %.1f mm/s, Y: %.1f mm/s, H: %.1f°/s",
                     pinpoint.getVelX(DistanceUnit.MM),
                     pinpoint.getVelY(DistanceUnit.MM),
-                    Math.toDegrees(pinpoint.getHeadingVelocity()));
+                    Math.toDegrees(pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS)));
         } else {
             telemetry.addData("Position Data", "UNAVAILABLE (Bad Read)");
         }

@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
 @TeleOp(name = "Odometry Test", group = "Testing")
@@ -204,7 +204,7 @@ public class OdometryTest extends LinearOpMode {
 
         // Current position
         telemetry.addData("Current Position",
-                "X: %.1f mm, Y: %.1f mm",
+                "X: %.1f in, Y: %.1f in",
                 driveController.getX(),
                 driveController.getY());
         telemetry.addData("Current Heading", "%.1f° (%.3f rad)",
@@ -221,8 +221,8 @@ public class OdometryTest extends LinearOpMode {
         telemetry.addData("Change from Start",
                 "ΔX: %.1f, ΔY: %.1f, ΔH: %.1f°",
                 deltaX, deltaY, deltaHeading);
-        telemetry.addData("Total Distance", "%.1f mm (%.1f inches)",
-                distance, distance / 25.4);
+        telemetry.addData("Total Distance", "%.1f in",
+                distance);
         telemetry.addLine();
 
         // Velocities

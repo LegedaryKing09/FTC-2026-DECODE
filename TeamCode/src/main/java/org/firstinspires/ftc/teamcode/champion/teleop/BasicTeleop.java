@@ -224,8 +224,8 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✓ YES" : "NO");
                 //telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
 
-                telemetry.addData("Robot X", "%.2f", driveController.getX());
-                telemetry.addData("Robot Y", "%.2f", driveController.getY());
+                telemetry.addData("Robot X (inches)", "%.2f", driveController.getX());
+                telemetry.addData("Robot Y (inches)", "%.2f", driveController.getY());
                 telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
 
                 autoShootController.addTelemetry(telemetry);
