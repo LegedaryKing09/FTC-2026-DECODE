@@ -83,7 +83,7 @@ public class SixWheelDriveController {
         // Set encoder resolution - using goBILDA swingarm pods as default
         // Change this to goBILDA_4_BAR_POD if using 4-bar pods, or use setEncoderResolution() for custom
         // Replace the preset with custom resolution
-        pinpoint.setEncoderResolution(1890 * odomultiplier, DistanceUnit.INCH);  // Adjust based on your calculation
+        pinpoint.setEncoderResolution(908.3 * odomultiplier, DistanceUnit.INCH);  // Adjust based on your calculation
 
         // Set pod offsets - these are the distances from the center of rotation to each odometry pod
         // X offset: positive = left of center, negative = right of center
