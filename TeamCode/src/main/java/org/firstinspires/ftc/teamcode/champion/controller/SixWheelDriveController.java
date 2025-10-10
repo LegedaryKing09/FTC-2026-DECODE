@@ -20,7 +20,6 @@ public class SixWheelDriveController {
     public static String RF_NAME = "rf";
     public static String LB_NAME = "lb";
     public static String RB_NAME = "rb";
-    public static double odomultiplier = 0.9884;
 
     // Drive Motors (4 motors controlling 6 wheels via gears/belts)
     private final DcMotor frontLeft;
@@ -82,8 +81,7 @@ public class SixWheelDriveController {
 
         // Set encoder resolution - using goBILDA swingarm pods as default
         // Change this to goBILDA_4_BAR_POD if using 4-bar pods, or use setEncoderResolution() for custom
-        // Replace the preset with custom resolution
-        pinpoint.setEncoderResolution(908.3 * odomultiplier, DistanceUnit.INCH);  // Adjust based on your calculation
+        pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
 
         // Set pod offsets - these are the distances from the center of rotation to each odometry pod
         // X offset: positive = left of center, negative = right of center
