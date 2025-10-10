@@ -4,6 +4,7 @@ import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Pose2d;
 
 import java.util.List;
+import java.util.Arrays;
 
 public class PurePursuitController {
 
@@ -12,6 +13,7 @@ public class PurePursuitController {
     private double maxSpeed = 0.5;
     private double trackWidth = 12.0; // inches
     private double minSpeed = 0.1;
+    private Pose2d targetPose;
 
     public PurePursuitController() {
         // Default constructor
@@ -27,7 +29,15 @@ public class PurePursuitController {
         this.trackWidth = trackWidth;
     }
 
+    public void setTargetPose(Pose2d targetPose) {
+        this.targetPose = targetPose;
+        this.path = null; // Reset path to generate new one
+    }
+
     public double[] update(Pose2d currentPose) {
+        if (path == null && targetPose != null) {
+            generatePath(currentPose);
+        }
         if (path == null || path.isEmpty()) {
             return new double[]{0, 0};
         }
@@ -69,6 +79,14 @@ public class PurePursuitController {
         }
 
         return new double[]{leftPower, rightPower};
+    }
+
+    private void generatePath(Pose2d currentPose) {
+        Vector2d start = currentPose.position;
+        Vector2d end = targetPose.position;
+        Vector2d direction = new Vector2d(Math.cos(targetPose.heading.toDouble()), Math.sin(targetPose.heading.toDouble()));
+        Vector2d beyond = end.plus(direction.times(lookAheadDistance));
+        this.path = Arrays.asList(start, end, beyond);
     }
 
     private int findClosestPoint(Vector2d position) {

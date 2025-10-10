@@ -8,15 +8,13 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.PurePursuitController;
 
-import java.util.Arrays;
-import java.util.List;
 
 @TeleOp(name = "Pure Pursuit Test", group = "Tests")
 public class PurePursuitTest extends OpMode {
 
     private SixWheelDriveController driveController;
     private PurePursuitController pursuitController;
-    private List<Vector2d> path;
+    private Pose2d targetPose;
 
     @Override
     public void init() {
@@ -27,18 +25,12 @@ public class PurePursuitTest extends OpMode {
         pursuitController = new PurePursuitController();
         pursuitController.setParameters(12.0, 0.5, 12.0); // look ahead, max speed, track width
 
-        // Define a simple path: start at (0,0), go to (48,0), then (48,48)
-        path = Arrays.asList(
-            new Vector2d(0, 0),
-            new Vector2d(24, 0),
-            new Vector2d(48, 0),
-            new Vector2d(48, 24),
-            new Vector2d(48, 48)
-        );
-        pursuitController.setPath(path);
+        // Set target pose: go to (48,48) with heading 0 (straight)
+        targetPose = new Pose2d(48, 48, 0);
+        pursuitController.setTargetPose(targetPose);
 
         telemetry.addData("Status", "Initialized");
-        telemetry.addData("Path points", path.size());
+        telemetry.addData("Target", String.format("(%.1f, %.1f, %.1f°)", targetPose.position.x, targetPose.position.y, Math.toDegrees(targetPose.heading.toDouble())));
     }
 
     @Override
@@ -58,7 +50,7 @@ public class PurePursuitTest extends OpMode {
         driveController.tankDrive(powers[0], powers[1]);
 
         // Check if at end
-        Vector2d endPoint = path.get(path.size() - 1);
+        Vector2d endPoint = targetPose.position;
         double distToEnd = Math.hypot(currentPose.position.x - endPoint.x, currentPose.position.y - endPoint.y);
         if (distToEnd < 2.0) {
             driveController.stopDrive();
