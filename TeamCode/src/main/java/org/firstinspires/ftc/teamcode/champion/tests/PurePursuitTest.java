@@ -14,7 +14,7 @@ public class PurePursuitTest extends OpMode {
 
     private SixWheelDriveController driveController;
     private PurePursuitController pursuitController;
-    private Pose2d targetPose;
+    private Vector2d targetPosition;
 
     @Override
     public void init() {
@@ -25,12 +25,12 @@ public class PurePursuitTest extends OpMode {
         pursuitController = new PurePursuitController();
         pursuitController.setParameters(12.0, 0.5, 12.0); // look ahead, max speed, track width
 
-        // Set target pose: go to (48,48) with heading 0 (straight)
-        targetPose = new Pose2d(48, 48, 0);
-        pursuitController.setTargetPose(targetPose);
+        // Set target position: go to (48,48)
+        targetPosition = new Vector2d(48, 48);
+        pursuitController.setTargetPosition(targetPosition);
 
         telemetry.addData("Status", "Initialized");
-        telemetry.addData("Target", String.format("(%.1f, %.1f, %.1f°)", targetPose.position.x, targetPose.position.y, Math.toDegrees(targetPose.heading.toDouble())));
+        telemetry.addData("Target", String.format("(%.1f, %.1f)", targetPosition.x, targetPosition.y));
     }
 
     @Override
@@ -50,9 +50,9 @@ public class PurePursuitTest extends OpMode {
         driveController.tankDrive(powers[0], powers[1]);
 
         // Check if at end
-        Vector2d endPoint = targetPose.position;
+        Vector2d endPoint = targetPosition;
         double distToEnd = Math.hypot(currentPose.position.x - endPoint.x, currentPose.position.y - endPoint.y);
-        if (distToEnd < 2.0) {
+        if (distToEnd < 5.0) {
             driveController.stopDrive();
             telemetry.addData("Status", "Path Complete");
         } else {
