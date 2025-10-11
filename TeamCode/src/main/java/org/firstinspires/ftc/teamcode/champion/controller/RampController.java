@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 @Config
 public class RampController {
 
-    public static String RANGE_SERVO_NAME = "range_servo";
+    public static String RANGE_SERVO_NAME = "ramp";
     public static double RANGE_SERVO_MIN_POSITION = 0.0;
     public static double RANGE_SERVO_MAX_POSITION = 1.0;
     public static double RANGE_SERVO_CENTER_POSITION = 0.5;
@@ -26,10 +26,11 @@ public class RampController {
 
     private final Servo ramp;
 
+
     public RampController(LinearOpMode opMode) {
         ramp = opMode.hardwareMap.get(Servo.class, RANGE_SERVO_NAME);
         // Uncomment the line below if you need to reverse the servo direction
-        // ramp.setDirection(Servo.Direction.REVERSE);
+        ramp.setDirection(Servo.Direction.REVERSE);
     }
 
     // Position-based methods (0.0 to 1.0)

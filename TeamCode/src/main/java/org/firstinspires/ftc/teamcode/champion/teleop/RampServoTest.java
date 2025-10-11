@@ -12,6 +12,8 @@ public class RampServoTest extends LinearOpMode {
 
     private RampController rampController;
 
+    
+
     @Override
     public void runOpMode() throws InterruptedException {
         rampController = new RampController(this);
