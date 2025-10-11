@@ -59,13 +59,13 @@ public class ServoTest extends LinearOpMode {
     }
 
     private double getAngle() {
-        return servoController.getPosition() * MAX_DEGREES;
+        return (1.0 - servoController.getPosition()) * MAX_DEGREES;
     }
 
     private void setAngle(double angle) {
         // Clamp angle to valid range
         angle = Math.max(0.0, Math.min(MAX_DEGREES, angle));
-        double position = angle / MAX_DEGREES;
+        double position = 1.0 - (angle / MAX_DEGREES);
         servoController.setPosition(position);
     }
 
