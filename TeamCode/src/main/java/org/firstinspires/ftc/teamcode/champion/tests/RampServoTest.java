@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.teleop;
+package org.firstinspires.ftc.teamcode.champion.tests;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
