@@ -3,18 +3,18 @@ package org.firstinspires.ftc.teamcode.champion.tests;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.champion.controller.ServoController;
+import org.firstinspires.ftc.teamcode.champion.controller.AxonMiniServoController;
 
 @TeleOp(name = "Servo Test", group = "Tests")
-public class ServoTest extends LinearOpMode {
+public class AxonMiniServoTest extends LinearOpMode {
 
-    private ServoController servoController;
+    private AxonMiniServoController axonMiniServoController;
     private static final double MAX_DEGREES = 180.0;
     private static final double INCREMENT_DEGREES = 10.0;
 
     @Override
     public void runOpMode() throws InterruptedException {
-        servoController = new ServoController(this);
+        axonMiniServoController = new AxonMiniServoController(this);
 
         telemetry.addData("Status", "Initialized");
         telemetry.addData("Controls", "");
@@ -49,7 +49,7 @@ public class ServoTest extends LinearOpMode {
 
             // Display current state
             telemetry.addData("", "--- Current State ---");
-            telemetry.addData("Position", "%.3f", servoController.getPosition());
+            telemetry.addData("Position", "%.3f", axonMiniServoController.getPosition());
             telemetry.addData("Angle", "%.1f°", getAngle());
 
             telemetry.update();
@@ -59,14 +59,14 @@ public class ServoTest extends LinearOpMode {
     }
 
     private double getAngle() {
-        return (1.0 - servoController.getPosition()) * MAX_DEGREES;
+        return (1.0 - axonMiniServoController.getPosition()) * MAX_DEGREES;
     }
 
     private void setAngle(double angle) {
         // Clamp angle to valid range
         angle = Math.max(0.0, Math.min(MAX_DEGREES, angle));
         double position = 1.0 - (angle / MAX_DEGREES);
-        servoController.setPosition(position);
+        axonMiniServoController.setPosition(position);
     }
 
     private void incrementAngle(double degrees) {
