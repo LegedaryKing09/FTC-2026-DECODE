@@ -12,7 +12,7 @@ public class PurePursuitController {
     private List<Vector2d> path;
     private double lookAheadDistance = 12.0; // inches
     private double maxSpeed = 0.75;
-    private double trackWidth = 15.0; // inches
+    private double trackWidth = 11; // inches
     private double minSpeed = 0.35;
     private double maxCurvatureLeft = 1.5; // Maximum curvature for left turns (positive)
     private double maxCurvatureRight = 1.5; // Maximum curvature for right turns (negative)

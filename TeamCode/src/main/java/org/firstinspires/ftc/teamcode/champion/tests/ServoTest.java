@@ -10,7 +10,7 @@ public class ServoTest extends LinearOpMode {
 
     private ServoController servoController;
     private static final double MAX_DEGREES = 180.0;
-    private static final double INCREMENT_DEGREES = 5.0;
+    private static final double INCREMENT_DEGREES = 10.0;
 
     @Override
     public void runOpMode() throws InterruptedException {
