@@ -30,23 +30,16 @@ public class BallPursuitController {
         public static double HEADING_CORRECTION_WEIGHT = 0.7; // How much to prioritize heading correction
     }
 
-    // State tracking
+    // State tracking - simplified to avoid state machine issues
     private boolean isActive = false;
     private Vector2d lastBallPosition = null;
     private Vector2d currentTargetPosition = null;
     private final ElapsedTime pathUpdateTimer = new ElapsedTime();
     private final ElapsedTime ballLostTimer = new ElapsedTime();
     private boolean ballWasLost = false;
+    private boolean isPursuing = false; // Simple flag instead of enum state
 
-    public enum PursuitState {
-        STOPPED,
-        ALIGNING_TO_BALL,
-        PURSUING_BALL,
-        AT_BALL,
-        BALL_LOST
-    }
-
-    private PursuitState currentState = PursuitState.STOPPED;
+    // Removed enum to avoid state machine issues in FTC
 
     public BallPursuitController(LinearOpMode opMode) throws Exception {
         this.opMode = opMode;
@@ -65,7 +58,7 @@ public class BallPursuitController {
      */
     public void startPursuit() {
         isActive = true;
-        currentState = PursuitState.ALIGNING_TO_BALL;
+        isPursuing = true;
         ballAlignment.startTracking();
         pathUpdateTimer.reset();
         ballLostTimer.reset();
@@ -82,7 +75,7 @@ public class BallPursuitController {
      */
     public void stopPursuit() {
         isActive = false;
-        currentState = PursuitState.STOPPED;
+        isPursuing = false;
         ballAlignment.stopTracking();
         pursuitController.setPath(null);
         driveController.stopDrive();
@@ -107,63 +100,79 @@ public class BallPursuitController {
             driveController.getHeading()
         );
 
-        // Determine pursuit state and control robot
-        updatePursuitState(currentPose);
-    }
-
-    private void updatePursuitState(Pose2d currentPose) {
+        // Simplified pursuit logic without state machine
         boolean hasBall = ballAlignment.hasBall();
         Vector2d ballPosition = calculateBallPosition(currentPose);
 
         // Handle ball detection/loss
-        if (hasBall) {
+    if (hasBall) {
+        ballLostTimer.reset();
+        ballWasLost = false;
+
+        // Check if close enough to ball
+        double distanceToBall = currentPose.position.minus(ballPosition).norm();
+        if (distanceToBall <= BallPursuitConfig.STOP_DISTANCE) {
+            // At ball - stop
+            isPursuing = false;
+            driveController.stopDrive();
+            return;
+        }
+
+        // Check if ball moved significantly enough to update path
+        boolean shouldUpdatePath = shouldUpdatePath(ballPosition);
+
+        if (shouldUpdatePath) {
+            currentTargetPosition = calculateTargetPosition(currentPose, ballPosition);
+            pursuitController.setTargetPosition(currentTargetPosition);
+            lastBallPosition = ballPosition;
+            pathUpdateTimer.reset();
+            isPursuing = true;
+        }
+
+        // If pursuing, combine pure pursuit with alignment
+        if (isPursuing) {
+            // Get pursuit powers
+            double[] pursuitPowers = pursuitController.update(currentPose);
+
+            // Get alignment correction (heading adjustment)
+            double alignmentCorrection = getAlignmentCorrection();
+
+            // Combine pursuit and alignment
+            double leftPower = pursuitPowers[0] + (alignmentCorrection * BallPursuitConfig.HEADING_CORRECTION_WEIGHT);
+            double rightPower = pursuitPowers[1] - (alignmentCorrection * BallPursuitConfig.HEADING_CORRECTION_WEIGHT);
+
+            // Safety: Clamp powers to prevent excessive speed
+            leftPower = Math.max(-BallPursuitConfig.MAX_SPEED, Math.min(BallPursuitConfig.MAX_SPEED, leftPower));
+            rightPower = Math.max(-BallPursuitConfig.MAX_SPEED, Math.min(BallPursuitConfig.MAX_SPEED, rightPower));
+
+            // Apply minimum speed if moving but very slow
+            if (Math.abs(leftPower) > 0.05 && Math.abs(leftPower) < BallPursuitConfig.MIN_SPEED) {
+                leftPower = Math.signum(leftPower) * BallPursuitConfig.MIN_SPEED;
+            }
+            if (Math.abs(rightPower) > 0.05 && Math.abs(rightPower) < BallPursuitConfig.MIN_SPEED) {
+                rightPower = Math.signum(rightPower) * BallPursuitConfig.MIN_SPEED;
+            }
+
+            // Apply powers
+            driveController.tankDrive(leftPower, rightPower);
+        }
+    } else {
+        // Ball lost
+        if (!ballWasLost) {
             ballLostTimer.reset();
-            ballWasLost = false;
-
-            // Check if ball moved significantly enough to update path
-            boolean shouldUpdatePath = shouldUpdatePath(ballPosition);
-
-            if (shouldUpdatePath) {
-                currentTargetPosition = calculateTargetPosition(currentPose, ballPosition);
-                pursuitController.setTargetPosition(currentTargetPosition);
-                lastBallPosition = ballPosition;
-                pathUpdateTimer.reset();
-            }
-        } else {
-            // Ball lost
-            if (!ballWasLost) {
-                ballLostTimer.reset();
-                ballWasLost = true;
-            }
-
-            if (ballLostTimer.seconds() > BallPursuitConfig.BALL_LOST_TIMEOUT) {
-                currentState = PursuitState.BALL_LOST;
-                driveController.stopDrive();
-                return;
-            }
+            ballWasLost = true;
         }
 
-        // State machine
-        switch (currentState) {
-            case ALIGNING_TO_BALL:
-                handleAligningState(currentPose, hasBall);
-                break;
-
-            case PURSUING_BALL:
-                handlePursuingState(currentPose, hasBall);
-                break;
-
-            case AT_BALL:
-                handleAtBallState();
-                break;
-
-            case BALL_LOST:
-                handleBallLostState();
-                break;
-
-            case STOPPED:
-                break;
+        if (ballLostTimer.seconds() > BallPursuitConfig.BALL_LOST_TIMEOUT) {
+            // Ball lost for too long - stop
+            isPursuing = false;
+            driveController.stopDrive();
+            return;
         }
+
+        // Keep trying to find ball - ball alignment controller handles searching
+        isPursuing = false;
+    }
     }
 
     private void handleAligningState(Pose2d currentPose, boolean hasBall) {
@@ -252,6 +261,7 @@ public class BallPursuitController {
 
     /**
      * Calculate field-absolute ball position from Limelight data
+     * Handles multiple balls by finding the closest one
      */
     private Vector2d calculateBallPosition(Pose2d robotPose) {
         if (!ballAlignment.hasBall()) {
@@ -323,12 +333,16 @@ public class BallPursuitController {
     }
 
     // Getters for telemetry and debugging
-    public PursuitState getState() {
-        return currentState;
+    public String getState() {
+        if (!isActive) return "STOPPED";
+        if (ballWasLost && ballLostTimer.seconds() > BallPursuitConfig.BALL_LOST_TIMEOUT) return "BALL_LOST";
+        if (!hasBall()) return "SEARCHING";
+        if (isPursuing) return "PURSUING";
+        return "AT_BALL";
     }
 
     public boolean isPursuing() {
-        return isActive;
+        return isActive && isPursuing;
     }
 
     public boolean hasBall() {
@@ -365,7 +379,7 @@ public class BallPursuitController {
 
     public void displayTelemetry() {
         opMode.telemetry.addLine("╔═══ BALL PURSUIT ═══╗");
-        opMode.telemetry.addData("State", currentState);
+        opMode.telemetry.addData("State", getState());
         opMode.telemetry.addData("Has Ball", hasBall());
         opMode.telemetry.addData("Pursuing", isPursuing());
 

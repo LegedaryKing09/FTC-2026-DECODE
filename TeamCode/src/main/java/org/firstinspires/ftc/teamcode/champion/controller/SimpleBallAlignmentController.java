@@ -71,6 +71,7 @@ public class SimpleBallAlignmentController {
     }
 
     // Ball data from Python output (new format with TX/TY in array)
+    // Supports multiple balls - Python returns closest/primary ball
     private double ballTx = 0;      // TX from Python (index 1)
     private double ballTy = 0;      // TY from Python (index 2)
     private double ballPixelX = 0;  // Center X from Python (index 3)

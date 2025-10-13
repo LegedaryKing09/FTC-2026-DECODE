@@ -81,24 +81,24 @@ public class BallPursuitTest extends LinearOpMode {
     }
 
     private void trackPerformance() {
-        BallPursuitController.PursuitState state = ballPursuit.getState();
+        String state = ballPursuit.getState();
 
         // Track pursuit starts
-        if (state != BallPursuitController.PursuitState.STOPPED && !pursuitActive) {
+        if (!state.equals("STOPPED") && !pursuitActive) {
             pursuitStartedCount++;
             pursuitActive = true;
             pursuitTimer.reset();
-        } else if (state == BallPursuitController.PursuitState.STOPPED && pursuitActive) {
+        } else if (state.equals("STOPPED") && pursuitActive) {
             pursuitActive = false;
         }
 
         // Track reaching ball
-        if (state == BallPursuitController.PursuitState.AT_BALL) {
+        if (state.equals("AT_BALL")) {
             ballReachedCount++;
         }
 
         // Track ball loss
-        if (state == BallPursuitController.PursuitState.BALL_LOST) {
+        if (state.equals("BALL_LOST")) {
             ballLostCount++;
         }
     }
