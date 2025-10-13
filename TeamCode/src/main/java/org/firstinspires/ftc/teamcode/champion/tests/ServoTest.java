@@ -18,7 +18,7 @@ public class ServoTest extends LinearOpMode {
 
         telemetry.addData("Status", "Initialized");
         telemetry.addData("Controls", "");
-        telemetry.addData("", "DPad Up: +5° | DPad Down: -5°");
+        telemetry.addData("", "DPad Up: +10° | DPad Down: -10°");
         telemetry.addData("", "A: Min (0°) | B: Max (180°)");
         telemetry.addData("", "X: Center (90°)");
         telemetry.update();
@@ -59,13 +59,13 @@ public class ServoTest extends LinearOpMode {
     }
 
     private double getAngle() {
-        return (1.0 - servoController.getPosition()) * MAX_DEGREES;
+        return servoController.getPosition() * MAX_DEGREES;
     }
 
     private void setAngle(double angle) {
         // Clamp angle to valid range
         angle = Math.max(0.0, Math.min(MAX_DEGREES, angle));
-        double position = 1.0 - (angle / MAX_DEGREES);
+        double position = angle / MAX_DEGREES;
         servoController.setPosition(position);
     }
 
