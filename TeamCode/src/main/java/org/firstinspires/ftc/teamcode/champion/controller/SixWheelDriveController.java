@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 
 import android.annotation.SuppressLint;
 import com.acmerobotics.dashboard.config.Config;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -12,11 +11,11 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
-import org.firstinspires.ftc.teamcode.champion.controller.GoBildaPinpointDriver;
 
 @Config
 public class SixWheelDriveController {
 
+    // Motor configuration names - STATIC like in version 2
     public static String LF_NAME = "lf";
     public static String RF_NAME = "rf";
     public static String LB_NAME = "lb";
@@ -28,14 +27,17 @@ public class SixWheelDriveController {
     private final DcMotorEx backRight;
 
     private final GoBildaPinpointDriver pinpoint;
-    private final LinearOpMode opMode;
 
-    private double trackWidth = 12.0;
-    private double xOdoOffset = 6.0;
+    // Robot dimensions
+    private double trackWidth = 12.0; // Distance between left and right drive wheels
+    private double xOdoOffset = 6.0; // Distance from center of rotation to x odometry wheel
+
+    // Robot position tracking
     private double robotX = 0.0;
     private double robotY = 0.0;
     private double robotHeading = 0.0;
 
+    // Speed mode settings
     public static double FAST_SPEED_MULTIPLIER = 6;
     public static double FAST_TURN_MULTIPLIER = 7;
     public static double SLOW_SPEED_MULTIPLIER = 0.8;
@@ -43,43 +45,12 @@ public class SixWheelDriveController {
 
     private boolean isFastSpeedMode = false;
 
-    @Config
-    public static class VelocityParams {
-        public static double TICKS_PER_REV = 751.8;
-        public static double MAX_RPM = 312.0;
-        public static double MAX_TICKS_PER_SEC = (MAX_RPM / 60.0) * TICKS_PER_REV;
-
-        public static double VELOCITY_P = 3.0;
-        public static double VELOCITY_I = 0.5;
-        public static double VELOCITY_D = 0.0;
-        public static double VELOCITY_F = 12.0;
-
-        public static double TRACK_WIDTH_INCHES = 12.0;
-    }
-
-    @Config
-    public static class OdometryParams {
-        // CRITICAL: Use consistent pod type!
-        // Set to true if using 4-bar pods, false if using swingarm pods
-        public static boolean USE_4_BAR_PODS = true;
-
-        // Offsets from center of robot to odometry pods (in MM)
-        // POSITIVE X = forward, NEGATIVE X = backward
-        // POSITIVE Y = left, NEGATIVE Y = right
-        public static double X_OFFSET_MM = -84.0;  // Try positive if readings are inverted
-        public static double Y_OFFSET_MM = -168.0; // Try positive if readings are inverted
-
-        // Yaw scalar for heading calibration
-        // If 90° reads as 4°, try: 90 / 4 = 22.5
-        public static double YAW_SCALAR = 1.0;
-
-        // Set to REVERSE if encoder readings are backwards
-        public static boolean X_ENCODER_REVERSED = false;
-        public static boolean Y_ENCODER_REVERSED = false;
-    }
-
-    public SixWheelDriveController(LinearOpMode opMode) {
-        this.opMode = opMode;
+    // Constructor
+    public SixWheelDriveController(OpMode opMode) {
+        frontLeft = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
+        frontRight = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
+        backLeft = opMode.hardwareMap.get(DcMotorEx.class, LB_NAME);
+        backRight = opMode.hardwareMap.get(DcMotorEx.class, RB_NAME);
 
         frontLeft = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
         frontRight = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
