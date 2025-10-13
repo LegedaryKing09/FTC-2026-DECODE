@@ -5,10 +5,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
 
 @TeleOp(name = "ServoValueTester")
-@Disabled
 //makes a servo go forward based on the y axis of the left joystick
-public class
-ServoValueTester extends LinearOpMode {
+public class ServoValueTester extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         Servo servo = hardwareMap.get(Servo.class, "servo");
