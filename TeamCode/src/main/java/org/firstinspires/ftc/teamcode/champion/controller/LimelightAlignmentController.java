@@ -62,7 +62,7 @@ public class LimelightAlignmentController {
     @Config
     public static class TargetSearch {
         public static boolean ENABLE_SEARCH = true;
-        public static double SEARCH_SPEED = 0.6;  // Increased from 0.25 to 0.6 as requested
+        public static double SEARCH_SPEED = 0.45;  // Increased from 0.25 to 0.6 as requested
         public static double SEARCH_DELAY_MS = 300;  // Reduced delay for faster response
         public static double MAX_SEARCH_TIME_MS = 5000;
     }
