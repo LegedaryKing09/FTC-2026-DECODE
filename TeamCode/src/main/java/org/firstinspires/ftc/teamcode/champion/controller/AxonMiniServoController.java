@@ -32,7 +32,7 @@ public class AxonMiniServoController {
     public AxonMiniServoController(LinearOpMode opMode) {
         axonMini = opMode.hardwareMap.get(Servo.class, AXON_MINI_NAME);
         // Uncomment the line below if you need to reverse the servo direction
-        // axonMini.setDirection(Servo.Direction.REVERSE);
+        axonMini.setDirection(Servo.Direction.REVERSE);
     }
 
     public void setPosition(double position) {
