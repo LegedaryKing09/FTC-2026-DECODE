@@ -30,7 +30,7 @@ public class RampController {
     public RampController(LinearOpMode opMode) {
         ramp = opMode.hardwareMap.get(Servo.class, RANGE_SERVO_NAME);
         // Uncomment the line below if you need to reverse the servo direction
-        ramp.setDirection(Servo.Direction.REVERSE);
+        ramp.setDirection(Servo.Direction.FORWARD);
     }
 
     // Position-based methods (0.0 to 1.0)

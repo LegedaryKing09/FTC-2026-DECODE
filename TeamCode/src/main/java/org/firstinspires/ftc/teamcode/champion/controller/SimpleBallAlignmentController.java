@@ -14,12 +14,10 @@ import com.qualcomm.robotcore.util.Range;
  */
 @Config
 public class SimpleBallAlignmentController {
-
     private final LinearOpMode opMode;
     private final SixWheelDriveController driveController;
     private final Limelight3A limelight;
     private final FtcDashboard dashboard;
-
     @Config
     public static class BallAlignPID {
         public static double KP = 0.07;
