@@ -40,6 +40,7 @@ import com.acmerobotics.roadrunner.ftc.LynxFirmware;
 import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
 import com.acmerobotics.roadrunner.ftc.PositionVelocityPair;
 import com.acmerobotics.roadrunner.ftc.RawEncoder;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -51,6 +52,7 @@ import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
+import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.DriveCommandMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.PoseMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankCommandMessage;
@@ -62,46 +64,59 @@ import java.util.LinkedList;
 import java.util.List;
 
 @Config
-public final class TankDrive {
+public final class AutoTankDrive {
     public static class Params {
         // IMU orientation
-        // TODO: fill in these values based on
-        //   see https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html?highlight=imu#physical-hub-mounting
         public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
-                RevHubOrientationOnRobot.LogoFacingDirection.UP;
+                RevHubOrientationOnRobot.LogoFacingDirection.LEFT;
         public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
-                RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD;
+                RevHubOrientationOnRobot.UsbFacingDirection.UP;
 
-        // drive model parameters
-        public double wheelRadius = 1.89;
+        // drive wheel parameters for motor control
+        public double wheelRadius = 1.89; //robot drives too far, decrease
         public double gearRatio = 1;
         public double ticksPerRev = 537.7;
-        public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
-        public double physicalTrackWidthInches = 15.0;
+        public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev; //0.122649532434058
 
+        //track width for ramsete, path following not odometry
+        public double physicalTrackWidthInches = 6.8; // old_trackWidth * (θ_cmd / θ_meas)
 
         // feedforward parameters (in tick units)
-        public double kS = 0.1;
-        public double kV = 0.01;
-        public double kA = 0.001;
+        public double kS = 0.8; // jerking before starting, increase ; creeping when it should stop, decrease
+        public double kV = 0.2; // moving slow, increase ; overshoot distance or turning too fast, decrease
+        public double kA = 0.002; // lagging when accelerating, increase ; shaking when staring or stopping, decrease
 
 
         // path profile parameters
-        public double maxWheelVel = 2000 * inPerTick;
+        public double maxWheelVel = 2000 * inPerTick; // overshoot, lower ; finish late or slow, higher 110.85299064868116
         public double minProfileAccel = -20;
-        public double maxProfileAccel = 20;
+        public double maxProfileAccel = 20; // aggressive or slipping, lower ; slow to start, increase
 
 
         // turn profile parameters
-        public double maxAngVel = (2 * maxWheelVel) / physicalTrackWidthInches;
-        public double maxAngAccel = (2 * maxProfileAccel) / physicalTrackWidthInches;
-
-        public double ramseteZeta = 0.7;
-        public double ramseteBBar = 2.0;
+        public double maxAngVel = (2 * maxWheelVel) / physicalTrackWidthInches; // 20.0303030303030303
+        public double maxAngAccel = (2 * maxProfileAccel) / physicalTrackWidthInches; // 50.70499858313351
 
 
-        public double turnGain = 0.01;
-        public double turnVelGain = 0.001;
+        // Zeta : how smooth the correction is, Bbar: how fast and strong the correction is
+        public double ramseteZeta = 0.7; // wobble or oscillate while correcting, increase ; lag, slow to catch up, decrease
+        public double ramseteBBar = 2.0; // vibrating or jerking near corners, lower ; doesn't reach the target, increase
+
+        public double turnGain = 0.01; // stop before full turn, increase, oscillate, decrease
+        public double turnVelGain = 0.001; // drifts slowly at the end, increase ; jerks at the end, decrease
+
+        //pinpoint odometry parameters for localization
+        public double odoWheelRadius = 0.411;  //  newWheelRadius =  * target angle / odo angle
+        public double odoTicksPerRev = 1180;   // newTicksRev =  * target distance / odo distance
+        public double odoInPerTick = (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev;
+        public double pinpointXOffset = 6.0;
+        public double pinpointYOffset = 3.0;
+
+        // Pinpoint encoder directions (change if odometry reads backwards)
+        public GoBildaPinpointDriver.EncoderDirection xEncoderDirection =
+                GoBildaPinpointDriver.EncoderDirection.REVERSED;
+        public GoBildaPinpointDriver.EncoderDirection yEncoderDirection =
+                GoBildaPinpointDriver.EncoderDirection.FORWARD;
 
     }
 
@@ -124,8 +139,7 @@ public final class TankDrive {
 
     public final LazyImu lazyImu;
     public final VoltageSensor voltageSensor;
-    public final PinpointLocalizer pinpointLocalizer;  // Pinpoint odometry
-
+    public final GoBildaPinpointDriver pinpoint;
     public final Localizer localizer; //main localizer interface
     private final LinkedList<Pose2d> poseHistory = new LinkedList<>();
 
@@ -134,44 +148,41 @@ public final class TankDrive {
     private final DownsampledWriter driveCommandWriter = new DownsampledWriter("DRIVE_COMMAND", 50_000_000);
     private final DownsampledWriter tankCommandWriter = new DownsampledWriter("TANK_COMMAND", 50_000_000);
 
-    public class DriveLocalizer implements Localizer {
-        public final List<Encoder> leftEncs, rightEncs;
+    public class PinpointLocalizer implements Localizer {
         private Pose2d pose;
 
-        private double lastLeftPos, lastRightPos;
-        private boolean initialized;
+        public PinpointLocalizer(Pose2d initialPose) {
+            this.pose = initialPose;
 
-        public DriveLocalizer(Pose2d pose) {
-            {
-                List<Encoder> leftEncs = new ArrayList<>();
-                for (DcMotorEx m : leftMotors) {
-                    Encoder e = new OverflowEncoder(new RawEncoder(m));
-                    leftEncs.add(e);
-                }
-                this.leftEncs = Collections.unmodifiableList(leftEncs);
-            }
+            // Configure Pinpoint with odometry parameters
+            double mmPerTick = PARAMS.odoInPerTick * 25.4;
+            pinpoint.setEncoderResolution(1 / mmPerTick, DistanceUnit.MM);
 
-            {
-                List<Encoder> rightEncs = new ArrayList<>();
-                for (DcMotorEx m : rightMotors) {
-                    Encoder e = new OverflowEncoder(new RawEncoder(m));
-                    rightEncs.add(e);
-                }
-                this.rightEncs = Collections.unmodifiableList(rightEncs);
-            }
-            leftEncs.get(0).setDirection(DcMotorSimple.Direction.FORWARD);
-            rightEncs.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
-            leftEncs.get(1).setDirection(DcMotorSimple.Direction.REVERSE);
-            rightEncs.get(1).setDirection(DcMotorSimple.Direction.FORWARD);
-            // TODO: reverse encoder directions if needed
-            //   leftEncs.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
+            // Set pod offsets
+            pinpoint.setOffsets(
+                    PARAMS.pinpointXOffset * 25.4,  // Convert to mm
+                    PARAMS.pinpointYOffset * 25.4,  // Convert to mm
+                    DistanceUnit.MM
+            );
 
-            this.pose = pose;
+            // Set encoder directions
+            pinpoint.setEncoderDirections(PARAMS.xEncoderDirection, PARAMS.yEncoderDirection);
+
+            // Reset Pinpoint
+            pinpoint.resetPosAndIMU();
         }
 
         @Override
         public void setPose(Pose2d pose) {
             this.pose = pose;
+            Pose2D pose2d = new Pose2D(
+                    DistanceUnit.INCH,
+                    pose.position.x,
+                    pose.position.y,
+                    AngleUnit.RADIANS,
+                    pose.heading.toDouble()
+            );
+            pinpoint.setPosition(pose2d);
         }
 
         @Override
@@ -181,71 +192,43 @@ public final class TankDrive {
 
         @Override
         public PoseVelocity2d update() {
-            Twist2dDual<Time> delta;
+            pinpoint.update();
 
-            List<PositionVelocityPair> leftReadings = new ArrayList<>(), rightReadings = new ArrayList<>();
-            double meanLeftPos = 0.0, meanLeftVel = 0.0;
-            for (Encoder e : leftEncs) {
-                PositionVelocityPair p = e.getPositionAndVelocity();
-                meanLeftPos += p.position;
-                meanLeftVel += p.velocity;
-                leftReadings.add(p);
-            }
-            meanLeftPos /= leftEncs.size();
-            meanLeftVel /= leftEncs.size();
+            if (pinpoint.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY) {
+                // Update pose from Pinpoint
+                pose = new Pose2d(
+                        pinpoint.getPosX(DistanceUnit.INCH),
+                        pinpoint.getPosY(DistanceUnit.INCH),
+                        pinpoint.getHeading(UnnormalizedAngleUnit.RADIANS)
+                );
 
-            double meanRightPos = 0.0, meanRightVel = 0.0;
-            for (Encoder e : rightEncs) {
-                PositionVelocityPair p = e.getPositionAndVelocity();
-                meanRightPos += p.position;
-                meanRightVel += p.velocity;
-                rightReadings.add(p);
-            }
-            meanRightPos /= rightEncs.size();
-            meanRightVel /= rightEncs.size();
-
-            FlightRecorder.write("TANK_LOCALIZER_INPUTS",
-                    new TankLocalizerInputsMessage(leftReadings, rightReadings));
-
-            if (!initialized) {
-                initialized = true;
-
-                lastLeftPos = meanLeftPos;
-                lastRightPos = meanRightPos;
-
-                return new PoseVelocity2d(new Vector2d(0.0, 0.0), 0.0);
-
+                // Return velocity
+                return new PoseVelocity2d(
+                        new Vector2d(
+                                pinpoint.getVelX(DistanceUnit.INCH),
+                                pinpoint.getVelY(DistanceUnit.INCH)
+                        ),
+                        pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS)
+                );
             }
 
-            Twist2dDual<Time> twist = kinematics.forward(
-                    new TankKinematics.WheelIncrements<>(
-                            new DualNum<Time>(new double[]{
-                                    meanLeftPos - lastLeftPos,
-                                    meanLeftVel
-                            }).times(PARAMS.inPerTick),
-                            new DualNum<Time>(new double[]{
-                                    meanRightPos - lastRightPos,
-                                    meanRightVel,
-                            }).times(PARAMS.inPerTick)
-                    )
-            );
+            return new PoseVelocity2d(new Vector2d(0, 0), 0);
+        }
 
-            lastLeftPos = meanLeftPos;
-            lastRightPos = meanRightPos;
-
-            pose = pose.plus(twist.value());
-
-            return twist.velocity().value();
+        public boolean isReady() {
+            pinpoint.update();
+            return pinpoint.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY;
         }
     }
 
-    public TankDrive(HardwareMap hardwareMap, Pose2d pose) {
+    public AutoTankDrive(HardwareMap hardwareMap, Pose2d pose) {
         LynxFirmware.throwIfModulesAreOutdated(hardwareMap);
 
         for (LynxModule module : hardwareMap.getAll(LynxModule.class)) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
 
+        // Initialize motors
         leftFront = hardwareMap.get(DcMotorEx.class, "lf");
         leftBack = hardwareMap.get(DcMotorEx.class, "lb");
         rightFront = hardwareMap.get(DcMotorEx.class, "rf");
@@ -259,55 +242,41 @@ public final class TankDrive {
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
 
-        leftFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        leftBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
         for (DcMotorEx m : leftMotors) {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
-
         for (DcMotorEx m : rightMotors) {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
 
-        // TODO: reverse motor directions if needed
-//        leftMotors.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
-        // TODO: make sure your config has an IMU with this name (can be BNO or BHI)
-        //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
+        // Initialize IMU
         lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
                 PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
-        pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, pose);
-        localizer = pinpointLocalizer;
+
+        // Initialize Pinpoint
+        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
+        localizer = new PinpointLocalizer(pose);
 
         FlightRecorder.write("TANK_PARAMS", PARAMS);
     }
 
     public void initializePinpoint(LinearOpMode opMode, Pose2d initialPose) {
         // Wait for Pinpoint to be ready
-        while (!pinpointLocalizer.isReady() && !opMode.isStopRequested()) {
+        while (!((PinpointLocalizer) localizer).isReady() && !opMode.isStopRequested()) {
             opMode.telemetry.addLine("Waiting for Pinpoint to initialize...");
             opMode.telemetry.update();
             opMode.sleep(100);
         }
 
         if (!opMode.isStopRequested()) {
-            // Convert Pose2d to Pose2D for Pinpoint
-            Pose2D pose2d = new Pose2D(
-                    DistanceUnit.INCH,
+            localizer.setPose(initialPose);
+            opMode.telemetry.addLine("Pinpoint initialized!");
+            opMode.telemetry.addData("Start Pose", "x=%.2f, y=%.2f, h=%.1f°",
                     initialPose.position.x,
                     initialPose.position.y,
-                    AngleUnit.RADIANS,
-                    initialPose.heading.toDouble()
-            );
-
-            pinpointLocalizer.setPoseEstimate(pose2d);
-            localizer.setPose(initialPose);
-
-            opMode.telemetry.addLine("Pinpoint initialized!");
+                    Math.toDegrees(initialPose.heading.toDouble()));
             opMode.telemetry.update();
         }
     }
@@ -332,7 +301,6 @@ public final class TankDrive {
     public final class FollowTrajectoryAction implements Action {
         public final TimeTrajectory timeTrajectory;
         private double beginTs = -1;
-
         private final double[] xPoints, yPoints;
 
         public FollowTrajectoryAction(TimeTrajectory t) {
@@ -367,12 +335,10 @@ public final class TankDrive {
                 for (DcMotorEx m : rightMotors) {
                     m.setPower(0);
                 }
-
                 return false;
             }
 
             DualNum<Time> x = timeTrajectory.profile.get(t);
-
             Pose2dDual<Arclength> txWorldTarget = timeTrajectory.path.get(x.value(), 3);
             targetPoseWriter.write(new PoseMessage(txWorldTarget.value()));
 
@@ -387,8 +353,14 @@ public final class TankDrive {
 
             TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
             double voltage = voltageSensor.getVoltage();
-            final MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS,
-                    PARAMS.kV / PARAMS.inPerTick, PARAMS.kA / PARAMS.inPerTick);
+
+            // Use DRIVE wheel parameters for feedforward
+            final MotorFeedforward feedforward = new MotorFeedforward(
+                    PARAMS.kS,
+                    PARAMS.kV / PARAMS.inPerTick,
+                    PARAMS.kA / PARAMS.inPerTick
+            );
+
             double leftPower = feedforward.compute(wheelVels.left) / voltage;
             double rightPower = feedforward.compute(wheelVels.right) / voltage;
             tankCommandWriter.write(new TankCommandMessage(voltage, leftPower, rightPower));
@@ -409,7 +381,6 @@ public final class TankDrive {
             p.put("yError", error.position.y);
             p.put("headingError (deg)", Math.toDegrees(error.heading.toDouble()));
 
-            // only draw when active; only one drive action should be active at a time
             Canvas c = p.fieldOverlay();
             drawPoseHistory(c);
 
@@ -437,6 +408,7 @@ public final class TankDrive {
     public final class TurnAction implements Action {
         private final TimeTurn turn;
         private double beginTs = -1;
+
         public TurnAction(TimeTurn turn) {
             this.turn = turn;
         }
@@ -477,8 +449,13 @@ public final class TankDrive {
 
             TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
             double voltage = voltageSensor.getVoltage();
-            final MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS,
-                    PARAMS.kV / PARAMS.inPerTick, PARAMS.kA / PARAMS.inPerTick);
+
+            final MotorFeedforward feedforward = new MotorFeedforward(
+                    PARAMS.kS,
+                    PARAMS.kV / PARAMS.inPerTick,
+                    PARAMS.kA / PARAMS.inPerTick
+            );
+
             double leftPower = feedforward.compute(wheelVels.left) / voltage;
             double rightPower = feedforward.compute(wheelVels.right) / voltage;
             tankCommandWriter.write(new TankCommandMessage(voltage, leftPower, rightPower));
@@ -521,8 +498,6 @@ public final class TankDrive {
         }
 
         estimatedPoseWriter.write(new PoseMessage(localizer.getPose()));
-
-
         return vel;
     }
 
@@ -534,7 +509,6 @@ public final class TankDrive {
         for (Pose2d t : poseHistory) {
             xPoints[i] = t.position.x;
             yPoints[i] = t.position.y;
-
             i++;
         }
 
@@ -549,9 +523,7 @@ public final class TankDrive {
                 FollowTrajectoryAction::new,
                 new TrajectoryBuilderParams(
                         1e-6,
-                        new ProfileParams(
-                                0.25, 0.1, 1e-2
-                        )
+                        new ProfileParams(0.25, 0.1, 1e-2)
                 ),
                 beginPose, 0.0,
                 defaultTurnConstraints,
