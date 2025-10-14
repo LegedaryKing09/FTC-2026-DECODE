@@ -119,7 +119,7 @@ public class LimelightAlignmentController {
 
         try {
             this.limelight = opMode.hardwareMap.get(Limelight3A.class, "limelight");
-            this.limelight.pipelineSwitch(0);
+            this.limelight.pipelineSwitch(1);
             this.limelight.start();
         } catch (Exception e) {
             throw new Exception("Failed to initialize Limelight: " + e.getMessage());
@@ -476,7 +476,10 @@ public class LimelightAlignmentController {
         searchTimer.reset();
         searchInitiated = false;
     }
-
+    // Add this getter method to LimelightAlignmentController
+    public int getTargetTagId() {
+        return targetTagId;
+    }
     public void resetMetrics() {
         maxError = 0;
         minError = Double.MAX_VALUE;

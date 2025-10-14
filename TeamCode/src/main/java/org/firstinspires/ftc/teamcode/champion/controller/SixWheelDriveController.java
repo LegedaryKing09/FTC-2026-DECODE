@@ -2,9 +2,12 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 
 import android.annotation.SuppressLint;
 import com.acmerobotics.dashboard.config.Config;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -15,7 +18,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit
 @Config
 public class SixWheelDriveController {
 
-    // Motor configuration names - STATIC like in version 2
+    // Motor configuration names
     public static String LF_NAME = "lf";
     public static String RF_NAME = "rf";
     public static String LB_NAME = "lb";
@@ -27,10 +30,12 @@ public class SixWheelDriveController {
     private final DcMotorEx backRight;
 
     private final GoBildaPinpointDriver pinpoint;
+    private final LinearOpMode linearOpMode;
+    private final OpMode iterativeOpMode;
 
     // Robot dimensions
-    private double trackWidth = 12.0; // Distance between left and right drive wheels
-    private double xOdoOffset = 6.0; // Distance from center of rotation to x odometry wheel
+    private double trackWidth = 12.0;
+    private double xOdoOffset = 6.0;
 
     // Robot position tracking
     private double robotX = 0.0;
@@ -45,12 +50,45 @@ public class SixWheelDriveController {
 
     private boolean isFastSpeedMode = false;
 
-    // Constructor
-    public SixWheelDriveController(OpMode opMode) {
-        frontLeft = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
-        frontRight = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
-        backLeft = opMode.hardwareMap.get(DcMotorEx.class, LB_NAME);
-        backRight = opMode.hardwareMap.get(DcMotorEx.class, RB_NAME);
+    @Config
+    public static class VelocityParams {
+        public static double TICKS_PER_REV = 751.8;
+        public static double MAX_RPM = 312.0;
+        public static double MAX_TICKS_PER_SEC = (MAX_RPM / 60.0) * TICKS_PER_REV;
+
+        public static double VELOCITY_P = 3.0;
+        public static double VELOCITY_I = 0.5;
+        public static double VELOCITY_D = 0.0;
+        public static double VELOCITY_F = 12.0;
+
+        public static double TRACK_WIDTH_INCHES = 12.0;
+    }
+
+    @Config
+    public static class OdometryParams {
+        // CRITICAL: Use consistent pod type!
+        // Set to true if using 4-bar pods, false if using swingarm pods
+        public static boolean USE_4_BAR_PODS = true;
+
+        // Offsets from center of robot to odometry pods (in MM)
+        // X pod: sideways offset - POSITIVE = left, NEGATIVE = right
+        // Y pod: forward offset - POSITIVE = forward, NEGATIVE = backward
+        public static double X_OFFSET_MM = -84.0;
+        public static double Y_OFFSET_MM = -168.0;
+
+        // Yaw scalar for heading calibration
+        // If 90° reads as 4°, try: 90 / 4 = 22.5
+        public static double YAW_SCALAR = 1.0;
+
+        // Set to true to reverse encoder direction
+        public static boolean X_ENCODER_REVERSED = false;
+        public static boolean Y_ENCODER_REVERSED = false;
+    }
+
+    // Constructor for LinearOpMode
+    public SixWheelDriveController(LinearOpMode opMode) {
+        this.linearOpMode = opMode;
+        this.iterativeOpMode = null;
 
         frontLeft = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
         frontRight = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
@@ -60,7 +98,30 @@ public class SixWheelDriveController {
         pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
-        backLeft.setDirection(DcMotor.Direction.REVERSE);
+        backLeft.setDirection(DcMotor.Direction.FORWARD);
+        frontRight.setDirection(DcMotor.Direction.REVERSE);
+        backRight.setDirection(DcMotor.Direction.FORWARD);
+
+        setMotorsBrakeMode();
+        configurePinpoint();
+        initializeVelocityControl();
+        resetOdometry();
+    }
+
+    // Constructor for OpMode (iterative)
+    public SixWheelDriveController(OpMode opMode) {
+        this.linearOpMode = null;
+        this.iterativeOpMode = opMode;
+
+        frontLeft = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
+        frontRight = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
+        backLeft = opMode.hardwareMap.get(DcMotorEx.class, LB_NAME);
+        backRight = opMode.hardwareMap.get(DcMotorEx.class, RB_NAME);
+
+        pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
+
+        frontLeft.setDirection(DcMotor.Direction.FORWARD);
+        backLeft.setDirection(DcMotor.Direction.FORWARD);
         frontRight.setDirection(DcMotor.Direction.REVERSE);
         backRight.setDirection(DcMotor.Direction.FORWARD);
 
@@ -147,7 +208,7 @@ public class SixWheelDriveController {
         pinpoint.update();
         Pose2D pose = pinpoint.getPosition();
 
-        // FIXED: Use consistent units throughout - stick with INCHES
+        // Use consistent units throughout - stick with INCHES
         robotX = pose.getX(DistanceUnit.INCH);
         robotY = pose.getY(DistanceUnit.INCH);
         robotHeading = pose.getHeading(AngleUnit.RADIANS);
@@ -168,7 +229,7 @@ public class SixWheelDriveController {
         backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
-    // Getters
+    // Speed mode methods
     public boolean isFastSpeedMode() {
         return isFastSpeedMode;
     }
@@ -232,6 +293,7 @@ public class SixWheelDriveController {
         robotHeading = heading;
     }
 
+    // Pinpoint access
     public GoBildaPinpointDriver getPinpoint() {
         return pinpoint;
     }
@@ -278,10 +340,17 @@ public class SixWheelDriveController {
     // Motor status telemetry
     @SuppressLint("DefaultLocale")
     public void getMotorStatus() {
-        opMode.telemetry.addData("Front Left Power", "%.2f", frontLeft.getPower());
-        opMode.telemetry.addData("Front Right Power", "%.2f", frontRight.getPower());
-        opMode.telemetry.addData("Back Left Power", "%.2f", backLeft.getPower());
-        opMode.telemetry.addData("Back Right Power", "%.2f", backRight.getPower());
+        if (linearOpMode != null) {
+            linearOpMode.telemetry.addData("Front Left Power", "%.2f", frontLeft.getPower());
+            linearOpMode.telemetry.addData("Front Right Power", "%.2f", frontRight.getPower());
+            linearOpMode.telemetry.addData("Back Left Power", "%.2f", backLeft.getPower());
+            linearOpMode.telemetry.addData("Back Right Power", "%.2f", backRight.getPower());
+        } else if (iterativeOpMode != null) {
+            iterativeOpMode.telemetry.addData("Front Left Power", "%.2f", frontLeft.getPower());
+            iterativeOpMode.telemetry.addData("Front Right Power", "%.2f", frontRight.getPower());
+            iterativeOpMode.telemetry.addData("Back Left Power", "%.2f", backLeft.getPower());
+            iterativeOpMode.telemetry.addData("Back Right Power", "%.2f", backRight.getPower());
+        }
     }
 
     @SuppressLint("DefaultLocale")
