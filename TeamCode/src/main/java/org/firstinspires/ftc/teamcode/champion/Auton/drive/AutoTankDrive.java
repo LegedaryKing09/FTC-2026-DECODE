@@ -44,6 +44,7 @@ import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -114,7 +115,7 @@ public final class AutoTankDrive {
 
         // Pinpoint encoder directions (change if odometry reads backwards)
         public GoBildaPinpointDriver.EncoderDirection xEncoderDirection =
-                GoBildaPinpointDriver.EncoderDirection.REVERSED;
+                GoBildaPinpointDriver.EncoderDirection.FORWARD;
         public GoBildaPinpointDriver.EncoderDirection yEncoderDirection =
                 GoBildaPinpointDriver.EncoderDirection.FORWARD;
 
@@ -137,7 +138,7 @@ public final class AutoTankDrive {
     public final DcMotorEx leftFront, rightFront, rightBack, leftBack;
     public final List<DcMotorEx> leftMotors, rightMotors;
 
-    public final LazyImu lazyImu;
+//    public final LazyImu lazyImu;
     public final VoltageSensor voltageSensor;
     public final GoBildaPinpointDriver pinpoint;
     public final Localizer localizer; //main localizer interface
@@ -238,7 +239,7 @@ public final class AutoTankDrive {
         rightMotors = Arrays.asList(rightFront, rightBack);
 
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
-        leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
 
@@ -250,8 +251,8 @@ public final class AutoTankDrive {
         }
 
         // Initialize IMU
-        lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
-                PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
+//        lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
+//                PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
 
