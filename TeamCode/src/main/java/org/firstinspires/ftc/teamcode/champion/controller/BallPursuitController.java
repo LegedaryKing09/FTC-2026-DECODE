@@ -24,7 +24,7 @@ public class BallPursuitController {
         public static double STOP_DISTANCE = 4.0;             // Stop when this close to ball
         public static double BALL_UPDATE_DISTANCE = 6.0;      // Min distance ball must move to update path
         public static double MAX_SPEED = 0.6;                 // Maximum pursuit speed
-        public static double MIN_SPEED = 0.2;                 // Minimum pursuit speed
+        public static double MIN_SPEED = 0.3;                 // Minimum pursuit speed
         public static double PATH_UPDATE_INTERVAL = 0.5;      // Seconds between path updates
         public static double BALL_LOST_TIMEOUT = 2.0;         // Stop if ball lost for this long
         public static double HEADING_CORRECTION_WEIGHT = 0.7; // How much to prioritize heading correction
