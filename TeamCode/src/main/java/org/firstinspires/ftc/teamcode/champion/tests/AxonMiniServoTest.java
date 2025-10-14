@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AxonMiniServoController;
 
-@TeleOp(name = "Servo Test", group = "Tests")
+@TeleOp(name = "AXON Mini Servo Test", group = "Tests")
 public class AxonMiniServoTest extends LinearOpMode {
 
     private AxonMiniServoController axonMiniServoController;

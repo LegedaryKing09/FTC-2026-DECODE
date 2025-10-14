@@ -213,7 +213,11 @@ public class DistanceBasedAutoShooter extends LinearOpMode {
 
             // Back Button - Speed mode toggle
             if (gamepad1.back && !lastBack) {
-                driveController.toggleSpeedMode();
+                if (driveController.isFastSpeedMode()) {
+                    driveController.setSlowSpeed();
+                } else {
+                    driveController.setFastSpeed();
+                }
             }
             lastBack = gamepad1.back;
 
