@@ -3,7 +3,10 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 import android.annotation.SuppressLint;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+<<<<<<< Updated upstream
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+=======
+>>>>>>> Stashed changes
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;

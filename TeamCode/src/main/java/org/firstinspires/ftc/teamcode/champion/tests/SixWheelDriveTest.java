@@ -9,7 +9,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
  * Comprehensive test for SixWheelDriveController
  * Tests motor connections, directions, and Pinpoint odometry
  */
-@TeleOp(name = "SixWheel Drive Test", group = "Test")
+/*@TeleOp(name = "SixWheel Drive Test", group = "Test")
 public class SixWheelDriveTest extends LinearOpMode {
 
     private SixWheelDriveController driveController;
@@ -109,7 +109,7 @@ public class SixWheelDriveTest extends LinearOpMode {
     /**
      * Run automated test sequence
      */
-    private void runTestSequence() {
+   /*private void runTestSequence() {
         long elapsed = System.currentTimeMillis() - phaseStartTime;
 
         // Each phase lasts 2 seconds
@@ -177,7 +177,7 @@ public class SixWheelDriveTest extends LinearOpMode {
     /**
      * Display comprehensive telemetry
      */
-    private void displayTelemetry(double drive, double turn) {
+    /*private void displayTelemetry(double drive, double turn) {
         telemetry.clear();
 
         // Mode indicator
@@ -235,7 +235,7 @@ public class SixWheelDriveTest extends LinearOpMode {
     /**
      * Get descriptive name for current test phase
      */
-    private String getTestPhaseName() {
+    /*private String getTestPhaseName() {
         switch (testPhase) {
             case 0: return "Front Left Motor";
             case 1: return "Front Right Motor";
@@ -249,3 +249,5 @@ public class SixWheelDriveTest extends LinearOpMode {
         }
     }
 }
+
+     */
