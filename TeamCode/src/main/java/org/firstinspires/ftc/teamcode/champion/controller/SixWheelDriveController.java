@@ -57,9 +57,11 @@ public class SixWheelDriveController {
         // Initialize GoBilda Odometry Computer
         pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
-        // Set motor directions
+        // Set motor directions - CORRECTED for tank drive
+        // Left side needs to be consistent, right side needs to be consistent
+        // For tank drive: both left motors same direction, both right motors same direction
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
-        backLeft.setDirection(DcMotor.Direction.REVERSE);
+        backLeft.setDirection(DcMotor.Direction.FORWARD);
         frontRight.setDirection(DcMotor.Direction.REVERSE);
         backRight.setDirection(DcMotor.Direction.FORWARD);
 
