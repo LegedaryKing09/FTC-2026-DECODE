@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 public class ServoValueTester extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
-        Servo servo = hardwareMap.get(Servo.class, "servo");
+        Servo servo = hardwareMap.get(Servo.class, "ramp");
 
         waitForStart();
 

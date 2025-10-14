@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 @Config
 public class AxonMiniServoController {
 
-    public static String AXON_MINI_NAME = "spin_indexer";
+    public static String AXON_MINI_NAME = "ramp";
     public static double AXON_MINI_MIN_POSITION = 0.0;
     public static double AXON_MINI_MAX_POSITION = 1.0;
     public static double AXON_MINI_HALF_POSITION = 0.5;

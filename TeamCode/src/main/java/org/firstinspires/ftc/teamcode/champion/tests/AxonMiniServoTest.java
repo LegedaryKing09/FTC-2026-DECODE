@@ -21,6 +21,7 @@ public class AxonMiniServoTest extends LinearOpMode {
         telemetry.addData("", "DPad Up: +5° | DPad Down: -5°");
         telemetry.addData("", "A: Min (0°) | B: Max (180°)");
         telemetry.addData("", "X: Center (90°) | Y: Test 0.1 | RB: Test 0.9");
+        telemetry.addData("", "LB: Test -0.5 | LT: Test 1.5");
         telemetry.update();
 
         waitForStart();
@@ -53,6 +54,22 @@ public class AxonMiniServoTest extends LinearOpMode {
                 // Test edge positions to check if servo can move beyond normal range
                 axonMiniServoController.setPosition(0.9);
                 telemetry.addData("Action", "Test High Position (0.9)");
+            } else if (gamepad1.left_bumper) {
+                // Test beyond normal range low
+                try {
+                    axonMiniServoController.getServo().setPosition(-0.5);
+                    telemetry.addData("Action", "Test Beyond Low (-0.5)");
+                } catch (Exception e) {
+                    telemetry.addData("Action", "Error: Cannot set -0.5");
+                }
+            } else if (gamepad1.left_trigger > 0.5) {
+                // Test beyond normal range high
+                try {
+                    axonMiniServoController.getServo().setPosition(1.5);
+                    telemetry.addData("Action", "Test Beyond High (1.5)");
+                } catch (Exception e) {
+                    telemetry.addData("Action", "Error: Cannot set 1.5");
+                }
             }
 
             // Display current state
