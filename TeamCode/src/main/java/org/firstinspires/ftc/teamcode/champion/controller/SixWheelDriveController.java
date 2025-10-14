@@ -76,12 +76,12 @@ public class SixWheelDriveController {
     // Configure the Pinpoint odometry computer
     private void configurePinpoint() {
         // Set encoder directions - adjust these based on your robot setup
-        pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.REVERSED,
+        pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
                 GoBildaPinpointDriver.EncoderDirection.FORWARD);
 
         // Set encoder resolution - using goBILDA swingarm pods as default
         // Change this to goBILDA_4_BAR_POD if using 4-bar pods, or use setEncoderResolution() for custom
-        pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
+        pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
 
         // Set pod offsets - these are the distances from the center of rotation to each odometry pod
         // X offset: positive = left of center, negative = right of center

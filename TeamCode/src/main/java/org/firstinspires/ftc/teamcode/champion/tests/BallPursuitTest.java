@@ -60,6 +60,9 @@ public class BallPursuitTest extends LinearOpMode {
         runtime.reset();
         pursuitTimer.reset();
 
+        // Start pursuit immediately when opmode starts
+        ballPursuit.startPursuit();
+
         // Main loop
         while (opModeIsActive()) {
             // Main pursuit logic

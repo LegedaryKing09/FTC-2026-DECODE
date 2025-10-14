@@ -58,7 +58,7 @@ public class BallPursuitController {
      */
     public void startPursuit() {
         isActive = true;
-        isPursuing = true;
+        isPursuing = false;  // Start as not pursuing, let update logic handle state
         ballAlignment.startTracking();
         pathUpdateTimer.reset();
         ballLostTimer.reset();
@@ -79,6 +79,8 @@ public class BallPursuitController {
         ballAlignment.stopTracking();
         pursuitController.setPath(null);
         driveController.stopDrive();
+        lastBallPosition = null;
+        currentTargetPosition = null;
     }
 
     /**
