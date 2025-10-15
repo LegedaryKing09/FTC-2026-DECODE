@@ -160,7 +160,7 @@ public class FirstAuton extends LinearOpMode {
         telemetry.update();
 
         // Execute auto shoot sequence (includes alignment and shooting)
-        autoShootController.executeAutoShootSequence();
+        autoShootController.executeAutoShootSequence(2350);
 
         // Wait for auto shoot to complete
         long shootStartTime = System.currentTimeMillis();

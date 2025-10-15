@@ -183,7 +183,7 @@ public class BasicTeleop extends LinearOpMode {
             }
 
             if (gamepad1.dpad_left && !lastdpadLeft && !autoShootController.isAutoShooting()) {
-                autoShootController.executeAutoShootSequence();
+                autoShootController.executeAutoShootSequence(AutoShootController.TARGET_RPM);
             }
             lastdpadLeft = gamepad1.dpad_left;
 
