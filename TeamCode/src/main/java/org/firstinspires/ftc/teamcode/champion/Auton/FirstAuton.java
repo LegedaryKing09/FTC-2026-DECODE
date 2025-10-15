@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
+import org.firstinspires.ftc.teamcode.champion.controller.EnhancedAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.PurePursuitController;
@@ -17,7 +17,7 @@ import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Pose2d;
 
 @Config
-@Autonomous(name = "First Auton", group = "Competition")
+@Autonomous(name = "Enhanced First Auton", group = "Competition")
 public class FirstAuton extends LinearOpMode {
 
     // Configurable parameters
@@ -28,6 +28,7 @@ public class FirstAuton extends LinearOpMode {
     public static double POSITION_TOLERANCE_INCHES = 1.0;
     public static double HEADING_TOLERANCE_DEGREES = 2.0;
     public static long POST_TURN_DELAY_MS = 500;
+    public static boolean USE_DISTANCE_BASED_SHOOTING = true; // Toggle distance-based vs fixed RPM
 
     // Controllers
     private SixWheelDriveController driveController;
@@ -36,7 +37,7 @@ public class FirstAuton extends LinearOpMode {
     private IntakeController intakeController;
     private TransferController transferController;
     private LimelightAlignmentController limelightController;
-    private AutoShootController autoShootController;
+    private EnhancedAutoShootController autoShootController;
 
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
@@ -48,11 +49,12 @@ public class FirstAuton extends LinearOpMode {
             initializeControllers();
 
             // Display initialization status
-            telemetry.addLine("=== SHOOTING AUTONOMOUS INITIALIZED ===");
+            telemetry.addLine("=== ENHANCED AUTONOMOUS INITIALIZED ===");
             telemetry.addData("Drive Distance", "%.1f inches", DRIVE_DISTANCE_INCHES);
             telemetry.addData("Turn Angle", "%.1f degrees", TURN_DEGREES);
             telemetry.addData("Drive Speed", "%.1f", DRIVE_SPEED);
             telemetry.addData("Turn Speed", "%.1f", TURN_SPEED);
+            telemetry.addData("Shooting Mode", USE_DISTANCE_BASED_SHOOTING ? "Distance-Based" : "Fixed RPM");
             telemetry.addLine("Press START to begin");
             telemetry.update();
 
@@ -89,14 +91,14 @@ public class FirstAuton extends LinearOpMode {
         // Initialize Limelight alignment
         limelightController = new LimelightAlignmentController(this);
 
-        // Initialize auto shoot controller
-        autoShootController = new AutoShootController(
-            this,
-            driveController,
-            shooterController,
-            intakeController,
-            transferController,
-            limelightController
+        // Initialize enhanced auto shoot controller (6 parameters)
+        autoShootController = new EnhancedAutoShootController(
+                this,
+                driveController,
+                shooterController,
+                intakeController,
+                transferController,
+                limelightController
         );
 
         telemetry.addLine("All controllers initialized successfully");
@@ -128,52 +130,86 @@ public class FirstAuton extends LinearOpMode {
         telemetry.update();
         sleep(POST_TURN_DELAY_MS);
 
-        // Step 3: Start shooter at 2350 RPM
+        // Step 3: Execute shooting sequence
         telemetry.clear();
-        telemetry.addLine("=== STEP 3: STARTING SHOOTER ===");
-        telemetry.addData("Target RPM", 2350);
-        telemetry.update();
-
-        shooterController.setShooterRPM(2350);
-
-        // Wait for shooter to reach RPM
-        long rpmStartTime = System.currentTimeMillis();
-        while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
-               (System.currentTimeMillis() - rpmStartTime) < 3000) {
-            shooterController.updatePID();
-            driveController.updateOdometry();
-
-            telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
-            telemetry.addData("Target RPM", 2350);
-            telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
+        if (USE_DISTANCE_BASED_SHOOTING) {
+            telemetry.addLine("=== STEP 3: DISTANCE-BASED AUTO-SHOOT ===");
+            telemetry.addLine("Measuring distance and calculating RPM...");
             telemetry.update();
 
-            sleep(20);
+            // Execute distance-based auto shoot sequence
+            autoShootController.executeDistanceBasedAutoShoot();
+        } else {
+            telemetry.addLine("=== STEP 3: FIXED RPM SHOOTING ===");
+            telemetry.addData("Target RPM", 2350);
+            telemetry.update();
+
+            // Start shooter at fixed RPM
+            shooterController.setShooterRPM(2350);
+
+            // Wait for shooter to reach RPM
+            long rpmStartTime = System.currentTimeMillis();
+            while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
+                    (System.currentTimeMillis() - rpmStartTime) < 3000) {
+                shooterController.updatePID();
+                driveController.updateOdometry();
+
+                telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
+                telemetry.addData("Target RPM", 2350);
+                telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
+                telemetry.update();
+
+                sleep(20);
+            }
+
+            telemetry.addLine("Shooter at target RPM");
+            telemetry.update();
+
+            // Align and shoot using Limelight
+            limelightController.startAlignment();
+
+            long alignStartTime = System.currentTimeMillis();
+            while (opModeIsActive() && (System.currentTimeMillis() - alignStartTime) < 3000) {
+                limelightController.align(EnhancedAutoShootController.APRILTAG_ID);
+
+                if (limelightController.hasTarget() &&
+                        limelightController.getTargetError() <= EnhancedAutoShootController.ALIGNMENT_THRESHOLD) {
+                    break;
+                }
+
+                sleep(20);
+            }
+
+            limelightController.stopAlignment();
+            driveController.stopDrive();
+            sleep(300);
+
+            // Shoot
+            transferController.transferFull();
+            intakeController.intakeFull();
+            sleep(1000);
+            transferController.transferStop();
+            intakeController.intakeStop();
         }
 
-        telemetry.addLine("Shooter at target RPM");
-        telemetry.update();
+        // Wait for auto shoot to complete if using distance-based mode
+        if (USE_DISTANCE_BASED_SHOOTING) {
+            long shootStartTime = System.currentTimeMillis();
+            while (opModeIsActive() && autoShootController.isAutoShooting() &&
+                    (System.currentTimeMillis() - shootStartTime) < 10000) {
+                shooterController.updatePID();
+                driveController.updateOdometry();
 
-        // Step 4 & 5: Limelight alignment and shooting
-        telemetry.clear();
-        telemetry.addLine("=== STEP 4-5: ALIGNMENT & SHOOTING ===");
-        telemetry.update();
+                telemetry.addData("AutoShoot Status", autoShootController.getCurrentStatus());
+                telemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
+                if (autoShootController.getLastTargetDistance() > 0) {
+                    telemetry.addData("Distance", "%.1f in", autoShootController.getLastTargetDistance());
+                    telemetry.addData("Calculated RPM", "%.0f", autoShootController.getLastCalculatedRPM());
+                }
+                telemetry.update();
 
-        // Execute auto shoot sequence (includes alignment and shooting)
-        autoShootController.executeAutoShootSequence();
-
-        // Wait for auto shoot to complete
-        long shootStartTime = System.currentTimeMillis();
-        while (opModeIsActive() && autoShootController.isAutoShooting() &&
-               (System.currentTimeMillis() - shootStartTime) < 5000) {
-            shooterController.updatePID();
-            driveController.updateOdometry();
-
-            telemetry.addData("AutoShoot Status", autoShootController.isAutoShooting() ? "ACTIVE" : "IDLE");
-            telemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
-            telemetry.update();
-
-            sleep(20);
+                sleep(20);
+            }
         }
 
         // Final status
@@ -181,6 +217,10 @@ public class FirstAuton extends LinearOpMode {
         telemetry.addLine("=== AUTONOMOUS COMPLETE ===");
         telemetry.addData("Total Runtime", "%.2f seconds", runtime.seconds());
         telemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
+        if (USE_DISTANCE_BASED_SHOOTING && autoShootController.getLastTargetDistance() > 0) {
+            telemetry.addData("Shot Distance", "%.1f inches", autoShootController.getLastTargetDistance());
+            telemetry.addData("Shot RPM", "%.0f", autoShootController.getLastCalculatedRPM());
+        }
         telemetry.addLine("Robot stopped");
         telemetry.update();
 
@@ -198,7 +238,6 @@ public class FirstAuton extends LinearOpMode {
         // Set target position relative to current position
         double startX = driveController.getX();
         double startY = driveController.getY();
-        double startHeading = driveController.getHeading();
 
         Vector2d targetPosition = new Vector2d(startX + distance, startY); // Move forward in +X direction
         purePursuitController.setTargetPosition(targetPosition);
@@ -208,9 +247,9 @@ public class FirstAuton extends LinearOpMode {
 
             // Get current pose
             Pose2d currentPose = new Pose2d(
-                driveController.getX(),
-                driveController.getY(),
-                driveController.getHeading()
+                    driveController.getX(),
+                    driveController.getY(),
+                    driveController.getHeading()
             );
 
             // Update pure pursuit

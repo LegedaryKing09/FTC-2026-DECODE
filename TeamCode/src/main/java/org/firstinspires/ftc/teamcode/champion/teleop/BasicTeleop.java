@@ -5,9 +5,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
+import org.firstinspires.ftc.teamcode.champion.controller.EnhancedAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
@@ -15,7 +14,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
 @Config
-@TeleOp
+@TeleOp(name = "Enhanced TeleOp", group = "Competition")
 public class BasicTeleop extends LinearOpMode {
 
     SixWheelDriveController driveController;
@@ -23,9 +22,11 @@ public class BasicTeleop extends LinearOpMode {
     ShooterController shooterController;
     IntakeController intakeController;
     LimelightAlignmentController limelightController;
-    AutoShootController autoShootController;
+    EnhancedAutoShootController autoShootController;
+
     public static double SHOOTING_POWER = 0.55;
     public static double INTAKE_POWER = 0;
+
     boolean isManualAligning = false;
     boolean lastdpadLeft = false;
     boolean lastdpadRight = false;
@@ -54,14 +55,22 @@ public class BasicTeleop extends LinearOpMode {
         LimelightAlignmentController tempLimelight = null;
         try {
             tempLimelight = new LimelightAlignmentController(this);
-            tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
+            tempLimelight.setTargetTag(EnhancedAutoShootController.APRILTAG_ID);
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
             telemetry.update();
         }
         limelightController = tempLimelight;
 
-        autoShootController = new AutoShootController(this, driveController, shooterController, intakeController, transferController, limelightController);
+        // Initialize enhanced auto shoot controller (6 parameters)
+        autoShootController = new EnhancedAutoShootController(
+                this,
+                driveController,
+                shooterController,
+                intakeController,
+                transferController,
+                limelightController
+        );
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
@@ -99,7 +108,6 @@ public class BasicTeleop extends LinearOpMode {
 
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
-                // setShooterPower already converts power (0-1) to RPM by multiplying with SHOOTER_FULL_RPM
                 shooterController.setShooterPower(SHOOTING_POWER);
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
@@ -166,21 +174,21 @@ public class BasicTeleop extends LinearOpMode {
             if (gamepad1.start && !isPressingStart) {
                 isPressingStart = true;
                 isUsingTelemetry = !isUsingTelemetry;
-
             } else if (!gamepad1.start && isPressingStart) {
                 isPressingStart = false;
             }
 
             if (isManualAligning) {
-                limelightController.align(AutoShootController.APRILTAG_ID);
+                limelightController.align(EnhancedAutoShootController.APRILTAG_ID);
                 if (limelightController.hasTarget() &&
-                        limelightController.getTargetError() <= AutoShootController.ALIGNMENT_THRESHOLD) {
+                        limelightController.getTargetError() <= EnhancedAutoShootController.ALIGNMENT_THRESHOLD) {
                     telemetry.addLine(">>> ALIGNED - Ready to shoot!");
                 }
             }
 
+            // CHANGED: D-pad left now triggers DISTANCE-BASED auto-shoot!
             if (gamepad1.dpad_left && !lastdpadLeft && !autoShootController.isAutoShooting()) {
-                autoShootController.executeAutoShootSequence();
+                autoShootController.executeDistanceBasedAutoShoot();
             }
             lastdpadLeft = gamepad1.dpad_left;
 
@@ -219,17 +227,21 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
                 telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
                 telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✓ YES" : "NO");
-                //telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
 
                 telemetry.addData("Robot X (inches)", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y (inches)", "%.2f", driveController.getY());
                 telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
 
+                // Enhanced telemetry showing distance-based shooting info
                 autoShootController.addTelemetry(telemetry);
+
+                telemetry.addLine();
+                telemetry.addLine("=== CONTROLS ===");
+                telemetry.addLine("D-Pad LEFT: Distance-Based Auto-Shoot");
+                telemetry.addLine("D-Pad RIGHT: Toggle Manual Alignment");
             }
 
             telemetry.update();
-
         }
     }
 }
