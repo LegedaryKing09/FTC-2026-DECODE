@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
@@ -24,6 +25,7 @@ public class BasicTeleop extends LinearOpMode {
     IntakeController intakeController;
     LimelightAlignmentController limelightController;
     AutoShootController autoShootController;
+    RampController rampController;
     public static double SHOOTING_POWER = 0.55;
     public static double INTAKE_POWER = 0;
     boolean isManualAligning = false;
@@ -49,6 +51,7 @@ public class BasicTeleop extends LinearOpMode {
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
+        rampController = new RampController(this);
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         LimelightAlignmentController tempLimelight = null;
@@ -85,14 +88,14 @@ public class BasicTeleop extends LinearOpMode {
 
             if (gamepad1.a && !isPressingA) {
                 isPressingA = true;
-                shooterController.shooterHalf();
+                rampController.decrementAngle(2.5);
             } else if (!gamepad1.a && isPressingA) {
                 isPressingA = false;
             }
 
             if (gamepad1.b && !isPressingB) {
                 isPressingB = true;
-                shooterController.shooterFull();
+                rampController.incrementAngle(2.5);
             } else if (!gamepad1.b && isPressingB) {
                 isPressingB = false;
             }
@@ -224,6 +227,8 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Robot X (inches)", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y (inches)", "%.2f", driveController.getY());
                 telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
+
+                telemetry.addData("Ramp Angle", "%.1f°", rampController.getAngle());
 
                 autoShootController.addTelemetry(telemetry);
             }
