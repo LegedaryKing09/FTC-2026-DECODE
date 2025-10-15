@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.SimpleBallAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.BallAlignmentController;
 
 /**
  * Ball Auto Alignment Test - Follows proven AprilTag alignment pattern
@@ -13,7 +13,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.SimpleBallAlignmentCon
 @TeleOp(name = "Ball Auto Align Test", group = "Test")
 public class BallAlignmentTest extends LinearOpMode {
 
-    private SimpleBallAlignmentController ballController;
+    private BallAlignmentController ballController;
     private ElapsedTime runtime = new ElapsedTime();
 
     // Performance tracking
@@ -31,7 +31,7 @@ public class BallAlignmentTest extends LinearOpMode {
 
         // Initialize controller
         try {
-            ballController = new SimpleBallAlignmentController(this);
+            ballController = new BallAlignmentController(this);
             telemetry.addLine("✓ Ball Tracking Initialized");
             telemetry.addLine("✓ Limelight Started");
         } catch (Exception e) {
@@ -49,10 +49,10 @@ public class BallAlignmentTest extends LinearOpMode {
         telemetry.addLine("╚═══════════════════════════════╝");
         telemetry.addLine();
         telemetry.addLine("──── KEY PARAMETERS ────");
-        telemetry.addData("KP", SimpleBallAlignmentController.BallAlignPID.KP);
-        telemetry.addData("KD", SimpleBallAlignmentController.BallAlignPID.KD);
-        telemetry.addData("Tolerance", SimpleBallAlignmentController.BallAlignZones.TOLERANCE + "°");
-        telemetry.addData("Search", SimpleBallAlignmentController.BallAlignSearch.ENABLE_SEARCH ? "ON" : "OFF");
+        telemetry.addData("KP", BallAlignmentController.BallAlignPID.KP);
+        telemetry.addData("KD", BallAlignmentController.BallAlignPID.KD);
+        telemetry.addData("Tolerance", BallAlignmentController.BallAlignZones.TOLERANCE + "°");
+        telemetry.addData("Search", BallAlignmentController.BallAlignSearch.ENABLE_SEARCH ? "ON" : "OFF");
         telemetry.addLine();
         telemetry.addLine("Press START to begin");
         telemetry.update();
@@ -120,10 +120,10 @@ public class BallAlignmentTest extends LinearOpMode {
         // PID Configuration
         telemetry.addLine();
         telemetry.addLine("──── PID CONFIG ────");
-        telemetry.addData("KP", "%.4f", SimpleBallAlignmentController.BallAlignPID.KP);
-        telemetry.addData("KI", "%.4f", SimpleBallAlignmentController.BallAlignPID.KI);
-        telemetry.addData("KD", "%.4f", SimpleBallAlignmentController.BallAlignPID.KD);
-        telemetry.addData("Tolerance", "%.1f°", SimpleBallAlignmentController.BallAlignZones.TOLERANCE);
+        telemetry.addData("KP", "%.4f", BallAlignmentController.BallAlignPID.KP);
+        telemetry.addData("KI", "%.4f", BallAlignmentController.BallAlignPID.KI);
+        telemetry.addData("KD", "%.4f", BallAlignmentController.BallAlignPID.KD);
+        telemetry.addData("Tolerance", "%.1f°", BallAlignmentController.BallAlignZones.TOLERANCE);
 
         // Statistics
         if (ballsTracked > 0) {
@@ -135,11 +135,11 @@ public class BallAlignmentTest extends LinearOpMode {
         }
 
         // Search status
-        if (ballController.getState() == SimpleBallAlignmentController.AlignmentState.SEARCHING) {
+        if (ballController.getState() == BallAlignmentController.AlignmentState.SEARCHING) {
             telemetry.addLine();
             telemetry.addLine("──── SEARCHING ────");
             telemetry.addData("Direction", "CCW");
-            telemetry.addData("Speed", SimpleBallAlignmentController.BallAlignSearch.SEARCH_SPEED);
+            telemetry.addData("Speed", BallAlignmentController.BallAlignSearch.SEARCH_SPEED);
         }
 
         telemetry.addLine("╚═══════════════════════════╝");
