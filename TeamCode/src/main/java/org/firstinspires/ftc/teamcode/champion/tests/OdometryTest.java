@@ -40,7 +40,7 @@ public class OdometryTest extends LinearOpMode {
             telemetry.addData("Raw Encoders", "X: %d, Y: %d",
                     driveController.getXOdoPosition(),
                     driveController.getYOdoPosition());
-            /*telemetry.addData("Pinpoint Info", driveController.getPinpointTelemetry());
+            //*telemetry.addData("Pinpoint Info", driveController.getPinpointTelemetry());
             telemetry.addData("", "");
             telemetry.addData("Controls", "Press PLAY when ready");
             telemetry.update();
@@ -258,4 +258,3 @@ public class OdometryTest extends LinearOpMode {
         telemetry.update();
     }
 }
-        }
