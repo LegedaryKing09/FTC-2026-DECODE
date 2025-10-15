@@ -42,7 +42,7 @@ public class AutoShootController {
         this.limelightController = limelightController;
     }
 
-    public void executeAutoShootSequence() {
+    public void executeAutoShootSequence(double targetRPM) {
         if (isAutoShooting) return; // Prevent multiple instances
 
         isAutoShooting = true;
@@ -54,7 +54,7 @@ public class AutoShootController {
                 driveController.stopDrive();
 
                 // Step 2: Start spinning up shooter
-                shooterController.setShooterRPM(TARGET_RPM);
+                shooterController.setShooterRPM(targetRPM);
 
                 // Step 3: Wait for shooter to reach target RPM (with timeout)
                 long rpmStartTime = System.currentTimeMillis();
