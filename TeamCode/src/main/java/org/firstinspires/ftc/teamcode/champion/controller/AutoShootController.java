@@ -8,7 +8,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 @Config
 public class AutoShootController {
     // Configurable parameters
-    public static double TARGET_RPM = 3350;         // Target RPM for shooting
+    public static double TARGET_RPM = 2550;         // Target RPM for shooting
     public static int APRILTAG_ID = 20;             // AprilTag to align to
     public static double ALIGNMENT_THRESHOLD = 5; // Alignment error threshold in degrees
     public static long ALIGNMENT_TIMEOUT = 2000;    // Max time to wait for alignment (ms)
