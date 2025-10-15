@@ -13,7 +13,7 @@ import com.qualcomm.robotcore.util.Range;
  * Ball Alignment Controller - Handles invalid results and uses Python-calculated TX
  */
 @Config
-public class SimpleBallAlignmentController {
+public class BallAlignmentController {
     private final LinearOpMode opMode;
     private final SixWheelDriveController driveController;
     private final Limelight3A limelight;
@@ -115,7 +115,7 @@ public class SimpleBallAlignmentController {
     // Control flags
     private boolean isActive = false;
 
-    public SimpleBallAlignmentController(LinearOpMode opMode) throws Exception {
+    public BallAlignmentController(LinearOpMode opMode) throws Exception {
         this.opMode = opMode;
 
         try {

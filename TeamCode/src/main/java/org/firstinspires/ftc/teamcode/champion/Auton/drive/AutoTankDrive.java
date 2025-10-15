@@ -44,7 +44,6 @@ import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -84,7 +83,7 @@ public final class AutoTankDrive {
 
         // feedforward parameters (in tick units)
         public double kS = 0.8; // jerking before starting, increase ; creeping when it should stop, decrease
-        public double kV = 0.2; // moving slow, increase ; overshoot distance or turning too fast, decrease
+        public double kV = 0.012; // moving slow, increase ; overshoot distance or turning too fast, decrease
         public double kA = 0.002; // lagging when accelerating, increase ; shaking when staring or stopping, decrease
 
 
@@ -115,7 +114,7 @@ public final class AutoTankDrive {
 
         // Pinpoint encoder directions (change if odometry reads backwards)
         public GoBildaPinpointDriver.EncoderDirection xEncoderDirection =
-                GoBildaPinpointDriver.EncoderDirection.FORWARD;
+                GoBildaPinpointDriver.EncoderDirection.REVERSED;
         public GoBildaPinpointDriver.EncoderDirection yEncoderDirection =
                 GoBildaPinpointDriver.EncoderDirection.FORWARD;
 
@@ -138,7 +137,7 @@ public final class AutoTankDrive {
     public final DcMotorEx leftFront, rightFront, rightBack, leftBack;
     public final List<DcMotorEx> leftMotors, rightMotors;
 
-//    public final LazyImu lazyImu;
+    public final LazyImu lazyImu;
     public final VoltageSensor voltageSensor;
     public final GoBildaPinpointDriver pinpoint;
     public final Localizer localizer; //main localizer interface
@@ -251,13 +250,13 @@ public final class AutoTankDrive {
         }
 
         // Initialize IMU
-//        lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
-//                PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
+        lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
+                PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
 
         // Initialize Pinpoint
-        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
+        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "odo");
         localizer = new PinpointLocalizer(pose);
 
         FlightRecorder.write("TANK_PARAMS", PARAMS);

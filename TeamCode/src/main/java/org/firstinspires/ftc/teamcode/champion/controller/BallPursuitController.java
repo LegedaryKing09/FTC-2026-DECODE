@@ -14,7 +14,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 public class BallPursuitController {
 
     private final LinearOpMode opMode;
-    private final SimpleBallAlignmentController ballAlignment;
+    private final BallAlignmentController ballAlignment;
     private final PurePursuitController pursuitController;
     private final SixWheelDriveController driveController;
 
@@ -46,7 +46,7 @@ public class BallPursuitController {
 
         // Initialize controllers
         this.driveController = new SixWheelDriveController(opMode);
-        this.ballAlignment = new SimpleBallAlignmentController(opMode);
+        this.ballAlignment = new BallAlignmentController(opMode);
         this.pursuitController = new PurePursuitController();
 
         // Configure pursuit controller

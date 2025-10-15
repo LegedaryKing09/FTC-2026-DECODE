@@ -12,7 +12,7 @@ public class RampServoTest extends LinearOpMode {
 
     private RampController rampController;
 
-    
+
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -20,8 +20,8 @@ public class RampServoTest extends LinearOpMode {
 
         telemetry.addData("Status", "Initialized");
         telemetry.addData("Controls", "");
-        telemetry.addData("", "A: Min | B: Max | X: Center");
-        telemetry.addData("", "Y: Quarter | RB: Three Quarter");
+        telemetry.addData("", "A: Retract 2.5° | X: Extend 2.5°");
+        telemetry.addData("", "B: Max | Y: Quarter | RB: Three Quarter");
         telemetry.addData("", "DPad Up: 0° | DPad Right: 60°");
         telemetry.addData("", "DPad Down: 120° | DPad Left: 180°");
         telemetry.addData("", "LB: 240° | LT/RT: Inc/Dec 10°");
@@ -31,16 +31,19 @@ public class RampServoTest extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
-            // Test preset positions (0.0 to 1.0)
+            // Fine control: 2.5 degree increments
             if (gamepad1.a) {
-                rampController.setToMin();
-                telemetry.addData("Action", "Min Position");
-            } else if (gamepad1.b) {
+                rampController.decrementAngle(2.5);
+                telemetry.addData("Action", "Retract 2.5°");
+            } else if (gamepad1.x) {
+                rampController.incrementAngle(2.5);
+                telemetry.addData("Action", "Extend 2.5°");
+            }
+
+            // Test preset positions (0.0 to 1.0)
+            else if (gamepad1.b) {
                 rampController.setToMax();
                 telemetry.addData("Action", "Max Position");
-            } else if (gamepad1.x) {
-                rampController.setToCenter();
-                telemetry.addData("Action", "Center Position");
             } else if (gamepad1.y) {
                 rampController.setToQuarter();
                 telemetry.addData("Action", "Quarter Position");
@@ -83,10 +86,10 @@ public class RampServoTest extends LinearOpMode {
                 telemetry.addData("Action", "Manual: %.2f", manualPosition);
             }
 
-            // Display current state
+            // Display current state with emphasis on angle
             telemetry.addData("", "--- Current State ---");
-            telemetry.addData("Position", "%.3f", rampController.getPosition());
-            telemetry.addData("Angle", "%.1f°", rampController.getAngle());
+            telemetry.addData("Servo Angle", "%.1f°", rampController.getAngle());
+            telemetry.addData("Servo Position", "%.3f", rampController.getPosition());
 
             // Display status checks
             telemetry.addData("", "--- Status Checks ---");
