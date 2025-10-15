@@ -8,9 +8,13 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.PurePursuitController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
+
+import com.acmerobotics.roadrunner.Vector2d;
+import com.acmerobotics.roadrunner.Pose2d;
 
 @Config
 @Autonomous(name = "First Auton", group = "Competition")
@@ -27,6 +31,7 @@ public class FirstAuton extends LinearOpMode {
 
     // Controllers
     private SixWheelDriveController driveController;
+    private PurePursuitController purePursuitController;
     private ShooterController shooterController;
     private IntakeController intakeController;
     private TransferController transferController;
@@ -72,6 +77,10 @@ public class FirstAuton extends LinearOpMode {
         // Initialize drive controller
         driveController = new SixWheelDriveController(this);
 
+        // Initialize pure pursuit controller for driving
+        purePursuitController = new PurePursuitController();
+        purePursuitController.setParameters(12.0, DRIVE_SPEED, 15.0); // look ahead, max speed, track width
+
         // Initialize shooter components
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
@@ -101,7 +110,7 @@ public class FirstAuton extends LinearOpMode {
         telemetry.addData("Target Distance", "%.1f inches", DRIVE_DISTANCE_INCHES);
         telemetry.update();
 
-        driveToPosition(DRIVE_DISTANCE_INCHES, 0, DRIVE_SPEED);
+        driveToPositionUsingPurePursuit(DRIVE_DISTANCE_INCHES);
 
         telemetry.addLine("Forward drive complete");
         telemetry.update();
@@ -183,37 +192,43 @@ public class FirstAuton extends LinearOpMode {
     }
 
     /**
-     * Drive to a target position using odometry
+     * Drive to a target position using pure pursuit algorithm
      */
-    private void driveToPosition(double targetX, double targetY, double speed) throws InterruptedException {
+    private void driveToPositionUsingPurePursuit(double distance) throws InterruptedException {
+        // Set target position relative to current position
         double startX = driveController.getX();
         double startY = driveController.getY();
+        double startHeading = driveController.getHeading();
+
+        Vector2d targetPosition = new Vector2d(startX + distance, startY); // Move forward in +X direction
+        purePursuitController.setTargetPosition(targetPosition);
 
         while (opModeIsActive()) {
             driveController.updateOdometry();
 
-            double currentX = driveController.getX();
-            double currentY = driveController.getY();
-
-            // Calculate distance to target
-            double distanceToTarget = Math.sqrt(
-                Math.pow(targetX - (currentX - startX), 2) +
-                Math.pow(targetY - (currentY - startY), 2)
+            // Get current pose
+            Pose2d currentPose = new Pose2d(
+                driveController.getX(),
+                driveController.getY(),
+                driveController.getHeading()
             );
 
-            // Check if we're close enough to target
-            if (distanceToTarget <= POSITION_TOLERANCE_INCHES) {
+            // Update pure pursuit
+            double[] powers = purePursuitController.update(currentPose);
+            driveController.tankDrive(powers[0], powers[1]);
+
+            // Check if we're at the target
+            double distToEnd = Math.hypot(currentPose.position.x - targetPosition.x, currentPose.position.y - targetPosition.y);
+            if (distToEnd < POSITION_TOLERANCE_INCHES) {
                 break;
             }
 
-            // Simple proportional drive forward
-            double drivePower = speed * Math.min(1.0, distanceToTarget / 10.0);
-            driveController.tankDrive(drivePower, drivePower);
-
-            telemetry.addData("Distance to Target", "%.2f inches", distanceToTarget);
-            telemetry.addData("Current X", "%.2f", currentX);
-            telemetry.addData("Current Y", "%.2f", currentY);
-            telemetry.addData("Drive Power", "%.3f", drivePower);
+            telemetry.addData("Target Distance", "%.1f inches", distance);
+            telemetry.addData("Distance Remaining", "%.2f inches", distToEnd);
+            telemetry.addData("Current X", "%.2f", currentPose.position.x);
+            telemetry.addData("Current Y", "%.2f", currentPose.position.y);
+            telemetry.addData("Left Power", "%.3f", powers[0]);
+            telemetry.addData("Right Power", "%.3f", powers[1]);
             telemetry.update();
 
             sleep(20);

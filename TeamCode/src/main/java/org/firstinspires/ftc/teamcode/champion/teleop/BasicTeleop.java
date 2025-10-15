@@ -101,9 +101,6 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingY = true;
                 // setShooterPower already converts power (0-1) to RPM by multiplying with SHOOTER_FULL_RPM
                 shooterController.setShooterPower(SHOOTING_POWER);
-                sleep(1000);
-                intakeController.intakeFull();
-                transferController.transferFull();
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
             }
