@@ -91,12 +91,12 @@ public class FirstAuton extends LinearOpMode {
 
         // Initialize auto shoot controller
         autoShootController = new AutoShootController(
-            this,
-            driveController,
-            shooterController,
-            intakeController,
-            transferController,
-            limelightController
+                this,
+                driveController,
+                shooterController,
+                intakeController,
+                transferController,
+                limelightController
         );
 
         telemetry.addLine("All controllers initialized successfully");
@@ -118,7 +118,7 @@ public class FirstAuton extends LinearOpMode {
 
         // Step 2: Turn 180 degrees
         telemetry.clear();
-        telemetry.addLine("=== STEP 2: TURNING 180° ===");
+        telemetry.addLine("=== STEP 2: TURNING 180Â° ===");
         telemetry.addData("Target Heading", "%.1f degrees", TURN_DEGREES);
         telemetry.update();
 
@@ -139,7 +139,7 @@ public class FirstAuton extends LinearOpMode {
         // Wait for shooter to reach RPM
         long rpmStartTime = System.currentTimeMillis();
         while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
-               (System.currentTimeMillis() - rpmStartTime) < 3000) {
+                (System.currentTimeMillis() - rpmStartTime) < 3000) {
             shooterController.updatePID();
             driveController.updateOdometry();
 
@@ -160,12 +160,12 @@ public class FirstAuton extends LinearOpMode {
         telemetry.update();
 
         // Execute auto shoot sequence (includes alignment and shooting)
-        autoShootController.executeAutoShootSequence(2350);
+        autoShootController.executeAutoShootSequence();
 
         // Wait for auto shoot to complete
         long shootStartTime = System.currentTimeMillis();
         while (opModeIsActive() && autoShootController.isAutoShooting() &&
-               (System.currentTimeMillis() - shootStartTime) < 5000) {
+                (System.currentTimeMillis() - shootStartTime) < 5000) {
             shooterController.updatePID();
             driveController.updateOdometry();
 
@@ -208,9 +208,9 @@ public class FirstAuton extends LinearOpMode {
 
             // Get current pose
             Pose2d currentPose = new Pose2d(
-                driveController.getX(),
-                driveController.getY(),
-                driveController.getHeading()
+                    driveController.getX(),
+                    driveController.getY(),
+                    driveController.getHeading()
             );
 
             // Update pure pursuit

@@ -29,11 +29,11 @@ public class AutoShootController {
     private final ElapsedTime sessionTimer = new ElapsedTime();
 
     public AutoShootController(LinearOpMode opMode,
-                              SixWheelDriveController driveController,
-                              ShooterController shooterController,
-                              IntakeController intakeController,
-                              TransferController transferController,
-                              LimelightAlignmentController limelightController) {
+                               SixWheelDriveController driveController,
+                               ShooterController shooterController,
+                               IntakeController intakeController,
+                               TransferController transferController,
+                               LimelightAlignmentController limelightController) {
         this.opMode = opMode;
         this.driveController = driveController;
         this.shooterController = shooterController;
@@ -42,7 +42,7 @@ public class AutoShootController {
         this.limelightController = limelightController;
     }
 
-    public void executeAutoShootSequence(double targetRPM) {
+    public void executeAutoShootSequence() {
         if (isAutoShooting) return; // Prevent multiple instances
 
         isAutoShooting = true;
@@ -54,7 +54,7 @@ public class AutoShootController {
                 driveController.stopDrive();
 
                 // Step 2: Start spinning up shooter
-                shooterController.setShooterRPM(targetRPM);
+                shooterController.setShooterRPM(TARGET_RPM);
 
                 // Step 3: Wait for shooter to reach target RPM (with timeout)
                 long rpmStartTime = System.currentTimeMillis();
@@ -149,6 +149,6 @@ public class AutoShootController {
         telemetry.addData("Last Shot Time", "%.1f s", lastShotTime);
         telemetry.addData("Target RPM", "%.0f", TARGET_RPM);
         telemetry.addData("AprilTag ID", APRILTAG_ID);
-        telemetry.addData("Alignment Threshold", "%.1f°", ALIGNMENT_THRESHOLD);
+        telemetry.addData("Alignment Threshold", "%.1fÂ°", ALIGNMENT_THRESHOLD);
     }
 }
