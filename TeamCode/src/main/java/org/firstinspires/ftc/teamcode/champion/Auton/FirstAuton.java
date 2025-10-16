@@ -56,8 +56,7 @@ public class FirstAuton extends LinearOpMode {
             telemetry.addLine("Press START to begin");
             telemetry.update();
 
-            // Start shooter immediately when program starts
-            shooterController.setShooterRPM(2600);
+            // Shooter will be started in the autonomous sequence - not here
 
             waitForStart();
             if (isStopRequested()) return;
@@ -65,6 +64,8 @@ public class FirstAuton extends LinearOpMode {
             runtime.reset();
 
             // Execute autonomous sequence
+            telemetry.addLine("DEBUG: Starting autonomous sequence");
+            telemetry.update();
             executeAutonomousSequence();
 
         } catch (Exception e) {
@@ -107,33 +108,9 @@ public class FirstAuton extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() throws InterruptedException {
-        // Step 1: Drive backward 60 inches
+        // Step 1: Start shooter immediately (moved from initialization)
         telemetry.clear();
-        telemetry.addLine("=== STEP 1: DRIVING BACKWARD ===");
-        telemetry.addData("Target Distance", "%.1f inches", DRIVE_DISTANCE_INCHES);
-        telemetry.update();
-
-        driveToPositionUsingPurePursuit(DRIVE_DISTANCE_INCHES); // Positive for backward in current coordinate system
-
-        telemetry.addLine("Backward drive complete");
-        telemetry.update();
-        sleep(500);
-
-        // Step 2: Turn 180 degrees
-        telemetry.clear();
-        telemetry.addLine("=== STEP 2: TURNING 180° ===");
-        telemetry.addData("Target Heading", "%.1f degrees", TURN_DEGREES);
-        telemetry.update();
-
-        turnToHeading(TURN_DEGREES, TURN_SPEED);
-
-        telemetry.addLine("Turn complete");
-        telemetry.update();
-        sleep(POST_TURN_DELAY_MS);
-
-        // Step 3: Start shooter at 2350 RPM
-        telemetry.clear();
-        telemetry.addLine("=== STEP 3: STARTING SHOOTER ===");
+        telemetry.addLine("=== STEP 1: STARTING SHOOTER ===");
         telemetry.addData("Target RPM", 2350);
         telemetry.update();
 
@@ -157,9 +134,21 @@ public class FirstAuton extends LinearOpMode {
         telemetry.addLine("Shooter at target RPM");
         telemetry.update();
 
-        // Step 4: Limelight alignment and shooting
+        // Step 2: Drive backward 60 inches
         telemetry.clear();
-        telemetry.addLine("=== STEP 4: ALIGNMENT & SHOOTING ===");
+        telemetry.addLine("=== STEP 2: DRIVING BACKWARD ===");
+        telemetry.addData("Target Distance", "%.1f inches", DRIVE_DISTANCE_INCHES);
+        telemetry.update();
+
+        driveToPositionUsingPurePursuit(-DRIVE_DISTANCE_INCHES); // Negative for backward movement
+
+        telemetry.addLine("Backward drive complete");
+        telemetry.update();
+        sleep(500);
+
+        // Step 3: Limelight alignment and shooting
+        telemetry.clear();
+        telemetry.addLine("=== STEP 3: ALIGNMENT & SHOOTING ===");
         telemetry.update();
 
         // Execute auto shoot sequence (includes alignment and shooting)
@@ -204,8 +193,18 @@ public class FirstAuton extends LinearOpMode {
         double startY = driveController.getY();
         double startHeading = driveController.getHeading();
 
+        telemetry.addData("DEBUG - Start X", "%.2f", startX);
+        telemetry.addData("DEBUG - Start Y", "%.2f", startY);
+        telemetry.addData("DEBUG - Start Heading", "%.2f", Math.toDegrees(startHeading));
+        telemetry.addData("DEBUG - Distance", "%.2f", distance);
+        telemetry.update();
+
         Vector2d targetPosition = new Vector2d(startX + distance, startY); // Move in X direction by specified distance (negative distance = backward)
         purePursuitController.setTargetPosition(targetPosition);
+
+        telemetry.addData("DEBUG - Target X", "%.2f", targetPosition.x);
+        telemetry.addData("DEBUG - Target Y", "%.2f", targetPosition.y);
+        telemetry.update();
 
         long driveStartTime = System.currentTimeMillis();
         long maxDriveTimeMs = 10000; // 10 second timeout
