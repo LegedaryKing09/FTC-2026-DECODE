@@ -8,11 +8,13 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.util.Range;
+import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
+
+import java.util.Locale;
 
 @Config
 public class SixWheelDriveController {
@@ -32,22 +34,25 @@ public class SixWheelDriveController {
     private final LinearOpMode linearOpMode;
     private final OpMode iterativeOpMode;
 
-    // Robot dimensions
-    private double trackWidth = 12.0;
-    private double xOdoOffset = 6.0;
-
     // Robot position tracking
     private double robotX = 0.0;
     private double robotY = 0.0;
     private double robotHeading = 0.0;
 
-    // Speed mode settings
-    public static double FAST_SPEED_MULTIPLIER = 6;
-    public static double FAST_TURN_MULTIPLIER = 7;
-    public static double SLOW_SPEED_MULTIPLIER = 0.8;
-    public static double SLOW_TURN_MULTIPLIER = 3.5;
+    // Speed mode settings - ADJUSTED FOR BETTER CONTROL
+    public static double FAST_SPEED_MULTIPLIER = 0.3;
+    public static double FAST_TURN_MULTIPLIER = 1.5;
+    public static double SLOW_SPEED_MULTIPLIER = 0.1;
+    public static double SLOW_TURN_MULTIPLIER = 0.8;
 
     private boolean isFastSpeedMode = false;
+
+    // Control mode
+    public enum DriveMode {
+        POWER,
+        VELOCITY
+    }
+    private DriveMode currentDriveMode = DriveMode.VELOCITY;
 
     @Config
     public static class VelocityParams {
@@ -55,31 +60,22 @@ public class SixWheelDriveController {
         public static double MAX_RPM = 312.0;
         public static double MAX_TICKS_PER_SEC = (MAX_RPM / 60.0) * TICKS_PER_REV;
 
-        public static double VELOCITY_P = 3.0;
-        public static double VELOCITY_I = 0.5;
-        public static double VELOCITY_D = 0.0;
+        // TUNABLE PIDF - Based on your testing results
+        public static double VELOCITY_P = 29;
+        public static double VELOCITY_I = 0.0;
+        public static double VELOCITY_D = 0.2;
         public static double VELOCITY_F = 12.0;
 
         public static double TRACK_WIDTH_INCHES = 12.0;
+        public static double WHEEL_DIAMETER_INCHES = 2.83;
     }
 
     @Config
     public static class OdometryParams {
-        // CRITICAL: Use consistent pod type!
-        // Set to true if using 4-bar pods, false if using swingarm pods
         public static boolean USE_4_BAR_PODS = true;
-
-        // Offsets from center of robot to odometry pods (in MM)
-        // X pod: sideways offset - POSITIVE = left, NEGATIVE = right
-        // Y pod: forward offset - POSITIVE = forward, NEGATIVE = backward
         public static double X_OFFSET_MM = -84.0;
         public static double Y_OFFSET_MM = -168.0;
-
-        // Yaw scalar for heading calibration
-        // If 90° reads as 4°, try: 90 / 4 = 22.5
         public static double YAW_SCALAR = 1.0;
-
-        // Set to true to reverse encoder direction
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
     }
@@ -120,7 +116,7 @@ public class SixWheelDriveController {
         pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
-        backLeft.setDirection(DcMotor.Direction.REVERSE);
+        backLeft.setDirection(DcMotor.Direction.FORWARD);
         frontRight.setDirection(DcMotor.Direction.REVERSE);
         backRight.setDirection(DcMotor.Direction.FORWARD);
 
@@ -131,7 +127,6 @@ public class SixWheelDriveController {
     }
 
     private void configurePinpoint() {
-        // Set encoder directions based on config
         GoBildaPinpointDriver.EncoderDirection xDir = OdometryParams.X_ENCODER_REVERSED ?
                 GoBildaPinpointDriver.EncoderDirection.REVERSED :
                 GoBildaPinpointDriver.EncoderDirection.FORWARD;
@@ -141,17 +136,13 @@ public class SixWheelDriveController {
 
         pinpoint.setEncoderDirections(xDir, yDir);
 
-        // Set correct pod type
         if (OdometryParams.USE_4_BAR_PODS) {
             pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         } else {
             pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
         }
 
-        // Set offsets in MM (consistent units)
         pinpoint.setOffsets(OdometryParams.X_OFFSET_MM, OdometryParams.Y_OFFSET_MM, DistanceUnit.MM);
-
-        // Set yaw scalar for heading calibration
         pinpoint.setYawScalar(OdometryParams.YAW_SCALAR);
     }
 
@@ -181,6 +172,43 @@ public class SixWheelDriveController {
         );
     }
 
+    // === DRIVE CONTROL METHODS ===
+
+    public void setDriveMode(DriveMode mode) {
+        this.currentDriveMode = mode;
+    }
+
+    public DriveMode getCurrentDriveMode() {
+        return currentDriveMode;
+    }
+
+    public void arcadeDrive(double drive, double turn) {
+        if (currentDriveMode == DriveMode.VELOCITY) {
+            arcadeDriveVelocity(drive, turn);
+        } else {
+            arcadeDrivePower(drive, turn);
+        }
+    }
+
+    private void arcadeDrivePower(double drive, double turn) {
+        double leftPower = drive + turn;
+        double rightPower = drive - turn;
+        tankDrive(leftPower, rightPower);
+    }
+
+    private void arcadeDriveVelocity(double drive, double turn) {
+        double leftPower = drive + turn;
+        double rightPower = drive - turn;
+
+        double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
+        if (maxPower > 1.0) {
+            leftPower /= maxPower;
+            rightPower /= maxPower;
+        }
+
+        tankDriveVelocityNormalized(leftPower, rightPower);
+    }
+
     public void tankDrive(double leftPower, double rightPower) {
         double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
         if (maxPower > 1.0) {
@@ -193,21 +221,63 @@ public class SixWheelDriveController {
         backRight.setPower(rightPower);
     }
 
-    public void arcadeDrive(double drive, double turn) {
-        double leftPower = drive + turn;
-        double rightPower = drive - turn;
-        tankDrive(leftPower, rightPower);
+    public void stopDrive() {
+        if (currentDriveMode == DriveMode.VELOCITY) {
+            tankDriveVelocity(0, 0);
+        } else {
+            tankDrive(0, 0);
+        }
     }
 
-    public void stopDrive() {
-        tankDrive(0, 0);
+    // === VELOCITY CONTROL METHODS ===
+
+    public void tankDriveVelocity(double leftVelocity, double rightVelocity) {
+        leftVelocity = Range.clip(leftVelocity,
+                -VelocityParams.MAX_TICKS_PER_SEC, VelocityParams.MAX_TICKS_PER_SEC);
+        rightVelocity = Range.clip(rightVelocity,
+                -VelocityParams.MAX_TICKS_PER_SEC, VelocityParams.MAX_TICKS_PER_SEC);
+
+        frontLeft.setVelocity(leftVelocity);
+        backLeft.setVelocity(leftVelocity);
+        frontRight.setVelocity(rightVelocity);
+        backRight.setVelocity(rightVelocity);
     }
+
+    public void tankDriveVelocityNormalized(double leftPower, double rightPower) {
+        double leftVel = leftPower * VelocityParams.MAX_TICKS_PER_SEC;
+        double rightVel = rightPower * VelocityParams.MAX_TICKS_PER_SEC;
+        tankDriveVelocity(leftVel, rightVel);
+    }
+
+    /**
+     * Set angular velocity in degrees per second
+     * Positive = counterclockwise, Negative = clockwise
+     */
+    public void setAngularVelocity(double degreesPerSecond) {
+        double radiansPerSec = Math.toRadians(degreesPerSecond);
+        double wheelVelocityInchesPerSec = radiansPerSec * (VelocityParams.TRACK_WIDTH_INCHES / 2.0);
+
+        double wheelCircumference = VelocityParams.WHEEL_DIAMETER_INCHES * Math.PI;
+        double ticksPerInch = VelocityParams.TICKS_PER_REV / wheelCircumference;
+        double wheelVelocityTicksPerSec = wheelVelocityInchesPerSec * ticksPerInch;
+
+        tankDriveVelocity(-wheelVelocityTicksPerSec, wheelVelocityTicksPerSec);
+    }
+
+    public double getLeftVelocity() {
+        return (frontLeft.getVelocity() + backLeft.getVelocity()) / 2.0;
+    }
+
+    public double getRightVelocity() {
+        return (frontRight.getVelocity() + backRight.getVelocity()) / 2.0;
+    }
+
+    // === ODOMETRY METHODS ===
 
     public void updateOdometry() {
         pinpoint.update();
         Pose2D pose = pinpoint.getPosition();
 
-        // Use consistent units throughout - stick with INCHES
         robotX = pose.getX(DistanceUnit.INCH);
         robotY = pose.getY(DistanceUnit.INCH);
         robotHeading = pose.getHeading(AngleUnit.RADIANS);
@@ -228,7 +298,16 @@ public class SixWheelDriveController {
         backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
-    // Speed mode methods
+    public void setPosition(double x, double y, double heading) {
+        Pose2D newPose = new Pose2D(DistanceUnit.INCH, x, y, AngleUnit.RADIANS, heading);
+        pinpoint.setPosition(newPose);
+        robotX = x;
+        robotY = y;
+        robotHeading = heading;
+    }
+
+    // === SPEED MODE METHODS ===
+
     public boolean isFastSpeedMode() {
         return isFastSpeedMode;
     }
@@ -245,7 +324,8 @@ public class SixWheelDriveController {
         isFastSpeedMode = !isFastSpeedMode;
     }
 
-    // Odometry getters - all in INCHES for consistency
+    // === GETTERS (Required by OdometryTestTeleop) ===
+
     public double getX() {
         return robotX;
     }
@@ -271,7 +351,7 @@ public class SixWheelDriveController {
         return pinpoint.getEncoderY();
     }
 
-    // Velocities
+    // Velocities (returned in INCHES per second for consistency)
     public double getVelocityX() {
         return pinpoint.getVelX(DistanceUnit.INCH);
     }
@@ -284,15 +364,7 @@ public class SixWheelDriveController {
         return pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
     }
 
-    public void setPosition(double x, double y, double heading) {
-        Pose2D newPose = new Pose2D(DistanceUnit.INCH, x, y, AngleUnit.RADIANS, heading);
-        pinpoint.setPosition(newPose);
-        robotX = x;
-        robotY = y;
-        robotHeading = heading;
-    }
-
-    // Pinpoint access
+    // Pinpoint access methods
     public GoBildaPinpointDriver getPinpoint() {
         return pinpoint;
     }
@@ -309,53 +381,50 @@ public class SixWheelDriveController {
         return pinpoint.getFrequency();
     }
 
-    // Velocity control methods
-    public void tankDriveVelocity(double leftVelocity, double rightVelocity) {
-        leftVelocity = Range.clip(leftVelocity,
-                -VelocityParams.MAX_TICKS_PER_SEC, VelocityParams.MAX_TICKS_PER_SEC);
-        rightVelocity = Range.clip(rightVelocity,
-                -VelocityParams.MAX_TICKS_PER_SEC, VelocityParams.MAX_TICKS_PER_SEC);
+    // === TELEMETRY METHODS ===
 
-        frontLeft.setVelocity(leftVelocity);
-        backLeft.setVelocity(leftVelocity);
-        frontRight.setVelocity(rightVelocity);
-        backRight.setVelocity(rightVelocity);
-    }
-
-    public void tankDriveVelocityNormalized(double leftPower, double rightPower) {
-        double leftVel = leftPower * VelocityParams.MAX_TICKS_PER_SEC;
-        double rightVel = rightPower * VelocityParams.MAX_TICKS_PER_SEC;
-        tankDriveVelocity(leftVel, rightVel);
-    }
-
-    public double getLeftVelocity() {
-        return (frontLeft.getVelocity() + backLeft.getVelocity()) / 2.0;
-    }
-
-    public double getRightVelocity() {
-        return (frontRight.getVelocity() + backRight.getVelocity()) / 2.0;
-    }
-
-    // Motor status telemetry
     @SuppressLint("DefaultLocale")
     public void getMotorStatus() {
         if (linearOpMode != null) {
-            linearOpMode.telemetry.addData("Front Left Power", "%.2f", frontLeft.getPower());
-            linearOpMode.telemetry.addData("Front Right Power", "%.2f", frontRight.getPower());
-            linearOpMode.telemetry.addData("Back Left Power", "%.2f", backLeft.getPower());
-            linearOpMode.telemetry.addData("Back Right Power", "%.2f", backRight.getPower());
+            linearOpMode.telemetry.addLine("=== DRIVE STATUS ===");
+            linearOpMode.telemetry.addData("Mode", currentDriveMode);
+            linearOpMode.telemetry.addData("Speed Mode", isFastSpeedMode ? "FAST" : "SLOW");
+            linearOpMode.telemetry.addLine();
+            linearOpMode.telemetry.addData("Front Left Power", String.format(Locale.US, "%.2f", frontLeft.getPower()));
+            linearOpMode.telemetry.addData("Front Right Power", String.format(Locale.US, "%.2f", frontRight.getPower()));
+            linearOpMode.telemetry.addData("Back Left Power", String.format(Locale.US, "%.2f", backLeft.getPower()));
+            linearOpMode.telemetry.addData("Back Right Power", String.format(Locale.US, "%.2f", backRight.getPower()));
+
+            if (currentDriveMode == DriveMode.VELOCITY) {
+                linearOpMode.telemetry.addLine();
+                linearOpMode.telemetry.addData("Left Avg Vel", String.format(Locale.US, "%.0f ticks/s", getLeftVelocity()));
+                linearOpMode.telemetry.addData("Right Avg Vel", String.format(Locale.US, "%.0f ticks/s", getRightVelocity()));
+            }
         } else if (iterativeOpMode != null) {
-            iterativeOpMode.telemetry.addData("Front Left Power", "%.2f", frontLeft.getPower());
-            iterativeOpMode.telemetry.addData("Front Right Power", "%.2f", frontRight.getPower());
-            iterativeOpMode.telemetry.addData("Back Left Power", "%.2f", backLeft.getPower());
-            iterativeOpMode.telemetry.addData("Back Right Power", "%.2f", backRight.getPower());
+            iterativeOpMode.telemetry.addLine("=== DRIVE STATUS ===");
+            iterativeOpMode.telemetry.addData("Mode", currentDriveMode);
+            iterativeOpMode.telemetry.addData("Front Left", String.format(Locale.US, "%.2f", frontLeft.getPower()));
+            iterativeOpMode.telemetry.addData("Front Right", String.format(Locale.US, "%.2f", frontRight.getPower()));
+            iterativeOpMode.telemetry.addData("Back Left", String.format(Locale.US, "%.2f", backLeft.getPower()));
+            iterativeOpMode.telemetry.addData("Back Right", String.format(Locale.US, "%.2f", backRight.getPower()));
+
+            if (currentDriveMode == DriveMode.VELOCITY) {
+                iterativeOpMode.telemetry.addLine();
+                iterativeOpMode.telemetry.addData("Left Vel", String.format(Locale.US, "%.0f t/s", getLeftVelocity()));
+                iterativeOpMode.telemetry.addData("Right Vel", String.format(Locale.US, "%.0f t/s", getRightVelocity()));
+            }
         }
     }
 
-    @SuppressLint("DefaultLocale")
     public String getMotorPowers() {
-        return String.format("FL:%.2f FR:%.2f BL:%.2f BR:%.2f",
+        return String.format(Locale.US, "FL:%.2f FR:%.2f BL:%.2f BR:%.2f",
                 frontLeft.getPower(), frontRight.getPower(),
                 backLeft.getPower(), backRight.getPower());
+    }
+
+    public String getMotorVelocities() {
+        return String.format(Locale.US, "FL:%.0f FR:%.0f BL:%.0f BR:%.0f",
+                frontLeft.getVelocity(), frontRight.getVelocity(),
+                backLeft.getVelocity(), backRight.getVelocity());
     }
 }

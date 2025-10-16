@@ -92,20 +92,23 @@ public class BasicTeleop extends LinearOpMode {
 
             driveController.arcadeDrive(drive, turn);
 
+            // A button: Set to FAST speed mode
             if (gamepad1.a && !isPressingA) {
                 isPressingA = true;
-                shooterController.shooterHalf();
+                driveController.setFastSpeed();
             } else if (!gamepad1.a && isPressingA) {
                 isPressingA = false;
             }
 
+            // B button: Set to SLOW speed mode
             if (gamepad1.b && !isPressingB) {
                 isPressingB = true;
-                shooterController.shooterFull();
+                driveController.setSlowSpeed();
             } else if (!gamepad1.b && isPressingB) {
                 isPressingB = false;
             }
 
+            // Y button: Set shooter to custom power (calculated distance RPM)
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
                 shooterController.setShooterPower(SHOOTING_POWER);
@@ -113,6 +116,7 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingY = false;
             }
 
+            // X button: Stop all systems
             if (gamepad1.x && !isPressingX) {
                 isPressingX = true;
                 shooterController.shooterStop();
@@ -122,6 +126,7 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingX = false;
             }
 
+            // D-pad UP: Increase shooting power
             if (gamepad1.dpad_up && SHOOTING_POWER < 1 && !isPressingDpadUp) {
                 isPressingDpadUp = true;
                 SHOOTING_POWER = SHOOTING_POWER + 0.01;
@@ -129,6 +134,7 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingDpadUp = false;
             }
 
+            // D-pad DOWN: Decrease shooting power
             if (gamepad1.dpad_down && SHOOTING_POWER > 0 && !isPressingDpadDown) {
                 isPressingDpadDown = true;
                 SHOOTING_POWER = SHOOTING_POWER - 0.01;
@@ -136,6 +142,7 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingDpadDown = false;
             }
 
+            // Right trigger: Transfer full
             if (gamepad1.right_trigger > 0.1 && !isPressingRightTrigger) {
                 isPressingRightTrigger = true;
                 transferController.transferFull();
@@ -144,6 +151,7 @@ public class BasicTeleop extends LinearOpMode {
                 transferController.transferFull();
             }
 
+            // Right bumper: Intake full
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
                 intakeController.intakeFull();
@@ -152,6 +160,7 @@ public class BasicTeleop extends LinearOpMode {
                 intakeController.intakeStop();
             }
 
+            // Left bumper: Intake eject
             if (gamepad1.left_bumper && !isPressingLeftBumper) {
                 isPressingLeftBumper = true;
                 intakeController.intakeEject();
@@ -160,6 +169,7 @@ public class BasicTeleop extends LinearOpMode {
                 intakeController.intakeStop();
             }
 
+            // Back button: Toggle speed mode (kept for redundancy)
             if (gamepad1.back && !isPressingBack) {
                 isPressingBack = true;
                 if (driveController.isFastSpeedMode()) {
@@ -171,6 +181,7 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingBack = false;
             }
 
+            // Start button: Toggle telemetry
             if (gamepad1.start && !isPressingStart) {
                 isPressingStart = true;
                 isUsingTelemetry = !isUsingTelemetry;
@@ -178,20 +189,23 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingStart = false;
             }
 
+            // Manual alignment logic
             if (isManualAligning) {
                 limelightController.align(EnhancedAutoShootController.APRILTAG_ID);
+                limelightController.displayAlignmentWithInitialAngle();
                 if (limelightController.hasTarget() &&
                         limelightController.getTargetError() <= EnhancedAutoShootController.ALIGNMENT_THRESHOLD) {
                     telemetry.addLine(">>> ALIGNED - Ready to shoot!");
                 }
             }
 
-            // CHANGED: D-pad left now triggers DISTANCE-BASED auto-shoot!
+            // D-pad LEFT: Distance-based auto-shoot
             if (gamepad1.dpad_left && !lastdpadLeft && !autoShootController.isAutoShooting()) {
                 autoShootController.executeDistanceBasedAutoShoot();
             }
             lastdpadLeft = gamepad1.dpad_left;
 
+            // D-pad RIGHT: Toggle manual alignment
             if (gamepad1.dpad_right && !lastdpadRight) {
                 if (!isManualAligning && !autoShootController.isAutoShooting()) {
                     isManualAligning = true;
@@ -226,7 +240,7 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
                 telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
                 telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
-                telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✓ YES" : "NO");
+                telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✅ YES" : "NO");
 
                 telemetry.addData("Robot X (inches)", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y (inches)", "%.2f", driveController.getY());
@@ -237,6 +251,11 @@ public class BasicTeleop extends LinearOpMode {
 
                 telemetry.addLine();
                 telemetry.addLine("=== CONTROLS ===");
+                telemetry.addLine("A: Fast Speed Mode");
+                telemetry.addLine("B: Slow Speed Mode");
+                telemetry.addLine("Y: Custom Power Shooter");
+                telemetry.addLine("X: Stop All");
+                telemetry.addLine("D-Pad UP/DOWN: Adjust Shooter Power");
                 telemetry.addLine("D-Pad LEFT: Distance-Based Auto-Shoot");
                 telemetry.addLine("D-Pad RIGHT: Toggle Manual Alignment");
             }
