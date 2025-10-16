@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
+import org.firstinspires.ftc.teamcode.champion.controller.BallAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.PurePursuitController;
@@ -17,7 +18,7 @@ import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Pose2d;
 
 @Config
-@Autonomous(name = "First Auton", group = "Competition")
+@Autonomous(name = "First Auton with Ball Collection", group = "Competition")
 public class FirstAuton extends LinearOpMode {
 
     // Configurable parameters
@@ -29,6 +30,12 @@ public class FirstAuton extends LinearOpMode {
     public static double HEADING_TOLERANCE_DEGREES = 2.0;
     public static long POST_TURN_DELAY_MS = 500;
 
+    // Ball collection parameters
+    public static double BALL_SEARCH_TURN_DEGREES = -90.0;  // Turn left
+    public static double BALL_COLLECTION_DISTANCE = 36.0;   // Drive forward 36 inches
+    public static double BALL_ALIGNMENT_TIMEOUT_MS = 8000;  // Max time to find and align with ball
+    public static double BALL_COLLECTION_SPEED = 0.5;       // Speed while collecting ball
+
     // Controllers
     private SixWheelDriveController driveController;
     private PurePursuitController purePursuitController;
@@ -37,6 +44,7 @@ public class FirstAuton extends LinearOpMode {
     private TransferController transferController;
     private LimelightAlignmentController limelightController;
     private AutoShootController autoShootController;
+    private BallAlignmentController ballAlignmentController;
 
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
@@ -91,6 +99,15 @@ public class FirstAuton extends LinearOpMode {
 
         // Initialize Limelight alignment
         limelightController = new LimelightAlignmentController(this);
+
+        // Initialize ball alignment controller - passes opMode which initializes its own drive controller
+        try {
+            ballAlignmentController = new BallAlignmentController(this);
+            telemetry.addLine("✓ Ball alignment controller initialized");
+        } catch (Exception e) {
+            telemetry.addData("WARNING", "Ball alignment failed to init: " + e.getMessage());
+            ballAlignmentController = null;
+        }
 
         // Initialize auto shoot controller
         autoShootController = new AutoShootController(
@@ -180,6 +197,24 @@ public class FirstAuton extends LinearOpMode {
             sleep(20);
         }
 
+        // Stop shooter after shooting
+        shooterController.shooterStop();
+        sleep(500);
+
+        // Step 5: Ball Collection Sequence
+        telemetry.clear();
+        telemetry.addLine("=== STEP 5: BALL COLLECTION ===");
+        telemetry.update();
+
+        if (ballAlignmentController != null) {
+            executeBallCollectionSequence();
+        } else {
+            telemetry.addLine("⚠️ Ball alignment controller not available");
+            telemetry.addLine("Skipping ball collection");
+            telemetry.update();
+            sleep(2000);
+        }
+
         // Final status
         telemetry.clear();
         telemetry.addLine("=== AUTONOMOUS COMPLETE ===");
@@ -193,6 +228,141 @@ public class FirstAuton extends LinearOpMode {
             driveController.stopDrive();
             sleep(50);
         }
+    }
+
+    /**
+     * Execute the ball collection sequence:
+     * 1. Turn left to search area
+     * 2. Search for and align with ball
+     * 3. Start intake
+     * 4. Drive forward to collect ball
+     * 5. Stop intake
+     */
+    private void executeBallCollectionSequence() throws InterruptedException {
+        // Sub-step 5a: Turn left to begin search
+        telemetry.clear();
+        telemetry.addLine("=== 5a: TURNING TO SEARCH AREA ===");
+        telemetry.addData("Turn Angle", "%.1f degrees", BALL_SEARCH_TURN_DEGREES);
+        telemetry.update();
+
+        // Calculate new heading (current + turn amount)
+        double currentHeading = Math.toDegrees(driveController.getHeading());
+        double targetHeading = currentHeading + BALL_SEARCH_TURN_DEGREES;
+
+        // Normalize to 0-360 range
+        while (targetHeading < 0) targetHeading += 360;
+        while (targetHeading >= 360) targetHeading -= 360;
+
+        turnToHeading(targetHeading, TURN_SPEED);
+
+        telemetry.addLine("Turn complete - beginning ball search");
+        telemetry.update();
+        sleep(500);
+
+        // Sub-step 5b: Search for and align with ball
+        telemetry.clear();
+        telemetry.addLine("=== 5b: SEARCHING FOR BALL ===");
+        telemetry.update();
+
+        ballAlignmentController.startTracking();
+
+        long alignmentStartTime = System.currentTimeMillis();
+        boolean ballAligned = false;
+
+        // Alignment loop with timeout
+        while (opModeIsActive() &&
+                (System.currentTimeMillis() - alignmentStartTime) < BALL_ALIGNMENT_TIMEOUT_MS) {
+
+            driveController.updateOdometry();
+            ballAlignmentController.align();  // This handles searching and aligning
+
+            // Display ball alignment telemetry
+            ballAlignmentController.displayTelemetry();
+            telemetry.addData("Time Elapsed", "%.1fs",
+                    (System.currentTimeMillis() - alignmentStartTime) / 1000.0);
+            telemetry.update();
+
+            // Check if we're aligned
+            if (ballAlignmentController.isAligned()) {
+                ballAligned = true;
+                telemetry.addLine("✅ BALL ALIGNED!");
+                telemetry.update();
+                break;
+            }
+
+            sleep(20);
+        }
+
+        ballAlignmentController.stopTracking();
+
+        if (!ballAligned) {
+            telemetry.clear();
+            telemetry.addLine("⚠️ Ball alignment timeout");
+            telemetry.addLine("Skipping ball collection");
+            telemetry.update();
+            sleep(2000);
+            return;
+        }
+
+        sleep(500);
+
+        // Sub-step 5c: Start intake and drive forward to collect ball
+        telemetry.clear();
+        telemetry.addLine("=== 5c: COLLECTING BALL ===");
+        telemetry.addData("Distance", "%.1f inches", BALL_COLLECTION_DISTANCE);
+        telemetry.update();
+
+        // Start intake
+        intakeController.intakeFull();
+
+        // Drive forward while intake is running
+        driveForwardWithIntake(BALL_COLLECTION_DISTANCE, BALL_COLLECTION_SPEED);
+
+        // Stop intake
+        intakeController.intakeStop();
+
+        telemetry.clear();
+        telemetry.addLine("=== BALL COLLECTION COMPLETE ===");
+        telemetry.update();
+        sleep(1000);
+    }
+
+    /**
+     * Drive forward a specified distance while intake is running
+     */
+    private void driveForwardWithIntake(double distance, double speed) throws InterruptedException {
+        double startX = driveController.getX();
+        double startY = driveController.getY();
+
+        long driveStartTime = System.currentTimeMillis();
+        long maxDriveTimeMs = 8000; // 8 second timeout
+
+        while (opModeIsActive() && (System.currentTimeMillis() - driveStartTime) < maxDriveTimeMs) {
+            driveController.updateOdometry();
+
+            // Calculate distance traveled
+            double currentX = driveController.getX();
+            double currentY = driveController.getY();
+            double distanceTraveled = Math.hypot(currentX - startX, currentY - startY);
+
+            // Check if we've reached the target distance
+            if (distanceTraveled >= distance) {
+                break;
+            }
+
+            // Drive forward
+            driveController.tankDrive(speed, speed);
+
+            telemetry.addData("Distance Traveled", "%.2f inches", distanceTraveled);
+            telemetry.addData("Target Distance", "%.1f inches", distance);
+            telemetry.addData("Remaining", "%.2f inches", distance - distanceTraveled);
+            telemetry.addData("Intake", "ACTIVE");
+            telemetry.update();
+
+            sleep(20);
+        }
+
+        driveController.stopDrive();
     }
 
     /**
