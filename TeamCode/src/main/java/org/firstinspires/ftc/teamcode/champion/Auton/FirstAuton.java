@@ -121,7 +121,7 @@ public class FirstAuton extends LinearOpMode {
 
         // Step 2: Turn 180 degrees
         telemetry.clear();
-        telemetry.addLine("=== STEP 2: TURNING 180Â° ===");
+        telemetry.addLine("=== STEP 2: TURNING 180° ===");
         telemetry.addData("Target Heading", "%.1f degrees", TURN_DEGREES);
         telemetry.update();
 
@@ -157,13 +157,13 @@ public class FirstAuton extends LinearOpMode {
         telemetry.addLine("Shooter at target RPM");
         telemetry.update();
 
-        // Step 4 & 5: Limelight alignment and shooting
+        // Step 4: Limelight alignment and shooting
         telemetry.clear();
-        telemetry.addLine("=== STEP 2-3: ALIGNMENT & SHOOTING ===");
+        telemetry.addLine("=== STEP 4: ALIGNMENT & SHOOTING ===");
         telemetry.update();
 
         // Execute auto shoot sequence (includes alignment and shooting)
-        autoShootController.executeAutoShootSequence();
+        autoShootController.executeDistanceBasedAutoShoot();
 
         // Wait for auto shoot to complete (keep shooter running)
         long shootStartTime = System.currentTimeMillis();
@@ -204,10 +204,13 @@ public class FirstAuton extends LinearOpMode {
         double startY = driveController.getY();
         double startHeading = driveController.getHeading();
 
-        Vector2d targetPosition = new Vector2d(startX + distance, startY); // Move forward in +X direction
+        Vector2d targetPosition = new Vector2d(startX + distance, startY); // Move in X direction by specified distance
         purePursuitController.setTargetPosition(targetPosition);
 
-        while (opModeIsActive()) {
+        long driveStartTime = System.currentTimeMillis();
+        long maxDriveTimeMs = 10000; // 10 second timeout
+
+        while (opModeIsActive() && (System.currentTimeMillis() - driveStartTime) < maxDriveTimeMs) {
             driveController.updateOdometry();
 
             // Get current pose
@@ -247,7 +250,10 @@ public class FirstAuton extends LinearOpMode {
     private void turnToHeading(double targetHeadingDegrees, double speed) throws InterruptedException {
         double targetHeadingRadians = Math.toRadians(targetHeadingDegrees);
 
-        while (opModeIsActive()) {
+        long turnStartTime = System.currentTimeMillis();
+        long maxTurnTimeMs = 5000; // 5 second timeout
+
+        while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < maxTurnTimeMs) {
             driveController.updateOdometry();
 
             double currentHeading = driveController.getHeading();
@@ -261,8 +267,11 @@ public class FirstAuton extends LinearOpMode {
                 break;
             }
 
-            // Simple proportional turn
-            double turnPower = speed * Math.min(1.0, Math.abs(headingErrorDegrees) / 30.0);
+            // Simple proportional turn with safety check
+            double turnPower = 0.0;
+            if (Math.abs(headingErrorDegrees) > 0.1) { // Prevent division by very small numbers
+                turnPower = speed * Math.min(1.0, Math.abs(headingErrorDegrees) / 30.0);
+            }
             turnPower = Math.copySign(turnPower, headingError);
 
             driveController.tankDrive(-turnPower, turnPower);

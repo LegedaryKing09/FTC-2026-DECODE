@@ -25,7 +25,7 @@ import java.util.List;
  *    - Suggested mount angle correction
  * 6. Adjust LIMELIGHT_MOUNT_ANGLE_DEGREES in FTC Dashboard until error is near zero
  * 7. Repeat at multiple distances (30", 60", 90", 120") to verify accuracy
- * 8. Use the final mount angle value in your EnhancedAutoShootController
+ * 8. Use the final mount angle value in your AutoShootController
  */
 @Config
 @TeleOp(name = "Limelight Calibration Tool", group = "Calibration")

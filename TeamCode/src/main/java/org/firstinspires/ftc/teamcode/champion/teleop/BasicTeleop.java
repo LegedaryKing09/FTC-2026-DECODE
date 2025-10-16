@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 
-import org.firstinspires.ftc.teamcode.champion.controller.EnhancedAutoShootController;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
@@ -22,7 +22,7 @@ public class BasicTeleop extends LinearOpMode {
     ShooterController shooterController;
     IntakeController intakeController;
     LimelightAlignmentController limelightController;
-    EnhancedAutoShootController autoShootController;
+    AutoShootController autoShootController;
 
     public static double SHOOTING_POWER = 0.55;
     public static double INTAKE_POWER = 0;
@@ -55,7 +55,7 @@ public class BasicTeleop extends LinearOpMode {
         LimelightAlignmentController tempLimelight = null;
         try {
             tempLimelight = new LimelightAlignmentController(this);
-            tempLimelight.setTargetTag(EnhancedAutoShootController.APRILTAG_ID);
+            tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
             telemetry.update();
@@ -63,7 +63,7 @@ public class BasicTeleop extends LinearOpMode {
         limelightController = tempLimelight;
 
         // Initialize enhanced auto shoot controller (6 parameters)
-        autoShootController = new EnhancedAutoShootController(
+        autoShootController = new AutoShootController(
                 this,
                 driveController,
                 shooterController,
@@ -191,10 +191,10 @@ public class BasicTeleop extends LinearOpMode {
 
             // Manual alignment logic
             if (isManualAligning) {
-                limelightController.align(EnhancedAutoShootController.APRILTAG_ID);
+                limelightController.align(AutoShootController.APRILTAG_ID);
                 limelightController.displayAlignmentWithInitialAngle();
                 if (limelightController.hasTarget() &&
-                        limelightController.getTargetError() <= EnhancedAutoShootController.ALIGNMENT_THRESHOLD) {
+                        limelightController.getTargetError() <= AutoShootController.ALIGNMENT_THRESHOLD) {
                     telemetry.addLine(">>> ALIGNED - Ready to shoot!");
                 }
             }

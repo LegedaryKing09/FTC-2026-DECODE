@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Locale;
 
 @Config
-public class EnhancedAutoShootController {
+public class AutoShootController {
 
     // ========== LIMELIGHT DISTANCE CALIBRATION ==========
     public static double LIMELIGHT_LENS_HEIGHT_INCHES = 14.8;
@@ -53,12 +53,12 @@ public class EnhancedAutoShootController {
 
     private String currentStatus = "IDLE";
 
-    public EnhancedAutoShootController(LinearOpMode opMode,
-                                       SixWheelDriveController driveController,
-                                       ShooterController shooterController,
-                                       IntakeController intakeController,
-                                       TransferController transferController,
-                                       LimelightAlignmentController limelightController) {
+    public AutoShootController(LinearOpMode opMode,
+                               SixWheelDriveController driveController,
+                               ShooterController shooterController,
+                               IntakeController intakeController,
+                               TransferController transferController,
+                               LimelightAlignmentController limelightController) {
         this.opMode = opMode;
         this.driveController = driveController;
         this.shooterController = shooterController;
