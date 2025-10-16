@@ -1,165 +1,296 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
 import android.annotation.SuppressLint;
-
 import com.acmerobotics.dashboard.config.Config;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.util.Range;
+import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
-import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
+
+import java.util.Locale;
 
 @Config
 public class SixWheelDriveController {
 
-    // Motor configuration names - STATIC like in version 2
+    // Motor configuration names
     public static String LF_NAME = "lf";
     public static String RF_NAME = "rf";
     public static String LB_NAME = "lb";
     public static String RB_NAME = "rb";
 
-    // Drive Motors (4 motors controlling 6 wheels via gears/belts)
-    private final DcMotor frontLeft;
-    private final DcMotor frontRight;
-    private final DcMotor backLeft;
-    private final DcMotor backRight;
+    private final DcMotorEx frontLeft;
+    private final DcMotorEx frontRight;
+    private final DcMotorEx backLeft;
+    private final DcMotorEx backRight;
 
-    // GoBilda Odometry Computer
     private final GoBildaPinpointDriver pinpoint;
-
-    // Robot dimensions
-    private double trackWidth = 12.0; // Distance between left and right drive wheels
-    private double xOdoOffset = 6.0; // Distance from center of rotation to x odometry wheel
+    private final LinearOpMode linearOpMode;
+    private final OpMode iterativeOpMode;
 
     // Robot position tracking
     private double robotX = 0.0;
     private double robotY = 0.0;
     private double robotHeading = 0.0;
 
-    // Speed mode settings
-    public static double FAST_SPEED_MULTIPLIER = 6;
-    public static double FAST_TURN_MULTIPLIER = 7;
-    public static double SLOW_SPEED_MULTIPLIER = 0.8;
-    public static double SLOW_TURN_MULTIPLIER = 3.5;
+    // Speed mode settings - ADJUSTED FOR BETTER CONTROL
+    public static double FAST_SPEED_MULTIPLIER = 0.3;
+    public static double FAST_TURN_MULTIPLIER = 1.5;
+    public static double SLOW_SPEED_MULTIPLIER = 0.1;
+    public static double SLOW_TURN_MULTIPLIER = 0.8;
 
     private boolean isFastSpeedMode = false;
 
-    // Constructor
-    public SixWheelDriveController(OpMode opMode) {
-        frontLeft = opMode.hardwareMap.get(DcMotor.class, LF_NAME);
-        frontRight = opMode.hardwareMap.get(DcMotor.class, RF_NAME);
-        backLeft = opMode.hardwareMap.get(DcMotor.class, LB_NAME);
-        backRight = opMode.hardwareMap.get(DcMotor.class, RB_NAME);
+    // Control mode
+    public enum DriveMode {
+        POWER,
+        VELOCITY
+    }
+    private DriveMode currentDriveMode = DriveMode.VELOCITY;
 
-        // Initialize GoBilda Odometry Computer
+    @Config
+    public static class VelocityParams {
+        public static double TICKS_PER_REV = 751.8;
+        public static double MAX_RPM = 312.0;
+        public static double MAX_TICKS_PER_SEC = (MAX_RPM / 60.0) * TICKS_PER_REV;
+
+        // TUNABLE PIDF - Based on your testing results
+        public static double VELOCITY_P = 29;
+        public static double VELOCITY_I = 0.0;
+        public static double VELOCITY_D = 0.2;
+        public static double VELOCITY_F = 12.0;
+
+        public static double TRACK_WIDTH_INCHES = 12.0;
+        public static double WHEEL_DIAMETER_INCHES = 2.83;
+    }
+
+    @Config
+    public static class OdometryParams {
+        public static boolean USE_4_BAR_PODS = true;
+        public static double X_OFFSET_MM = -84.0;
+        public static double Y_OFFSET_MM = -168.0;
+        public static double YAW_SCALAR = 1.0;
+        public static boolean X_ENCODER_REVERSED = false;
+        public static boolean Y_ENCODER_REVERSED = false;
+    }
+
+    // Constructor for LinearOpMode
+    public SixWheelDriveController(LinearOpMode opMode) {
+        this.linearOpMode = opMode;
+        this.iterativeOpMode = null;
+
+        frontLeft = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
+        frontRight = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
+        backLeft = opMode.hardwareMap.get(DcMotorEx.class, LB_NAME);
+        backRight = opMode.hardwareMap.get(DcMotorEx.class, RB_NAME);
+
         pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
-        // Set motor directions - CORRECTED for tank drive
-        // Left side needs to be consistent, right side needs to be consistent
-        // For tank drive: both left motors same direction, both right motors same direction
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
         backLeft.setDirection(DcMotor.Direction.FORWARD);
         frontRight.setDirection(DcMotor.Direction.REVERSE);
         backRight.setDirection(DcMotor.Direction.FORWARD);
 
-        // Set all motors to brake when power is zero
         setMotorsBrakeMode();
-
-        // Configure the Pinpoint computer
         configurePinpoint();
-
-        // Reset odometry
+        initializeVelocityControl();
         resetOdometry();
     }
 
-    // Configure the Pinpoint odometry computer
-    private void configurePinpoint() {
-        // Set encoder directions - adjust these based on your robot setup
-        pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.REVERSED,
-                GoBildaPinpointDriver.EncoderDirection.FORWARD);
+    // Constructor for OpMode (iterative)
+    public SixWheelDriveController(OpMode opMode) {
+        this.linearOpMode = null;
+        this.iterativeOpMode = opMode;
 
-        // Set encoder resolution - using goBILDA swingarm pods as default
-        // Change this to goBILDA_4_BAR_POD if using 4-bar pods, or use setEncoderResolution() for custom
-        pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+        frontLeft = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
+        frontRight = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
+        backLeft = opMode.hardwareMap.get(DcMotorEx.class, LB_NAME);
+        backRight = opMode.hardwareMap.get(DcMotorEx.class, RB_NAME);
 
-        // Set pod offsets - these are the distances from the center of rotation to each odometry pod
-        // X offset: positive = left of center, negative = right of center
-        // Y offset: positive = forward of center, negative = behind center
-        // Adjust these values based on your robot's physical configuration
-        pinpoint.setOffsets(-3.59, 6, DistanceUnit.INCH); // Example values - ADJUST FOR YOUR ROBOT
+        pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
-        // Set yaw scalar if needed (usually not necessary as devices come pre-calibrated)
-        // pinpoint.setYawScalar(1.0);
+        frontLeft.setDirection(DcMotor.Direction.FORWARD);
+        backLeft.setDirection(DcMotor.Direction.FORWARD);
+        frontRight.setDirection(DcMotor.Direction.REVERSE);
+        backRight.setDirection(DcMotor.Direction.FORWARD);
+
+        setMotorsBrakeMode();
+        configurePinpoint();
+        initializeVelocityControl();
+        resetOdometry();
     }
 
-    // Tank drive control
-    public void tankDrive(double leftPower, double rightPower) {
-        // Normalize powers if they exceed 1.0
+    private void configurePinpoint() {
+        GoBildaPinpointDriver.EncoderDirection xDir = OdometryParams.X_ENCODER_REVERSED ?
+                GoBildaPinpointDriver.EncoderDirection.REVERSED :
+                GoBildaPinpointDriver.EncoderDirection.FORWARD;
+        GoBildaPinpointDriver.EncoderDirection yDir = OdometryParams.Y_ENCODER_REVERSED ?
+                GoBildaPinpointDriver.EncoderDirection.REVERSED :
+                GoBildaPinpointDriver.EncoderDirection.FORWARD;
+
+        pinpoint.setEncoderDirections(xDir, yDir);
+
+        if (OdometryParams.USE_4_BAR_PODS) {
+            pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+        } else {
+            pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
+        }
+
+        pinpoint.setOffsets(OdometryParams.X_OFFSET_MM, OdometryParams.Y_OFFSET_MM, DistanceUnit.MM);
+        pinpoint.setYawScalar(OdometryParams.YAW_SCALAR);
+    }
+
+    private void initializeVelocityControl() {
+        frontLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        frontRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        backLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        backRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        frontLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        frontRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        backLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        backRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        setMotorPIDF(frontLeft);
+        setMotorPIDF(frontRight);
+        setMotorPIDF(backLeft);
+        setMotorPIDF(backRight);
+    }
+
+    private void setMotorPIDF(DcMotorEx motor) {
+        motor.setVelocityPIDFCoefficients(
+                VelocityParams.VELOCITY_P,
+                VelocityParams.VELOCITY_I,
+                VelocityParams.VELOCITY_D,
+                VelocityParams.VELOCITY_F
+        );
+    }
+
+    // === DRIVE CONTROL METHODS ===
+
+    public void setDriveMode(DriveMode mode) {
+        this.currentDriveMode = mode;
+    }
+
+    public DriveMode getCurrentDriveMode() {
+        return currentDriveMode;
+    }
+
+    public void arcadeDrive(double drive, double turn) {
+        if (currentDriveMode == DriveMode.VELOCITY) {
+            arcadeDriveVelocity(drive, turn);
+        } else {
+            arcadeDrivePower(drive, turn);
+        }
+    }
+
+    private void arcadeDrivePower(double drive, double turn) {
+        double leftPower = drive + turn;
+        double rightPower = drive - turn;
+        tankDrive(leftPower, rightPower);
+    }
+
+    private void arcadeDriveVelocity(double drive, double turn) {
+        double leftPower = drive + turn;
+        double rightPower = drive - turn;
+
         double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
         if (maxPower > 1.0) {
             leftPower /= maxPower;
             rightPower /= maxPower;
         }
 
-        // Set left side motors (controls front, middle, and back wheels on left)
+        tankDriveVelocityNormalized(leftPower, rightPower);
+    }
+
+    public void tankDrive(double leftPower, double rightPower) {
+        double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
+        if (maxPower > 1.0) {
+            leftPower /= maxPower;
+            rightPower /= maxPower;
+        }
         frontLeft.setPower(leftPower);
         backLeft.setPower(leftPower);
-
-        // Set right side motors (controls front, middle, and back wheels on right)
         frontRight.setPower(rightPower);
         backRight.setPower(rightPower);
     }
 
-    // Arcade drive control
-    public void arcadeDrive(double drive, double turn) {
-        double leftPower = drive + turn;
-        double rightPower = drive - turn;
-        tankDrive(leftPower, rightPower);
-    }
-
-    // Stop all drive motors
     public void stopDrive() {
-        tankDrive(0, 0);
+        if (currentDriveMode == DriveMode.VELOCITY) {
+            tankDriveVelocity(0, 0);
+        } else {
+            tankDrive(0, 0);
+        }
     }
 
-    // Update odometry calculations - THIS WAS THE MISSING PIECE
-    public void updateOdometry() {
-        // CRITICAL: Call update() first to refresh data from the Pinpoint device
-        pinpoint.update();
+    // === VELOCITY CONTROL METHODS ===
 
-        // Get the current position and heading from the Pinpoint driver
+    public void tankDriveVelocity(double leftVelocity, double rightVelocity) {
+        leftVelocity = Range.clip(leftVelocity,
+                -VelocityParams.MAX_TICKS_PER_SEC, VelocityParams.MAX_TICKS_PER_SEC);
+        rightVelocity = Range.clip(rightVelocity,
+                -VelocityParams.MAX_TICKS_PER_SEC, VelocityParams.MAX_TICKS_PER_SEC);
+
+        frontLeft.setVelocity(leftVelocity);
+        backLeft.setVelocity(leftVelocity);
+        frontRight.setVelocity(rightVelocity);
+        backRight.setVelocity(rightVelocity);
+    }
+
+    public void tankDriveVelocityNormalized(double leftPower, double rightPower) {
+        double leftVel = leftPower * VelocityParams.MAX_TICKS_PER_SEC;
+        double rightVel = rightPower * VelocityParams.MAX_TICKS_PER_SEC;
+        tankDriveVelocity(leftVel, rightVel);
+    }
+
+    /**
+     * Set angular velocity in degrees per second
+     * Positive = counterclockwise, Negative = clockwise
+     */
+    public void setAngularVelocity(double degreesPerSecond) {
+        double radiansPerSec = Math.toRadians(degreesPerSecond);
+        double wheelVelocityInchesPerSec = radiansPerSec * (VelocityParams.TRACK_WIDTH_INCHES / 2.0);
+
+        double wheelCircumference = VelocityParams.WHEEL_DIAMETER_INCHES * Math.PI;
+        double ticksPerInch = VelocityParams.TICKS_PER_REV / wheelCircumference;
+        double wheelVelocityTicksPerSec = wheelVelocityInchesPerSec * ticksPerInch;
+
+        tankDriveVelocity(-wheelVelocityTicksPerSec, wheelVelocityTicksPerSec);
+    }
+
+    public double getLeftVelocity() {
+        return (frontLeft.getVelocity() + backLeft.getVelocity()) / 2.0;
+    }
+
+    public double getRightVelocity() {
+        return (frontRight.getVelocity() + backRight.getVelocity()) / 2.0;
+    }
+
+    // === ODOMETRY METHODS ===
+
+    public void updateOdometry() {
+        pinpoint.update();
         Pose2D pose = pinpoint.getPosition();
+
         robotX = pose.getX(DistanceUnit.INCH);
         robotY = pose.getY(DistanceUnit.INCH);
         robotHeading = pose.getHeading(AngleUnit.RADIANS);
     }
 
-    // Reset odometry encoders and position
     public void resetOdometry() {
-        // Reset odometry computer's internal tracking and recalibrate IMU
         pinpoint.resetPosAndIMU();
-
-        // Reset drive motor encoders (unnecessary for odometry, but good practice for other uses)
-        frontLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        frontRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        backLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        backRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
-        frontLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        frontRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        backLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        backRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-        // Reset local position variables
+        initializeVelocityControl();
         robotX = 0.0;
         robotY = 0.0;
         robotHeading = 0.0;
     }
 
-    // Set motors to brake mode
     private void setMotorsBrakeMode() {
         frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -167,7 +298,34 @@ public class SixWheelDriveController {
         backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
-    // Getters for robot position
+    public void setPosition(double x, double y, double heading) {
+        Pose2D newPose = new Pose2D(DistanceUnit.INCH, x, y, AngleUnit.RADIANS, heading);
+        pinpoint.setPosition(newPose);
+        robotX = x;
+        robotY = y;
+        robotHeading = heading;
+    }
+
+    // === SPEED MODE METHODS ===
+
+    public boolean isFastSpeedMode() {
+        return isFastSpeedMode;
+    }
+
+    public void setFastSpeed() {
+        isFastSpeedMode = true;
+    }
+
+    public void setSlowSpeed() {
+        isFastSpeedMode = false;
+    }
+
+    public void toggleSpeedMode() {
+        isFastSpeedMode = !isFastSpeedMode;
+    }
+
+    // === GETTERS (Required by OdometryTestTeleop) ===
+
     public double getX() {
         return robotX;
     }
@@ -184,61 +342,7 @@ public class SixWheelDriveController {
         return Math.toDegrees(robotHeading);
     }
 
-    // Get position in different units
-    public double getX(DistanceUnit unit) {
-        return unit.fromMm(robotX * 25.4); // robotX is in inches, convert to mm first
-    }
-
-    public double getY(DistanceUnit unit) {
-        return unit.fromMm(robotY * 25.4); // robotY is in inches, convert to mm first
-    }
-
-    public double getHeading(AngleUnit unit) {
-        return unit.fromRadians(robotHeading);
-    }
-
-    // Setters for robot position (this will update the Pinpoint device)
-    public void setPosition(double x, double y, double heading) {
-        Pose2D newPose = new Pose2D(DistanceUnit.MM, x, y, AngleUnit.RADIANS, heading);
-        pinpoint.setPosition(newPose);
-        robotX = DistanceUnit.MM.toInches(x);
-        robotY = DistanceUnit.MM.toInches(y);
-        robotHeading = heading;
-    }
-
-    public void setX(double x) {
-        pinpoint.setPosX(x, DistanceUnit.MM);
-        robotX = DistanceUnit.MM.toInches(x);
-    }
-
-    public void setY(double y) {
-        pinpoint.setPosY(y, DistanceUnit.MM);
-        robotY = DistanceUnit.MM.toInches(y);
-    }
-
-    public void setHeading(double heading) {
-        pinpoint.setHeading(heading, AngleUnit.RADIANS);
-        robotHeading = heading;
-    }
-
-    // Getters and setters for robot dimensions
-    public double getTrackWidth() {
-        return trackWidth;
-    }
-
-    public void setTrackWidth(double trackWidth) {
-        this.trackWidth = trackWidth;
-    }
-
-    public double getXOdoOffset() {
-        return xOdoOffset;
-    }
-
-    public void setXOdoOffset(double xOdoOffset) {
-        this.xOdoOffset = xOdoOffset;
-    }
-
-    // Get raw odometry encoder values (for debugging purposes)
+    // Raw encoder positions for debugging
     public int getXOdoPosition() {
         return pinpoint.getEncoderX();
     }
@@ -247,70 +351,28 @@ public class SixWheelDriveController {
         return pinpoint.getEncoderY();
     }
 
-    // Get velocities from the Pinpoint
+    // Velocities (returned in INCHES per second for consistency)
     public double getVelocityX() {
-        return pinpoint.getVelX(DistanceUnit.MM);
+        return pinpoint.getVelX(DistanceUnit.INCH);
     }
 
     public double getVelocityY() {
-        return pinpoint.getVelY(DistanceUnit.MM);
+        return pinpoint.getVelY(DistanceUnit.INCH);
     }
 
     public double getHeadingVelocity() {
         return pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
     }
 
-    // Individual motor control
-    public void setFrontLeftPower(double power) {
-        frontLeft.setPower(power);
-    }
-
-    public void setFrontRightPower(double power) {
-        frontRight.setPower(power);
-    }
-
-    public void setBackLeftPower(double power) {
-        backLeft.setPower(power);
-    }
-
-    public void setBackRightPower(double power) {
-        backRight.setPower(power);
-    }
-
-    // Additional utility methods from version 2
-    public void setAllMotorPower(double power) {
-        frontLeft.setPower(power);
-        frontRight.setPower(power);
-        backLeft.setPower(power);
-        backRight.setPower(power);
-    }
-
-    public void setLeftPower(double power) {
-        frontLeft.setPower(power);
-        backLeft.setPower(power);
-    }
-
-    public void setRightPower(double power) {
-        frontRight.setPower(power);
-        backRight.setPower(power);
-    }
-
-    // Get pinpoint odometry computer reference for advanced usage
+    // Pinpoint access methods
     public GoBildaPinpointDriver getPinpoint() {
         return pinpoint;
     }
 
-    // Set pinpoint offsets (distance from center of rotation to odometry pods)
-    public void setPinpointOffsets(double xOffset, double yOffset) {
-        pinpoint.setOffsets(xOffset, yOffset, DistanceUnit.MM);
-    }
-
-    // Get pinpoint status
     public GoBildaPinpointDriver.DeviceStatus getPinpointStatus() {
         return pinpoint.getDeviceStatus();
     }
 
-    // Get pinpoint loop time and frequency for diagnostics
     public int getPinpointLoopTime() {
         return pinpoint.getLoopTime();
     }
@@ -319,53 +381,50 @@ public class SixWheelDriveController {
         return pinpoint.getFrequency();
     }
 
-    // Speed mode methods
-    public void setFastSpeed() {
-        isFastSpeedMode = true;
-    }
-
-    public void setSlowSpeed() {
-        isFastSpeedMode = false;
-    }
-
-    public boolean isFastSpeedMode() {
-        return isFastSpeedMode;
-    }
-
-    // Test methods for debugging
-    public void testAllMotorsDirectly(double power) {
-        if (frontLeft != null) frontLeft.setPower(power);
-        if (frontRight != null) frontRight.setPower(power);
-        if (backLeft != null) backLeft.setPower(power);
-        if (backRight != null) backRight.setPower(power);
-    }
-
-    // Get status information for telemetry
-    public String getMotorStatus() {
-        return "FL:" + (frontLeft != null ? "OK" : "NULL") +
-                " FR:" + (frontRight != null ? "OK" : "NULL") +
-                " BL:" + (backLeft != null ? "OK" : "NULL") +
-                " BR:" + (backRight != null ? "OK" : "NULL");
-    }
+    // === TELEMETRY METHODS ===
 
     @SuppressLint("DefaultLocale")
-    public String getMotorPowers() {
-        if (frontLeft == null || frontRight == null || backLeft == null || backRight == null) {
-            return "Motors not initialized";
+    public void getMotorStatus() {
+        if (linearOpMode != null) {
+            linearOpMode.telemetry.addLine("=== DRIVE STATUS ===");
+            linearOpMode.telemetry.addData("Mode", currentDriveMode);
+            linearOpMode.telemetry.addData("Speed Mode", isFastSpeedMode ? "FAST" : "SLOW");
+            linearOpMode.telemetry.addLine();
+            linearOpMode.telemetry.addData("Front Left Power", String.format(Locale.US, "%.2f", frontLeft.getPower()));
+            linearOpMode.telemetry.addData("Front Right Power", String.format(Locale.US, "%.2f", frontRight.getPower()));
+            linearOpMode.telemetry.addData("Back Left Power", String.format(Locale.US, "%.2f", backLeft.getPower()));
+            linearOpMode.telemetry.addData("Back Right Power", String.format(Locale.US, "%.2f", backRight.getPower()));
+
+            if (currentDriveMode == DriveMode.VELOCITY) {
+                linearOpMode.telemetry.addLine();
+                linearOpMode.telemetry.addData("Left Avg Vel", String.format(Locale.US, "%.0f ticks/s", getLeftVelocity()));
+                linearOpMode.telemetry.addData("Right Avg Vel", String.format(Locale.US, "%.0f ticks/s", getRightVelocity()));
+            }
+        } else if (iterativeOpMode != null) {
+            iterativeOpMode.telemetry.addLine("=== DRIVE STATUS ===");
+            iterativeOpMode.telemetry.addData("Mode", currentDriveMode);
+            iterativeOpMode.telemetry.addData("Front Left", String.format(Locale.US, "%.2f", frontLeft.getPower()));
+            iterativeOpMode.telemetry.addData("Front Right", String.format(Locale.US, "%.2f", frontRight.getPower()));
+            iterativeOpMode.telemetry.addData("Back Left", String.format(Locale.US, "%.2f", backLeft.getPower()));
+            iterativeOpMode.telemetry.addData("Back Right", String.format(Locale.US, "%.2f", backRight.getPower()));
+
+            if (currentDriveMode == DriveMode.VELOCITY) {
+                iterativeOpMode.telemetry.addLine();
+                iterativeOpMode.telemetry.addData("Left Vel", String.format(Locale.US, "%.0f t/s", getLeftVelocity()));
+                iterativeOpMode.telemetry.addData("Right Vel", String.format(Locale.US, "%.0f t/s", getRightVelocity()));
+            }
         }
-        return String.format("FL:%.2f FR:%.2f BL:%.2f BR:%.2f",
+    }
+
+    public String getMotorPowers() {
+        return String.format(Locale.US, "FL:%.2f FR:%.2f BL:%.2f BR:%.2f",
                 frontLeft.getPower(), frontRight.getPower(),
                 backLeft.getPower(), backRight.getPower());
     }
 
-    // Get detailed pinpoint status for telemetry
-    @SuppressLint("DefaultLocale")
-    public String getPinpointTelemetry() {
-        return String.format("Status: %s, Loop: %dμs (%.1fHz), X: %d, Y: %d",
-                getPinpointStatus().toString(),
-                getPinpointLoopTime(),
-                getPinpointFrequency(),
-                getXOdoPosition(),
-                getYOdoPosition());
+    public String getMotorVelocities() {
+        return String.format(Locale.US, "FL:%.0f FR:%.0f BL:%.0f BR:%.0f",
+                frontLeft.getVelocity(), frontRight.getVelocity(),
+                backLeft.getVelocity(), backRight.getVelocity());
     }
 }

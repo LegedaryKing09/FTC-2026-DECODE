@@ -94,12 +94,12 @@ public class FirstAuton extends LinearOpMode {
 
         // Initialize auto shoot controller
         autoShootController = new AutoShootController(
-            this,
-            driveController,
-            shooterController,
-            intakeController,
-            transferController,
-            limelightController
+                this,
+                driveController,
+                shooterController,
+                intakeController,
+                transferController,
+                limelightController
         );
 
         telemetry.addLine("All controllers initialized successfully");
@@ -119,19 +119,57 @@ public class FirstAuton extends LinearOpMode {
         telemetry.update();
         sleep(500);
 
-        // Step 2 & 3: Limelight alignment and shooting (shooter already running)
+        // Step 2: Turn 180 degrees
+        telemetry.clear();
+        telemetry.addLine("=== STEP 2: TURNING 180Â° ===");
+        telemetry.addData("Target Heading", "%.1f degrees", TURN_DEGREES);
+        telemetry.update();
+
+        turnToHeading(TURN_DEGREES, TURN_SPEED);
+
+        telemetry.addLine("Turn complete");
+        telemetry.update();
+        sleep(POST_TURN_DELAY_MS);
+
+        // Step 3: Start shooter at 2350 RPM
+        telemetry.clear();
+        telemetry.addLine("=== STEP 3: STARTING SHOOTER ===");
+        telemetry.addData("Target RPM", 2350);
+        telemetry.update();
+
+        shooterController.setShooterRPM(2350);
+
+        // Wait for shooter to reach RPM
+        long rpmStartTime = System.currentTimeMillis();
+        while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
+                (System.currentTimeMillis() - rpmStartTime) < 3000) {
+            shooterController.updatePID();
+            driveController.updateOdometry();
+
+            telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
+            telemetry.addData("Target RPM", 2350);
+            telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
+            telemetry.update();
+
+            sleep(20);
+        }
+
+        telemetry.addLine("Shooter at target RPM");
+        telemetry.update();
+
+        // Step 4 & 5: Limelight alignment and shooting
         telemetry.clear();
         telemetry.addLine("=== STEP 2-3: ALIGNMENT & SHOOTING ===");
         telemetry.update();
 
         // Execute auto shoot sequence (includes alignment and shooting)
-        autoShootController.executeAutoShootSequence(2350);
+        autoShootController.executeAutoShootSequence();
 
         // Wait for auto shoot to complete (keep shooter running)
         long shootStartTime = System.currentTimeMillis();
         while (opModeIsActive() && autoShootController.isAutoShooting() &&
-               (System.currentTimeMillis() - shootStartTime) < 5000) {
-            shooterController.updatePID(); // Keep shooter at RPM
+                (System.currentTimeMillis() - shootStartTime) < 5000) {
+            shooterController.updatePID();
             driveController.updateOdometry();
 
             telemetry.addData("AutoShoot Status", autoShootController.isAutoShooting() ? "ACTIVE" : "IDLE");
@@ -174,9 +212,9 @@ public class FirstAuton extends LinearOpMode {
 
             // Get current pose
             Pose2d currentPose = new Pose2d(
-                driveController.getX(),
-                driveController.getY(),
-                driveController.getHeading()
+                    driveController.getX(),
+                    driveController.getY(),
+                    driveController.getHeading()
             );
 
             // Update pure pursuit
