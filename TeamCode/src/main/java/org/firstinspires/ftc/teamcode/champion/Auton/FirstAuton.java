@@ -82,7 +82,7 @@ public class FirstAuton extends LinearOpMode {
 
         // Initialize pure pursuit controller for driving
         purePursuitController = new PurePursuitController();
-        purePursuitController.setParameters(12.0, DRIVE_SPEED, 15.0); // look ahead, max speed, track width
+        purePursuitController.setParameters(12.0, DRIVE_SPEED * SixWheelDriveController.VelocityParams.MAX_TICKS_PER_SEC, 15.0); // look ahead, max velocity (ticks/sec), track width
 
         // Initialize shooter components
         shooterController = new ShooterController(this);
@@ -113,7 +113,7 @@ public class FirstAuton extends LinearOpMode {
         telemetry.addData("Target Distance", "%.1f inches", DRIVE_DISTANCE_INCHES);
         telemetry.update();
 
-        driveToPositionUsingPurePursuit(-DRIVE_DISTANCE_INCHES); // Negative for backward
+        driveToPositionUsingPurePursuit(DRIVE_DISTANCE_INCHES); // Positive for backward in current coordinate system
 
         telemetry.addLine("Backward drive complete");
         telemetry.update();
@@ -204,7 +204,7 @@ public class FirstAuton extends LinearOpMode {
         double startY = driveController.getY();
         double startHeading = driveController.getHeading();
 
-        Vector2d targetPosition = new Vector2d(startX + distance, startY); // Move in X direction by specified distance
+        Vector2d targetPosition = new Vector2d(startX + distance, startY); // Move in X direction by specified distance (negative distance = backward)
         purePursuitController.setTargetPosition(targetPosition);
 
         long driveStartTime = System.currentTimeMillis();
@@ -222,7 +222,7 @@ public class FirstAuton extends LinearOpMode {
 
             // Update pure pursuit
             double[] powers = purePursuitController.update(currentPose);
-            driveController.tankDrive(powers[0], powers[1]);
+            driveController.tankDriveVelocityNormalized(powers[0], powers[1]);
 
             // Check if we're at the target
             double distToEnd = Math.hypot(currentPose.position.x - targetPosition.x, currentPose.position.y - targetPosition.y);

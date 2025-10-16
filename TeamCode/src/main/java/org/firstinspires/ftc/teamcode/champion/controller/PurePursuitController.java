@@ -11,11 +11,11 @@ public class PurePursuitController {
 
     private List<Vector2d> path;
     private double lookAheadDistance = 12.0; // inches
-    private double maxSpeed = 0.75;
-    private double trackWidth = 11; // inches
-    private double minSpeed = 0.35;
-    private double maxCurvatureLeft = 1.5; // Maximum curvature for left turns (positive)
-    private double maxCurvatureRight = 1.5; // Maximum curvature for right turns (negative)
+    private double maxSpeed = 0.6; // Reduced for better control with velocity control
+    private double trackWidth = 15.0; // inches - match the track width used in auton
+    private double minSpeed = 0.2; // Reduced minimum speed for finer control
+    private double maxCurvatureLeft = 1.2; // Reduced for smoother turns
+    private double maxCurvatureRight = 1.2; // Reduced for smoother turns
     private Vector2d targetPosition;
 
     public PurePursuitController() {
@@ -70,9 +70,16 @@ public class PurePursuitController {
         double maxCurv = (curvature > 0) ? maxCurvatureLeft : maxCurvatureRight;
         curvature = Math.max(-maxCurvatureRight, Math.min(maxCurvatureLeft, curvature));
 
-        // Speed based on distance to end
+        // Speed based on distance to end with smoother deceleration
         double distToEnd = currentPose.position.minus(path.get(path.size() - 1)).norm();
-        double speed = Math.max(minSpeed, maxSpeed * Math.min(1.0, distToEnd / 24.0)); // Slow down near end
+        double speed;
+        if (distToEnd < 12.0) {
+            // Linear deceleration in final 12 inches
+            speed = minSpeed + (maxSpeed - minSpeed) * (distToEnd / 12.0);
+        } else {
+            speed = maxSpeed;
+        }
+        speed = Math.max(minSpeed, Math.min(maxSpeed, speed)); // Clamp speed
 
         // Tank drive powers
         double leftPower = speed * (1 - curvature * trackWidth / 2);
