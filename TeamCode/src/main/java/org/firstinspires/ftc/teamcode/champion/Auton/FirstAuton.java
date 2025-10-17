@@ -91,14 +91,23 @@ public class FirstAuton extends LinearOpMode {
     }
 
     private void initializeControllers() throws Exception {
+        telemetry.addLine("=== INITIALIZING CONTROLLERS ===");
+        telemetry.update();
+
         // Initialize drive controller
+        telemetry.addLine("Initializing drive controller...");
+        telemetry.update();
         driveController = new SixWheelDriveController(this);
 
         // Initialize pure pursuit controller for driving
+        telemetry.addLine("Initializing pure pursuit controller...");
+        telemetry.update();
         purePursuitController = new PurePursuitController();
         purePursuitController.setParameters(12.0, DRIVE_SPEED * SixWheelDriveController.VelocityParams.MAX_TICKS_PER_SEC, 15.0); // look ahead, max velocity (ticks/sec), track width
 
         // Initialize shooter components
+        telemetry.addLine("Initializing shooter components...");
+        telemetry.update();
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
         transferController = new TransferController(this);
@@ -106,6 +115,8 @@ public class FirstAuton extends LinearOpMode {
 
         // Initialize Limelight alignment
         try {
+            telemetry.addLine("Initializing Limelight alignment controller...");
+            telemetry.update();
             limelightController = new LimelightAlignmentController(this, driveController);
             telemetry.addLine("✓ Limelight alignment controller initialized");
         } catch (Exception e) {
@@ -115,6 +126,8 @@ public class FirstAuton extends LinearOpMode {
 
         // Initialize ball alignment controller - passes opMode which initializes its own drive controller
         try {
+            telemetry.addLine("Initializing ball alignment controller...");
+            telemetry.update();
             ballAlignmentController = new BallAlignmentController(this);
             telemetry.addLine("✓ Ball alignment controller initialized");
         } catch (Exception e) {
@@ -123,6 +136,8 @@ public class FirstAuton extends LinearOpMode {
         }
 
         // Initialize auto shoot controller
+        telemetry.addLine("Initializing auto shoot controller...");
+        telemetry.update();
         autoShootController = new AutoShootController(
                 this,
                 driveController,
@@ -178,36 +193,74 @@ public class FirstAuton extends LinearOpMode {
         // Step 3: Limelight alignment and shooting
         telemetry.clear();
         telemetry.addLine("=== STEP 3: ALIGNMENT & SHOOTING ===");
+        telemetry.addData("Time", "%.1f seconds", runtime.seconds());
+        telemetry.addLine("Starting auto shoot sequence...");
         telemetry.update();
 
         // Execute auto shoot sequence (includes alignment and shooting)
+        telemetry.addLine("Calling executeDistanceBasedAutoShoot()...");
+        telemetry.update();
         autoShootController.executeDistanceBasedAutoShoot();
 
         // Wait for auto shoot to complete (keep shooter running)
+        telemetry.addLine("Waiting for auto shoot to complete...");
+        telemetry.update();
         long shootStartTime = System.currentTimeMillis();
+        boolean autoShootCompleted = false;
         while (opModeIsActive() && autoShootController.isAutoShooting() &&
-                (System.currentTimeMillis() - shootStartTime) < 5000) {
+                (System.currentTimeMillis() - shootStartTime) < 10000) {  // Increased timeout
             shooterController.updatePID();
             driveController.updateOdometry();
 
+            telemetry.clear();
+            telemetry.addLine("=== WAITING FOR AUTO SHOOT ===");
             telemetry.addData("AutoShoot Status", autoShootController.isAutoShooting() ? "ACTIVE" : "IDLE");
             telemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
             telemetry.addData("Shooter RPM", "%.0f", shooterController.getShooterRPM());
+            telemetry.addData("Wait Time", "%.1f seconds", (System.currentTimeMillis() - shootStartTime) / 1000.0);
+            telemetry.addData("AutoShoot Status Detail", autoShootController.getCurrentStatus());
             telemetry.update();
 
             sleep(20);
         }
 
+        if (autoShootController.isAutoShooting()) {
+            telemetry.addLine("⚠️ Auto shoot timed out!");
+            telemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
+            telemetry.update();
+            sleep(1000);
+        } else {
+            telemetry.addLine("✅ Auto shoot completed");
+            telemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
+            telemetry.update();
+            sleep(500);
+        }
+
+        // Check if we have ball alignment controller
+        if (ballAlignmentController != null) {
+            telemetry.clear();
+            telemetry.addLine("=== STEP 4: BALL ALIGNMENT ===");
+            telemetry.addData("Proceeding to ball alignment", "after auto shoot");
+            telemetry.update();
+        } else {
+            telemetry.addLine("⚠️ No ball alignment controller - skipping to ball collection");
+            telemetry.update();
+        }
+
         // Stop shooter after shooting
+        telemetry.addLine("Stopping shooter...");
         shooterController.shooterStop();
         sleep(500);
 
         // Step 5: Ball Collection Sequence
         telemetry.clear();
         telemetry.addLine("=== STEP 5: BALL COLLECTION ===");
+        telemetry.addData("Time", "%.1f seconds", runtime.seconds());
         telemetry.update();
 
         if (ballAlignmentController != null) {
+            telemetry.addLine("Starting ball collection sequence...");
+            telemetry.update();
             executeBallCollectionSequence();
         } else {
             telemetry.addLine("⚠️ Ball alignment controller not available");
@@ -240,19 +293,31 @@ public class FirstAuton extends LinearOpMode {
      * 5. Stop intake
      */
     private void executeBallCollectionSequence() throws InterruptedException {
+        telemetry.addLine("=== BALL COLLECTION SEQUENCE STARTED ===");
+        telemetry.update();
+        sleep(500);
+
         // Sub-step 5a: Turn left to begin search
         telemetry.clear();
         telemetry.addLine("=== 5a: TURNING TO SEARCH AREA ===");
         telemetry.addData("Turn Angle", "%.1f degrees", BALL_SEARCH_TURN_DEGREES);
+        telemetry.addData("Time", "%.1f seconds", runtime.seconds());
         telemetry.update();
 
         // Calculate new heading (current + turn amount)
         double currentHeading = Math.toDegrees(driveController.getHeading());
         double targetHeading = currentHeading + BALL_SEARCH_TURN_DEGREES;
 
+        telemetry.addData("Current Heading", "%.1f degrees", currentHeading);
+        telemetry.addData("Target Heading", "%.1f degrees", targetHeading);
+        telemetry.update();
+
         // Normalize to 0-360 range
         while (targetHeading < 0) targetHeading += 360;
         while (targetHeading >= 360) targetHeading -= 360;
+
+        telemetry.addData("Normalized Target Heading", "%.1f degrees", targetHeading);
+        telemetry.update();
 
         turnToHeading(targetHeading, TURN_SPEED);
 
@@ -263,30 +328,40 @@ public class FirstAuton extends LinearOpMode {
         // Sub-step 5b: Search for and align with ball
         telemetry.clear();
         telemetry.addLine("=== 5b: SEARCHING FOR BALL ===");
+        telemetry.addData("Timeout", "%.1f seconds", BALL_ALIGNMENT_TIMEOUT_MS / 1000.0);
+        telemetry.addData("Time", "%.1f seconds", runtime.seconds());
         telemetry.update();
 
+        telemetry.addLine("Starting ball tracking...");
+        telemetry.update();
         ballAlignmentController.startTracking();
 
         long alignmentStartTime = System.currentTimeMillis();
         boolean ballAligned = false;
+
+        telemetry.addLine("Entering ball alignment loop...");
+        telemetry.update();
 
         // Alignment loop with timeout
         while (opModeIsActive() &&
                 (System.currentTimeMillis() - alignmentStartTime) < BALL_ALIGNMENT_TIMEOUT_MS) {
 
             driveController.updateOdometry();
+            telemetry.addData("Calling ballAlignmentController.align()", "");
             ballAlignmentController.align();  // This handles searching and aligning
 
             // Display ball alignment telemetry
             ballAlignmentController.displayTelemetry();
             telemetry.addData("Time Elapsed", "%.1fs",
                     (System.currentTimeMillis() - alignmentStartTime) / 1000.0);
+            telemetry.addData("Alignment Loop Iteration", "");
             telemetry.update();
 
             // Check if we're aligned
             if (ballAlignmentController.isAligned()) {
                 ballAligned = true;
                 telemetry.addLine("✅ BALL ALIGNED!");
+                telemetry.addData("Time to Align", "%.1fs", (System.currentTimeMillis() - alignmentStartTime) / 1000.0);
                 telemetry.update();
                 break;
             }
@@ -294,11 +369,14 @@ public class FirstAuton extends LinearOpMode {
             sleep(20);
         }
 
+        telemetry.addLine("Exiting ball alignment loop...");
+        telemetry.update();
         ballAlignmentController.stopTracking();
 
         if (!ballAligned) {
             telemetry.clear();
             telemetry.addLine("⚠️ Ball alignment timeout");
+            telemetry.addData("Time Spent", "%.1fs", (System.currentTimeMillis() - alignmentStartTime) / 1000.0);
             telemetry.addLine("Skipping ball collection");
             telemetry.update();
             sleep(2000);

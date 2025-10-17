@@ -80,17 +80,28 @@ public class AutoShootController {
      * Execute complete auto-shoot sequence with velocity-based alignment
      */
     public void executeDistanceBasedAutoShoot() {
+        opMode.telemetry.addLine("🔍 DEBUG: executeDistanceBasedAutoShoot() called");
+        opMode.telemetry.update();
+
         if (isAutoShooting) {
             opMode.telemetry.addLine("⚠️ Auto-shoot already in progress!");
+            opMode.telemetry.update();
             return;
         }
 
         isAutoShooting = true;
+        opMode.telemetry.addLine("🔍 DEBUG: Starting auto-shoot thread");
+        opMode.telemetry.update();
 
         new Thread(() -> {
             try {
+                opMode.telemetry.addLine("🔍 DEBUG: Inside auto-shoot thread");
+                opMode.telemetry.update();
+
                 // STEP 1: Find distance to target
                 currentStatus = "FINDING DISTANCE";
+                opMode.telemetry.addLine("🔍 DEBUG: Finding distance to target");
+                opMode.telemetry.update();
                 double distance = getDistanceToTarget(APRILTAG_ID);
 
                 if (distance < 0) {
@@ -102,9 +113,13 @@ public class AutoShootController {
                 }
 
                 lastTargetDistance = distance;
+                opMode.telemetry.addData("🔍 DEBUG: Target distance found", "%.1f inches", distance);
+                opMode.telemetry.update();
 
                 // STEP 2: Calculate required RPM
                 currentStatus = "CALCULATING RPM";
+                opMode.telemetry.addLine("🔍 DEBUG: Calculating required RPM");
+                opMode.telemetry.update();
                 double targetRPM = calculateRPMFromDistance(distance);
                 lastCalculatedRPM = targetRPM;
 
@@ -116,23 +131,38 @@ public class AutoShootController {
 
                 // STEP 3: Start shooter (do this BEFORE alignment to save time)
                 currentStatus = "SPINNING UP";
+                opMode.telemetry.addLine("🔍 DEBUG: Starting shooter spin-up");
+                opMode.telemetry.update();
                 shooterController.setShooterRPM(targetRPM);
 
                 // STEP 4: Align to target using VELOCITY-BASED CONTROL
                 currentStatus = "ALIGNING";
+                opMode.telemetry.addLine("🔍 DEBUG: Starting alignment phase");
+                opMode.telemetry.update();
                 if (limelightController != null) {
+                    opMode.telemetry.addLine("🔍 DEBUG: Limelight controller available");
+                    opMode.telemetry.update();
+
                     // Set drive controller to velocity mode
+                    opMode.telemetry.addLine("🔍 DEBUG: Setting drive controller to velocity mode");
+                    opMode.telemetry.update();
                     driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
 
+                    opMode.telemetry.addLine("🔍 DEBUG: Starting limelight alignment");
+                    opMode.telemetry.update();
                     limelightController.startAlignment();
 
                     ElapsedTime alignTimer = new ElapsedTime();
                     boolean alignmentAchieved = false;
 
+                    opMode.telemetry.addLine("🔍 DEBUG: Entering alignment loop");
+                    opMode.telemetry.update();
+
                     // Alignment loop - let the controller handle it
                     while (opMode.opModeIsActive() && alignTimer.milliseconds() < ALIGNMENT_TIMEOUT) {
 
                         // Update alignment (this uses velocity control internally)
+                        opMode.telemetry.addData("🔍 DEBUG: Calling limelightController.align()", APRILTAG_ID);
                         limelightController.align(APRILTAG_ID);
 
                         double alignmentError = limelightController.getTargetError();
@@ -143,25 +173,37 @@ public class AutoShootController {
                         opMode.telemetry.addData("State", limelightController.getState());
                         opMode.telemetry.addData("Zone", limelightController.getCurrentZone());
                         opMode.telemetry.addData("Has Target", limelightController.hasTarget() ? "YES" : "NO");
+                        opMode.telemetry.addData("Time in Alignment", "%.1f s", alignTimer.seconds());
                         opMode.telemetry.update();
 
                         // Check if aligned using the controller's built-in state
                         if (limelightController.isAligned()) {
                             alignmentAchieved = true;
+                            opMode.telemetry.addLine("🔍 DEBUG: Alignment achieved!");
+                            opMode.telemetry.update();
                             break;
                         }
 
                         sleep(20);
                     }
 
+                    opMode.telemetry.addLine("🔍 DEBUG: Exiting alignment loop");
+                    opMode.telemetry.update();
+
                     // Stop alignment
+                    opMode.telemetry.addLine("🔍 DEBUG: Stopping limelight alignment");
+                    opMode.telemetry.update();
                     limelightController.stopAlignment();
                     driveController.stopDrive();
 
                     if (!alignmentAchieved) {
                         opMode.telemetry.addLine("⚠️ Alignment timeout - shooting anyway");
+                        opMode.telemetry.addData("🔍 DEBUG: Alignment failed after", "%.1f s", alignTimer.seconds());
                         opMode.telemetry.update();
                     } else {
+                        opMode.telemetry.addLine("🔍 DEBUG: Alignment successful, verifying stability");
+                        opMode.telemetry.update();
+
                         // Verify stability before shooting
                         if (!verifyStability()) {
                             opMode.telemetry.addLine("⚠️ Robot not stable - retrying alignment");
@@ -169,14 +211,21 @@ public class AutoShootController {
                             sleep(1000);
                             return;
                         }
+
+                        opMode.telemetry.addLine("🔍 DEBUG: Stability verified");
+                        opMode.telemetry.update();
                     }
 
                     // Brief stabilization delay
+                    opMode.telemetry.addLine("🔍 DEBUG: Stabilization delay");
+                    opMode.telemetry.update();
                     sleep(STABILITY_DELAY);
                 }
 
                 // STEP 5: Wait for shooter to reach RPM (if not already there)
                 currentStatus = "VERIFYING RPM";
+                opMode.telemetry.addLine("🔍 DEBUG: Verifying shooter RPM");
+                opMode.telemetry.update();
                 ElapsedTime rpmTimer = new ElapsedTime();
                 while (opMode.opModeIsActive() &&
                         !shooterController.isAtTargetRPM() &&
@@ -185,6 +234,8 @@ public class AutoShootController {
                     opMode.telemetry.addLine("⚙️ Waiting for shooter RPM...");
                     opMode.telemetry.addData("Current", String.format(Locale.US, "%.0f RPM", shooterController.getShooterRPM()));
                     opMode.telemetry.addData("Target", String.format(Locale.US, "%.0f RPM", targetRPM));
+                    opMode.telemetry.addData("RPM Error", String.format(Locale.US, "%.0f", shooterController.getRPMError()));
+                    opMode.telemetry.addData("Time Waiting", "%.1f s", rpmTimer.seconds());
                     opMode.telemetry.update();
 
                     sleep(50);
@@ -192,6 +243,8 @@ public class AutoShootController {
 
                 // STEP 6: Execute shot
                 currentStatus = "SHOOTING";
+                opMode.telemetry.addLine("🔍 DEBUG: Preparing to execute shot");
+                opMode.telemetry.update();
 
                 if (shooterController.isAtTargetRPM() ||
                         Math.abs(shooterController.getRPMError()) < RPM_TOLERANCE) {
@@ -199,10 +252,14 @@ public class AutoShootController {
                     opMode.telemetry.addLine("🔥 FIRING!");
                     opMode.telemetry.update();
 
+                    opMode.telemetry.addLine("🔍 DEBUG: Starting transfer and intake");
+                    opMode.telemetry.update();
                     transferController.transferFull();
                     intakeController.intakeFull();
                     sleep(SHOOT_DURATION);
 
+                    opMode.telemetry.addLine("🔍 DEBUG: Stopping transfer and intake");
+                    opMode.telemetry.update();
                     transferController.transferStop();
                     intakeController.intakeStop();
 
@@ -221,22 +278,34 @@ public class AutoShootController {
                                 limelightController.getTotalAlignmentTime()));
                     }
                     opMode.telemetry.update();
+                    opMode.telemetry.addLine("🔍 DEBUG: Auto-shoot sequence completed successfully");
+                    opMode.telemetry.update();
 
                 } else {
                     currentStatus = "RPM NOT READY";
                     opMode.telemetry.addLine("❌ Shooter not at RPM - shot aborted");
+                    opMode.telemetry.addData("🔍 DEBUG: Current RPM", "%.0f", shooterController.getShooterRPM());
+                    opMode.telemetry.addData("🔍 DEBUG: Target RPM", "%.0f", targetRPM);
+                    opMode.telemetry.addData("🔍 DEBUG: RPM Error", "%.0f", shooterController.getRPMError());
+                    opMode.telemetry.addData("🔍 DEBUG: Tolerance", "%.0f", RPM_TOLERANCE);
                     opMode.telemetry.update();
                 }
 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 currentStatus = "INTERRUPTED";
+                opMode.telemetry.addLine("🔍 DEBUG: Auto-shoot thread interrupted");
+                opMode.telemetry.addData("ERROR", e.getMessage());
+                opMode.telemetry.update();
             } catch (Exception e) {
                 currentStatus = "ERROR: " + e.getMessage();
                 opMode.telemetry.addData("ERROR", e.getMessage());
+                opMode.telemetry.addLine("🔍 DEBUG: Auto-shoot thread caught exception");
                 opMode.telemetry.update();
             } finally {
                 isAutoShooting = false;
+                opMode.telemetry.addLine("🔍 DEBUG: Auto-shoot thread finished, isAutoShooting set to false");
+                opMode.telemetry.update();
             }
         }).start();
     }
@@ -246,20 +315,32 @@ public class AutoShootController {
      * Checks that wheel velocities are near zero
      */
     private boolean verifyStability() throws InterruptedException {
+        opMode.telemetry.addLine("🔍 DEBUG: Verifying stability");
+        opMode.telemetry.update();
+
         ElapsedTime timer = new ElapsedTime();
 
         while (timer.milliseconds() < STABILITY_CHECK_DURATION) {
             double leftVel = Math.abs(driveController.getLeftVelocity());
             double rightVel = Math.abs(driveController.getRightVelocity());
 
+            opMode.telemetry.addData("🔍 DEBUG: Left Velocity", "%.0f ticks/sec", leftVel);
+            opMode.telemetry.addData("🔍 DEBUG: Right Velocity", "%.0f ticks/sec", rightVel);
+            opMode.telemetry.addData("🔍 DEBUG: Stability Check Time", "%.1f ms", timer.milliseconds());
+            opMode.telemetry.update();
+
             // If either wheel is moving too fast, not stable
             if (leftVel > 50 || rightVel > 50) {  // 50 ticks/sec threshold
+                opMode.telemetry.addLine("🔍 DEBUG: Robot not stable - velocity too high");
+                opMode.telemetry.update();
                 return false;
             }
 
             sleep(20);
         }
 
+        opMode.telemetry.addLine("🔍 DEBUG: Robot is stable");
+        opMode.telemetry.update();
         return true;
     }
 
