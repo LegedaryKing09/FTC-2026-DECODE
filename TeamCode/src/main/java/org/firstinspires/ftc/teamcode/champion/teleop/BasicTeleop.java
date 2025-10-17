@@ -58,7 +58,7 @@ public class BasicTeleop extends LinearOpMode {
 
         LimelightAlignmentController tempLimelight = null;
         try {
-            tempLimelight = new LimelightAlignmentController(this);
+            tempLimelight = new LimelightAlignmentController(this, driveController);
             tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());

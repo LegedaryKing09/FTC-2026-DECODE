@@ -87,7 +87,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
         intakeController = new IntakeController(this);
 
         try {
-            limelightController = new LimelightAlignmentController(this);
+            limelightController = new LimelightAlignmentController(this, driveController);
             limelightController.setTargetTag(APRILTAG_ID);
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());

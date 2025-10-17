@@ -69,7 +69,7 @@ public class ShooterRPMTestTeleop extends LinearOpMode {
         intakeController = new IntakeController(this);
 
         try {
-            limelightController = new LimelightAlignmentController(this);
+            limelightController = new LimelightAlignmentController(this, driveController);
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
             telemetry.update();

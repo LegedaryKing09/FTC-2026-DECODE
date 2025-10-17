@@ -76,14 +76,9 @@ public class LimelightAlignmentController {
 
     // === INITIALIZATION ===
 
-    public LimelightAlignmentController(LinearOpMode opMode) throws Exception {
+    public LimelightAlignmentController(LinearOpMode opMode, SixWheelDriveController driveController) throws Exception {
         this.opMode = opMode;
-
-        try {
-            this.driveController = new SixWheelDriveController(opMode);
-        } catch (Exception e) {
-            throw new Exception("Failed to initialize drive controller: " + e.getMessage());
-        }
+        this.driveController = driveController;
 
         this.dashboard = FtcDashboard.getInstance();
 

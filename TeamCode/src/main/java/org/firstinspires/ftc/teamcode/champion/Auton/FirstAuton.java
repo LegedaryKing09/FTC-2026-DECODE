@@ -479,7 +479,7 @@ public class FirstAuton extends LinearOpMode {
             // Calculate distance traveled (backward movement)
             double currentX = driveController.getX();
             double currentY = driveController.getY();
-            double distanceTraveled = Math.abs(startY - currentY); // Assuming backward movement changes Y coordinate negatively
+            double distanceTraveled = Math.abs(startX - currentX); // Assuming backward movement changes Y coordinate negatively
 
             // Check if we've reached the target distance
             if (distanceTraveled >= distance) {
