@@ -137,7 +137,7 @@ public class FirstAuton extends LinearOpMode {
         telemetry.addData("Target RPM", 2350);
         telemetry.update();
 
-        shooterController.setShooterRPM(2350);
+        shooterController.setShooterRPM(2800);
 
         // Wait for shooter to reach RPM
         long rpmStartTime = System.currentTimeMillis();
@@ -147,7 +147,7 @@ public class FirstAuton extends LinearOpMode {
             driveController.updateOdometry();
 
             telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
-            telemetry.addData("Target RPM", 2350);
+            telemetry.addData("Target RPM", 2800);
             telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
             telemetry.update();
 
@@ -479,7 +479,7 @@ public class FirstAuton extends LinearOpMode {
             // Calculate distance traveled (backward movement)
             double currentX = driveController.getX();
             double currentY = driveController.getY();
-            double distanceTraveled = Math.abs(startY - currentY); // Assuming backward is negative Y
+            double distanceTraveled = Math.abs(startY - currentY); // Assuming backward movement changes Y coordinate negatively
 
             // Check if we've reached the target distance
             if (distanceTraveled >= distance) {

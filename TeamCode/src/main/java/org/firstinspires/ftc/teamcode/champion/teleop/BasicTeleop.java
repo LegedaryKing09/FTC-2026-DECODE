@@ -193,21 +193,21 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingStart = false;
             }
 
-            // Gamepad2 Controls - Ramp Controller
-            // D-pad UP: Increase ramp angle by 2.5 degrees
-            if (gamepad2.dpad_up && !isPressingDpadUp) {
-                isPressingDpadUp = true;
+            // Gamepad1 Controls - Ramp Controller (using unused buttons)
+            // Left trigger: Increase ramp angle by 2.5 degrees
+            if (gamepad1.left_trigger > 0.1 && !isPressingLeftBumper) {
+                isPressingLeftBumper = true;
                 rampController.incrementAngle(2.5);
-            } else if (!gamepad2.dpad_up && isPressingDpadUp) {
-                isPressingDpadUp = false;
+            } else if (gamepad1.left_trigger < 0.1 && isPressingLeftBumper) {
+                isPressingLeftBumper = false;
             }
 
-            // D-pad DOWN: Decrease ramp angle by 2.5 degrees
-            if (gamepad2.dpad_down && !isPressingDpadDown) {
-                isPressingDpadDown = true;
+            // Left stick button: Decrease ramp angle by 2.5 degrees
+            if (gamepad1.left_stick_button && !isPressingRightBumper) {
+                isPressingRightBumper = true;
                 rampController.decrementAngle(2.5);
-            } else if (!gamepad2.dpad_down && isPressingDpadDown) {
-                isPressingDpadDown = false;
+            } else if (!gamepad1.left_stick_button && isPressingRightBumper) {
+                isPressingRightBumper = false;
             }
 
             // Manual alignment logic
@@ -281,7 +281,8 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addLine("D-Pad UP/DOWN: Adjust Shooter Power");
                 telemetry.addLine("D-Pad LEFT: Distance-Based Auto-Shoot");
                 telemetry.addLine("D-Pad RIGHT: Toggle Manual Alignment");
-                telemetry.addLine("Gamepad2 D-Pad UP/DOWN: Adjust Ramp Angle (+/- 2.5°)");
+                telemetry.addLine("Left Trigger: Increase Ramp Angle (+2.5°)");
+                telemetry.addLine("Left Stick Button: Decrease Ramp Angle (-2.5°)");
             }
 
             telemetry.update();
