@@ -12,8 +12,8 @@ import java.util.Locale;
 import java.util.List;
 
 /**
- * Odometry-based AprilTag alignment
- * Reads initial tx from AprilTag, calculates target heading using odometry, then turns to it
+ * Odometry-based AprilTag alignment with PID control
+ * Uses PID to calculate angular velocity based on heading error
  */
 @Config
 public class LimelightAlignmentController {
@@ -27,26 +27,122 @@ public class LimelightAlignmentController {
 
     @Config
     public static class AlignmentParams {
-        public static double HEADING_TOLERANCE_DEGREES = 1.0;  // Increased from 0.5
-        public static double TURN_SPEED = 0.3;  // Reduced from 0.4
-        public static double MIN_TURN_SPEED = 0.1;  // Reduced from 0.15
-        public static double SLOW_DOWN_ANGLE = 20.0;  // Increased from 15.0
+        public static double HEADING_TOLERANCE_DEGREES = 1.5;
         public static long ALIGNMENT_TIMEOUT_MS = 5000;
-        public static int ALIGNED_FRAMES_REQUIRED = 5;  // Reduced from 10
+        public static int ALIGNED_FRAMES_REQUIRED = 5;
+        public static double SETTLING_TIME_MS = 100; // Time to wait after stopping
     }
 
     @Config
-    public static class VelocityTuning {
-        public static boolean USE_VELOCITY_MODE = true;  // Toggle between velocity and power
-        public static double ANGULAR_VELOCITY_MAX = 80.0;  // degrees/sec (reduced from 120)
-        public static double ANGULAR_VELOCITY_MIN = 15.0;   // degrees/sec
+    public static class PIDParams {
+        // PID Gains - tune these for your robot
+        public static double KP = 4.1;      // Proportional gain
+        public static double KI = 0;      // Integral gain
+        public static double KD = 0;      // Derivative gain
+
+        // Output limits (degrees/sec)
+        public static double MAX_ANGULAR_VELOCITY = 90.0;
+        public static double MIN_ANGULAR_VELOCITY = 10.0;
+
+        // Anti-windup
+        public static double INTEGRAL_MAX = 30.0;  // Max integral accumulation
+
+        // Deadband
+        public static double DEADBAND_DEGREES = 0.7;  // Don't move if error is this small
     }
 
     @Config
     public static class TargetSearch {
         public static boolean ENABLE_SEARCH = true;
-        public static double SEARCH_SPEED = 0.3;
+        public static double SEARCH_SPEED = 0.4;
         public static long MAX_SEARCH_TIME_MS = 5000;
+    }
+
+    // === PID CONTROLLER CLASS ===
+
+    private class PIDController {
+        private double setpoint = 0;
+        private double lastError = 0;
+        private double integral = 0;
+        private ElapsedTime timer = new ElapsedTime();
+        private boolean firstUpdate = true;
+
+        public void reset() {
+            lastError = 0;
+            integral = 0;
+            firstUpdate = true;
+            timer.reset();
+        }
+
+        public void setTarget(double targetHeading) {
+            this.setpoint = targetHeading;
+            reset();
+        }
+
+        public double calculate(double currentHeading) {
+            // Calculate error (shortest path)
+            double error = angleDifferenceDegrees(currentHeading, setpoint);
+
+            // Apply deadband
+            if (Math.abs(error) < PIDParams.DEADBAND_DEGREES) {
+                return 0;
+            }
+
+            // Get time delta
+            double dt = firstUpdate ? 0.02 : timer.seconds();
+            timer.reset();
+
+            if (firstUpdate) {
+                firstUpdate = false;
+                lastError = error;
+            }
+
+            // P term
+            double pTerm = PIDParams.KP * error;
+
+            // I term with anti-windup
+            integral += error * dt;
+            integral = Math.max(-PIDParams.INTEGRAL_MAX,
+                    Math.min(PIDParams.INTEGRAL_MAX, integral));
+            double iTerm = PIDParams.KI * integral;
+
+            // D term
+            double derivative = dt > 0 ? (error - lastError) / dt : 0;
+            double dTerm = PIDParams.KD * derivative;
+
+            // Calculate total output
+            double output = pTerm + iTerm + dTerm;
+
+            // Apply output limits
+            output = Math.max(-PIDParams.MAX_ANGULAR_VELOCITY,
+                    Math.min(PIDParams.MAX_ANGULAR_VELOCITY, output));
+
+            // Apply minimum speed if we're still moving
+            if (Math.abs(output) > 0 && Math.abs(output) < PIDParams.MIN_ANGULAR_VELOCITY) {
+                output = Math.copySign(PIDParams.MIN_ANGULAR_VELOCITY, output);
+            }
+
+            // Store for next iteration
+            lastError = error;
+
+            // Debug telemetry
+            opMode.telemetry.addLine("--- PID Debug ---");
+            opMode.telemetry.addData("Error", "%.2f°", error);
+            opMode.telemetry.addData("P", "%.2f", pTerm);
+            opMode.telemetry.addData("I", "%.2f", iTerm);
+            opMode.telemetry.addData("D", "%.2f", dTerm);
+            opMode.telemetry.addData("Output", "%.2f°/s", output);
+
+            return output;
+        }
+
+        public double getError(double currentHeading) {
+            return angleDifferenceDegrees(currentHeading, setpoint);
+        }
+
+        public boolean isAtSetpoint(double currentHeading) {
+            return Math.abs(getError(currentHeading)) <= AlignmentParams.HEADING_TOLERANCE_DEGREES;
+        }
     }
 
     // === STATE VARIABLES ===
@@ -57,6 +153,9 @@ public class LimelightAlignmentController {
 
     private AlignmentState currentState = AlignmentState.STOPPED;
     private boolean isActive = false;
+
+    // PID controller instance
+    private final PIDController pidController = new PIDController();
 
     // Target tracking
     private int targetTagId = 20;
@@ -114,10 +213,11 @@ public class LimelightAlignmentController {
         // Try to find target
         if (findTarget()) {
             // Calculate target heading from initial tx
-            // If TX is positive (target LEFT), turn CCW (positive) to face it
-            // If TX is negative (target RIGHT), turn CW (negative) to face it
             targetHeadingDegrees = normalizeAngle(initialHeadingDegrees + initialTx);
             targetHeadingCalculated = true;
+
+            // Initialize PID controller with target
+            pidController.setTarget(targetHeadingDegrees);
 
             opMode.telemetry.addLine("=== ALIGNMENT STARTED ===");
             opMode.telemetry.addData("Initial Heading", "%.2f°", initialHeadingDegrees);
@@ -126,9 +226,9 @@ public class LimelightAlignmentController {
             opMode.telemetry.addData("Target Heading", "%.2f°", targetHeadingDegrees);
             opMode.telemetry.update();
 
-            // Execute the turn directly - BLOCKING METHOD
+            // Execute PID-controlled turn
             try {
-                turnToHeading(targetHeadingDegrees);
+                turnToHeadingPID(targetHeadingDegrees);
                 currentState = AlignmentState.ALIGNED;
                 totalAlignmentTime = alignmentTimer.seconds();
             } catch (InterruptedException e) {
@@ -147,12 +247,15 @@ public class LimelightAlignmentController {
     }
 
     /**
-     * Turn to a target heading using odometry feedback
+     * Turn to target heading using PID control
      * This is a BLOCKING method that returns when aligned or timeout
      */
-    private void turnToHeading(double targetHeadingDegrees) throws InterruptedException {
+    private void turnToHeadingPID(double targetHeadingDegrees) throws InterruptedException {
         long startTime = System.currentTimeMillis();
         int stableFrames = 0;
+
+        // Reset PID controller
+        pidController.setTarget(targetHeadingDegrees);
 
         while (opMode.opModeIsActive()) {
             // Check timeout
@@ -166,21 +269,24 @@ public class LimelightAlignmentController {
             driveController.updateOdometry();
             double currentHeading = driveController.getHeadingDegrees();
 
-            // Calculate error
-            double headingError = angleDifferenceDegrees(currentHeading, targetHeadingDegrees);
+            // Calculate PID output (angular velocity in degrees/sec)
+            double angularVelocity = pidController.calculate(currentHeading);
+
+            // Get current error for display
+            double headingError = pidController.getError(currentHeading);
             double absError = Math.abs(headingError);
 
-            // Display current status
-            opMode.telemetry.addLine("=== TURNING TO TARGET ===");
+            // Display status
+            opMode.telemetry.addLine("=== PID ALIGNMENT ===");
             opMode.telemetry.addData("Current", "%.2f°", currentHeading);
             opMode.telemetry.addData("Target", "%.2f°", targetHeadingDegrees);
             opMode.telemetry.addData("Error", "%.2f°", headingError);
-            opMode.telemetry.addData("Abs Error", "%.2f°", absError);
             opMode.telemetry.addData("Tolerance", "%.2f°", AlignmentParams.HEADING_TOLERANCE_DEGREES);
+            opMode.telemetry.addData("Angular Vel Cmd", "%.1f°/s", angularVelocity);
             opMode.telemetry.addData("Stable Frames", "%d/%d", stableFrames, AlignmentParams.ALIGNED_FRAMES_REQUIRED);
 
             // Check if aligned
-            if (absError <= AlignmentParams.HEADING_TOLERANCE_DEGREES) {
+            if (pidController.isAtSetpoint(currentHeading)) {
                 stableFrames++;
                 opMode.telemetry.addLine("✓ Within tolerance - holding...");
 
@@ -188,7 +294,7 @@ public class LimelightAlignmentController {
                     opMode.telemetry.addLine("✓✓✓ ALIGNED! ✓✓✓");
                     opMode.telemetry.update();
                     driveController.stopDrive();
-                    Thread.sleep(100);
+                    Thread.sleep((long)AlignmentParams.SETTLING_TIME_MS);
                     break;
                 }
 
@@ -198,47 +304,16 @@ public class LimelightAlignmentController {
                 // Reset stable counter if we drift
                 stableFrames = 0;
 
-                // Calculate turn speed based on error
-                double turnSpeed;
-                if (VelocityTuning.USE_VELOCITY_MODE) {
-                    // Use velocity control
-                    double angularVelocity;
-                    if (absError > AlignmentParams.SLOW_DOWN_ANGLE) {
-                        angularVelocity = VelocityTuning.ANGULAR_VELOCITY_MAX;
-                    } else {
-                        // Proportional scaling in slow zone
-                        double scale = absError / AlignmentParams.SLOW_DOWN_ANGLE;
-                        angularVelocity = VelocityTuning.ANGULAR_VELOCITY_MIN +
-                                (VelocityTuning.ANGULAR_VELOCITY_MAX - VelocityTuning.ANGULAR_VELOCITY_MIN) * scale;
-                    }
-                    angularVelocity = Math.copySign(angularVelocity, headingError);
-
-                    // FIXED: Don't negate! Positive error = CCW = positive velocity
-                    driveController.setAngularVelocity(angularVelocity);
-
-                    opMode.telemetry.addData("Angular Vel", "%.1f °/s", angularVelocity);
-                } else {
-                    // Use power control
-                    if (absError > AlignmentParams.SLOW_DOWN_ANGLE) {
-                        turnSpeed = AlignmentParams.TURN_SPEED;
-                    } else {
-                        // Proportional scaling
-                        double scale = absError / AlignmentParams.SLOW_DOWN_ANGLE;
-                        turnSpeed = AlignmentParams.MIN_TURN_SPEED +
-                                (AlignmentParams.TURN_SPEED - AlignmentParams.MIN_TURN_SPEED) * scale;
-                    }
-                    turnSpeed = Math.copySign(turnSpeed, headingError);
-                    driveController.tankDrive(-turnSpeed, turnSpeed);
-
-                    opMode.telemetry.addData("Turn Power", "%.3f", turnSpeed);
-                }
+                // Apply the PID-calculated angular velocity
+                driveController.setAngularVelocity(angularVelocity);
             }
 
-            opMode.telemetry.addData("Left Vel", "%.0f", driveController.getLeftVelocity());
-            opMode.telemetry.addData("Right Vel", "%.0f", driveController.getRightVelocity());
+            // Display actual wheel velocities
+            opMode.telemetry.addData("Left Vel", "%.0f ticks/s", driveController.getLeftVelocity());
+            opMode.telemetry.addData("Right Vel", "%.0f ticks/s", driveController.getRightVelocity());
             opMode.telemetry.update();
 
-            // Small delay for loop timing
+            // Loop timing (50Hz)
             Thread.sleep(20);
         }
 
@@ -249,6 +324,7 @@ public class LimelightAlignmentController {
     public void stopAlignment() {
         isActive = false;
         currentState = AlignmentState.STOPPED;
+        pidController.reset();
 
         if (alignmentTimer.seconds() > 0) {
             totalAlignmentTime = alignmentTimer.seconds();
@@ -257,28 +333,25 @@ public class LimelightAlignmentController {
         driveController.stopDrive();
     }
 
-    public void align(int targetTagId) {
-        if (!isActive) return;
+    public void maintainAlignment() {
+        if (!targetHeadingCalculated) return;
 
-        this.targetTagId = targetTagId;
+        // Continuously apply PID to maintain heading
+        driveController.updateOdometry();
+        double currentHeading = driveController.getHeadingDegrees();
 
-        switch (currentState) {
-            case SEARCHING:
-                executeSearch();
-                break;
-            case ALIGNING:
-                // Alignment is handled in startAlignment() now
-                break;
-            case ALIGNED:
-                maintainAlignment();
-                break;
-            case TARGET_LOST:
-            case STOPPED:
-                break;
+        // Use PID to calculate correction
+        double angularVelocity = pidController.calculate(currentHeading);
+
+        // Apply correction if needed
+        if (Math.abs(angularVelocity) > PIDParams.DEADBAND_DEGREES) {
+            driveController.setAngularVelocity(angularVelocity);
+        } else {
+            driveController.stopDrive();
         }
-
-        sendDashboardData();
     }
+
+    // === HELPER METHODS ===
 
     /**
      * Normalize angle to [-180, 180] range
@@ -289,67 +362,19 @@ public class LimelightAlignmentController {
         return angle;
     }
 
-    // === CORE ALIGNMENT LOGIC ===
+    /**
+     * Calculate the smallest angle difference between two angles (in degrees)
+     * Returns positive if target is CCW from current, negative if CW
+     */
+    private double angleDifferenceDegrees(double currentDegrees, double targetDegrees) {
+        double diff = targetDegrees - currentDegrees;
 
-    private void executeSearch() {
-        if (!TargetSearch.ENABLE_SEARCH) {
-            currentState = AlignmentState.TARGET_LOST;
-            driveController.stopDrive();
-            return;
-        }
+        // Normalize to [-180, 180]
+        while (diff > 180) diff -= 360;
+        while (diff < -180) diff += 360;
 
-        if (searchTimer.milliseconds() > TargetSearch.MAX_SEARCH_TIME_MS) {
-            currentState = AlignmentState.TARGET_LOST;
-            driveController.stopDrive();
-            return;
-        }
-
-        // Try to find target during search
-        if (findTarget()) {
-            // Found target! Calculate heading and start alignment
-            driveController.updateOdometry();
-            initialHeadingDegrees = driveController.getHeadingDegrees();
-            // If TX is positive (target LEFT), turn CCW (positive)
-            targetHeadingDegrees = normalizeAngle(initialHeadingDegrees + initialTx);
-            targetHeadingCalculated = true;
-
-            try {
-                turnToHeading(targetHeadingDegrees);
-                currentState = AlignmentState.ALIGNED;
-                totalAlignmentTime = alignmentTimer.seconds();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                currentState = AlignmentState.STOPPED;
-            }
-            return;
-        }
-
-        // Continue searching - slow rotation
-        driveController.tankDrive(-TargetSearch.SEARCH_SPEED, TargetSearch.SEARCH_SPEED);
+        return diff;
     }
-
-    private void maintainAlignment() {
-        // Update odometry to check if we've drifted
-        driveController.updateOdometry();
-        double currentHeadingDegrees = driveController.getHeadingDegrees();
-        double headingError = angleDifferenceDegrees(currentHeadingDegrees, targetHeadingDegrees);
-        double absError = Math.abs(headingError);
-
-        // If error grows beyond dead zone, realign
-        if (absError > AlignmentParams.HEADING_TOLERANCE_DEGREES * 3) {
-            try {
-                turnToHeading(targetHeadingDegrees);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            return;
-        }
-
-        // Stay stopped
-        driveController.stopDrive();
-    }
-
-    // === HELPER METHODS ===
 
     /**
      * Find the target AprilTag and read its TX value
@@ -402,18 +427,62 @@ public class LimelightAlignmentController {
         return false;
     }
 
-    /**
-     * Calculate the smallest angle difference between two angles (in degrees)
-     * Returns positive if target is CCW from current, negative if CW
-     */
-    private double angleDifferenceDegrees(double currentDegrees, double targetDegrees) {
-        double diff = targetDegrees - currentDegrees;
+    private void executeSearch() {
+        if (!TargetSearch.ENABLE_SEARCH) {
+            currentState = AlignmentState.TARGET_LOST;
+            driveController.stopDrive();
+            return;
+        }
 
-        // Normalize to [-180, 180]
-        while (diff > 180) diff -= 360;
-        while (diff < -180) diff += 360;
+        if (searchTimer.milliseconds() > TargetSearch.MAX_SEARCH_TIME_MS) {
+            currentState = AlignmentState.TARGET_LOST;
+            driveController.stopDrive();
+            return;
+        }
 
-        return diff;
+        // Try to find target during search
+        if (findTarget()) {
+            // Found target! Calculate heading and start alignment
+            driveController.updateOdometry();
+            initialHeadingDegrees = driveController.getHeadingDegrees();
+            targetHeadingDegrees = normalizeAngle(initialHeadingDegrees + initialTx);
+            targetHeadingCalculated = true;
+            hasTarget = true;
+
+            try {
+                turnToHeadingPID(targetHeadingDegrees);
+                currentState = AlignmentState.ALIGNED;
+                totalAlignmentTime = alignmentTimer.seconds();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                currentState = AlignmentState.STOPPED;
+            }
+            return;
+        }
+
+        // Continue searching - slow rotation
+        driveController.tankDrive(-TargetSearch.SEARCH_SPEED, TargetSearch.SEARCH_SPEED);
+    }
+
+    public void align(int targetTagId) {
+        if (!isActive) return;
+
+        this.targetTagId = targetTagId;
+
+        switch (currentState) {
+            case SEARCHING:
+                executeSearch();
+                break;
+            case ALIGNED:
+                maintainAlignment();
+                break;
+            case ALIGNING:
+            case TARGET_LOST:
+            case STOPPED:
+                break;
+        }
+
+        sendDashboardData();
     }
 
     // === TELEMETRY ===
@@ -427,6 +496,11 @@ public class LimelightAlignmentController {
         packet.put("State", currentState.toString());
         packet.put("Has_Target", hasTarget);
         packet.put("Target_Calculated", targetHeadingCalculated);
+
+        // PID parameters
+        packet.put("PID_KP", PIDParams.KP);
+        packet.put("PID_KI", PIDParams.KI);
+        packet.put("PID_KD", PIDParams.KD);
 
         // Headings
         driveController.updateOdometry();
@@ -455,71 +529,16 @@ public class LimelightAlignmentController {
         dashboard.sendTelemetryPacket(packet);
     }
 
-    public void displayAlignmentWithInitialAngle() {
-        opMode.telemetry.addLine("╔═══════════════════════════╗");
-        opMode.telemetry.addLine("║  ALIGNMENT STATUS         ║");
-        opMode.telemetry.addLine("╚═══════════════════════════╝");
-
-        opMode.telemetry.addLine();
-        opMode.telemetry.addData("State", currentState);
-        opMode.telemetry.addData("Target Found", hasTarget ? "✓ YES" : "✗ NO");
-        opMode.telemetry.addData("Mode", VelocityTuning.USE_VELOCITY_MODE ? "VELOCITY" : "POWER");
-
-        if (targetHeadingCalculated) {
-            opMode.telemetry.addLine();
-            opMode.telemetry.addLine("┌─── HEADING DATA ───┐");
-            opMode.telemetry.addData("│ Initial Heading", String.format(Locale.US, "%.2f°", initialHeadingDegrees));
-            opMode.telemetry.addData("│ AprilTag TX", String.format(Locale.US, "%.2f°", initialTx));
-            opMode.telemetry.addData("│ Target Heading", String.format(Locale.US, "%.2f°", targetHeadingDegrees));
-            opMode.telemetry.addLine("└───────────────────┘");
-
-            driveController.updateOdometry();
-            double currentHeading = driveController.getHeadingDegrees();
-            double error = angleDifferenceDegrees(currentHeading, targetHeadingDegrees);
-
-            opMode.telemetry.addLine();
-            opMode.telemetry.addLine("─── CURRENT STATUS ───");
-            opMode.telemetry.addData("Current Heading", String.format(Locale.US, "%.2f°", currentHeading));
-            opMode.telemetry.addData("Heading Error", String.format(Locale.US, "%.2f°", error));
-            opMode.telemetry.addData("Abs Error", String.format(Locale.US, "%.2f°", Math.abs(error)));
-            opMode.telemetry.addData("Aligned Frames", String.format(Locale.US, "%d/%d",
-                    consecutiveAlignedFrames, AlignmentParams.ALIGNED_FRAMES_REQUIRED));
-
-            // Debug: Show if error is within tolerance
-            boolean withinTolerance = Math.abs(error) <= AlignmentParams.HEADING_TOLERANCE_DEGREES;
-            opMode.telemetry.addData("Within Tolerance?", withinTolerance ? "YES ✓" : "NO");
-
-            double progress = 0;
-            if (Math.abs(initialTx) > 0.1) {
-                progress = Math.max(0, Math.min(100, (1 - Math.abs(error) / Math.abs(initialTx)) * 100));
-            }
-            opMode.telemetry.addData("Progress", String.format(Locale.US, "%.0f%%", progress));
-        }
-
-        opMode.telemetry.addLine();
-        opMode.telemetry.addLine("─── WHEEL VELOCITIES ───");
-        opMode.telemetry.addData("Left", String.format(Locale.US, "%.0f ticks/s", driveController.getLeftVelocity()));
-        opMode.telemetry.addData("Right", String.format(Locale.US, "%.0f ticks/s", driveController.getRightVelocity()));
-
-        if (currentState == AlignmentState.ALIGNED && totalAlignmentTime > 0) {
-            opMode.telemetry.addLine();
-            opMode.telemetry.addLine("╔═══════════════════════════╗");
-            opMode.telemetry.addData("║ ✓ ALIGNED", String.format(Locale.US, "%.2fs", totalAlignmentTime));
-            if (targetHeadingCalculated) {
-                opMode.telemetry.addData("║ From", String.format(Locale.US, "%.2f° → %.2f°",
-                        initialHeadingDegrees, targetHeadingDegrees));
-            }
-            opMode.telemetry.addLine("╚═══════════════════════════╝");
-        }
-
-        opMode.telemetry.update();
-    }
-
     public void displayTelemetry() {
-        opMode.telemetry.addLine("═══ ALIGNMENT STATUS ═══");
+        opMode.telemetry.addLine("═══ PID ALIGNMENT STATUS ═══");
         opMode.telemetry.addData("State", currentState);
         opMode.telemetry.addData("Target Found", hasTarget ? "YES" : "NO");
-        opMode.telemetry.addData("Mode", VelocityTuning.USE_VELOCITY_MODE ? "VELOCITY" : "POWER");
+
+        opMode.telemetry.addLine();
+        opMode.telemetry.addLine("═══ PID GAINS ═══");
+        opMode.telemetry.addData("KP", "%.2f", PIDParams.KP);
+        opMode.telemetry.addData("KI", "%.2f", PIDParams.KI);
+        opMode.telemetry.addData("KD", "%.2f", PIDParams.KD);
 
         if (targetHeadingCalculated) {
             opMode.telemetry.addLine();
@@ -533,6 +552,8 @@ public class LimelightAlignmentController {
 
             opMode.telemetry.addData("Current", "%.2f°", currentHeading);
             opMode.telemetry.addData("Error", "%.2f°", error);
+            opMode.telemetry.addData("Within Tolerance?",
+                    Math.abs(error) <= AlignmentParams.HEADING_TOLERANCE_DEGREES ? "YES ✓" : "NO");
         }
 
         opMode.telemetry.addLine();
@@ -578,5 +599,71 @@ public class LimelightAlignmentController {
 
     public String getCurrentZone() {
         return "Odometry-Based";
+    }
+
+    public void displayAlignmentWithInitialAngle() {
+        opMode.telemetry.addLine("╔═══════════════════════════╗");
+        opMode.telemetry.addLine("║  ALIGNMENT STATUS         ║");
+        opMode.telemetry.addLine("╚═══════════════════════════╝");
+
+        opMode.telemetry.addLine();
+        opMode.telemetry.addData("State", currentState);
+        opMode.telemetry.addData("Target Found", hasTarget ? "✓ YES" : "✗ NO");
+        opMode.telemetry.addData("PID Mode", "ACTIVE");
+
+        if (targetHeadingCalculated) {
+            opMode.telemetry.addLine();
+            opMode.telemetry.addLine("┌─── HEADING DATA ───┐");
+            opMode.telemetry.addData("│ Initial Heading", String.format(Locale.US, "%.2f°", initialHeadingDegrees));
+            opMode.telemetry.addData("│ AprilTag TX", String.format(Locale.US, "%.2f°", initialTx));
+            opMode.telemetry.addData("│ Target Heading", String.format(Locale.US, "%.2f°", targetHeadingDegrees));
+            opMode.telemetry.addLine("└───────────────────┘");
+
+            driveController.updateOdometry();
+            double currentHeading = driveController.getHeadingDegrees();
+            double error = angleDifferenceDegrees(currentHeading, targetHeadingDegrees);
+
+            opMode.telemetry.addLine();
+            opMode.telemetry.addLine("─── CURRENT STATUS ───");
+            opMode.telemetry.addData("Current Heading", String.format(Locale.US, "%.2f°", currentHeading));
+            opMode.telemetry.addData("Heading Error", String.format(Locale.US, "%.2f°", error));
+            opMode.telemetry.addData("Abs Error", String.format(Locale.US, "%.2f°", Math.abs(error)));
+            opMode.telemetry.addData("Aligned Frames", String.format(Locale.US, "%d/%d",
+                    consecutiveAlignedFrames, AlignmentParams.ALIGNED_FRAMES_REQUIRED));
+
+            // Debug: Show if error is within tolerance
+            boolean withinTolerance = Math.abs(error) <= AlignmentParams.HEADING_TOLERANCE_DEGREES;
+            opMode.telemetry.addData("Within Tolerance?", withinTolerance ? "YES ✓" : "NO");
+
+            double progress = 0;
+            if (Math.abs(initialTx) > 0.1) {
+                progress = Math.max(0, Math.min(100, (1 - Math.abs(error) / Math.abs(initialTx)) * 100));
+            }
+            opMode.telemetry.addData("Progress", String.format(Locale.US, "%.0f%%", progress));
+        }
+
+        opMode.telemetry.addLine();
+        opMode.telemetry.addLine("─── PID STATUS ───");
+        opMode.telemetry.addData("KP", "%.2f", PIDParams.KP);
+        opMode.telemetry.addData("KI", "%.2f", PIDParams.KI);
+        opMode.telemetry.addData("KD", "%.2f", PIDParams.KD);
+
+        opMode.telemetry.addLine();
+        opMode.telemetry.addLine("─── WHEEL VELOCITIES ───");
+        opMode.telemetry.addData("Left", String.format(Locale.US, "%.0f ticks/s", driveController.getLeftVelocity()));
+        opMode.telemetry.addData("Right", String.format(Locale.US, "%.0f ticks/s", driveController.getRightVelocity()));
+
+        if (currentState == AlignmentState.ALIGNED && totalAlignmentTime > 0) {
+            opMode.telemetry.addLine();
+            opMode.telemetry.addLine("╔═══════════════════════════╗");
+            opMode.telemetry.addData("║ ✓ ALIGNED", String.format(Locale.US, "%.2fs", totalAlignmentTime));
+            if (targetHeadingCalculated) {
+                opMode.telemetry.addData("║ From", String.format(Locale.US, "%.2f° → %.2f°",
+                        initialHeadingDegrees, targetHeadingDegrees));
+            }
+            opMode.telemetry.addLine("╚═══════════════════════════╝");
+        }
+
+        opMode.telemetry.update();
     }
 }
