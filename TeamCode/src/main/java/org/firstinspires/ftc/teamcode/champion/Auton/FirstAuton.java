@@ -74,7 +74,7 @@ public class FirstAuton extends LinearOpMode {
             runtime.reset();
 
             // Set ramp to 30 degrees at start
-            rampController.setTo30Degrees();
+            rampController.setAngle(30.0);
 
             // Execute autonomous sequence
             telemetry.addLine("DEBUG: Starting autonomous sequence");
