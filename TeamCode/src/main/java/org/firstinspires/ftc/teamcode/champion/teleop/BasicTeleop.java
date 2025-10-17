@@ -9,18 +9,20 @@ import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
 @Config
-@TeleOp(name = "Enhanced TeleOp", group = "Competition")
+@TeleOp(name = "Basic TeleOp", group = "Competition")
 public class BasicTeleop extends LinearOpMode {
 
     SixWheelDriveController driveController;
     TransferController transferController;
     ShooterController shooterController;
     IntakeController intakeController;
+    RampController rampController;
     LimelightAlignmentController limelightController;
     AutoShootController autoShootController;
 
@@ -50,6 +52,8 @@ public class BasicTeleop extends LinearOpMode {
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
+        rampController = new RampController(this);
+        rampController.setTo0Degrees();
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         LimelightAlignmentController tempLimelight = null;
@@ -189,6 +193,23 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingStart = false;
             }
 
+            // Gamepad2 Controls - Ramp Controller
+            // D-pad UP: Increase ramp angle by 2.5 degrees
+            if (gamepad2.dpad_up && !isPressingDpadUp) {
+                isPressingDpadUp = true;
+                rampController.incrementAngle(2.5);
+            } else if (!gamepad2.dpad_up && isPressingDpadUp) {
+                isPressingDpadUp = false;
+            }
+
+            // D-pad DOWN: Decrease ramp angle by 2.5 degrees
+            if (gamepad2.dpad_down && !isPressingDpadDown) {
+                isPressingDpadDown = true;
+                rampController.decrementAngle(2.5);
+            } else if (!gamepad2.dpad_down && isPressingDpadDown) {
+                isPressingDpadDown = false;
+            }
+
             // Manual alignment logic
             if (isManualAligning) {
                 limelightController.align(AutoShootController.APRILTAG_ID);
@@ -246,6 +267,8 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Robot Y (inches)", "%.2f", driveController.getY());
                 telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
 
+                telemetry.addData("Ramp Angle (Degrees)", "%.1f", rampController.getAngle());
+
                 // Enhanced telemetry showing distance-based shooting info
                 autoShootController.addTelemetry(telemetry);
 
@@ -258,6 +281,7 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addLine("D-Pad UP/DOWN: Adjust Shooter Power");
                 telemetry.addLine("D-Pad LEFT: Distance-Based Auto-Shoot");
                 telemetry.addLine("D-Pad RIGHT: Toggle Manual Alignment");
+                telemetry.addLine("Gamepad2 D-Pad UP/DOWN: Adjust Ramp Angle (+/- 2.5°)");
             }
 
             telemetry.update();

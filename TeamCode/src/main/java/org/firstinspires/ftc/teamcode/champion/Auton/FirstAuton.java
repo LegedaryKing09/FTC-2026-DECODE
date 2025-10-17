@@ -10,6 +10,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.BallAlignmentControlle
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.PurePursuitController;
+import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
@@ -42,6 +43,7 @@ public class FirstAuton extends LinearOpMode {
     private ShooterController shooterController;
     private IntakeController intakeController;
     private TransferController transferController;
+    private RampController rampController;
     private LimelightAlignmentController limelightController;
     private AutoShootController autoShootController;
     private BallAlignmentController ballAlignmentController;
@@ -71,6 +73,9 @@ public class FirstAuton extends LinearOpMode {
 
             runtime.reset();
 
+            // Set ramp to 30 degrees at start
+            rampController.setTo30Degrees();
+
             // Execute autonomous sequence
             telemetry.addLine("DEBUG: Starting autonomous sequence");
             telemetry.update();
@@ -97,6 +102,7 @@ public class FirstAuton extends LinearOpMode {
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
         transferController = new TransferController(this);
+        rampController = new RampController(this);
 
         // Initialize Limelight alignment
         limelightController = new LimelightAlignmentController(this);
@@ -151,13 +157,13 @@ public class FirstAuton extends LinearOpMode {
         telemetry.addLine("Shooter at target RPM");
         telemetry.update();
 
-        // Step 2: Drive backward 60 inches
+        // Step 2: Drive backward 60 inches using odometry only
         telemetry.clear();
         telemetry.addLine("=== STEP 2: DRIVING BACKWARD ===");
         telemetry.addData("Target Distance", "%.1f inches", DRIVE_DISTANCE_INCHES);
         telemetry.update();
 
-        driveToPositionUsingPurePursuit(-DRIVE_DISTANCE_INCHES); // Negative for backward movement
+        driveBackwardWithOdometry(DRIVE_DISTANCE_INCHES);
 
         telemetry.addLine("Backward drive complete");
         telemetry.update();
@@ -449,6 +455,44 @@ public class FirstAuton extends LinearOpMode {
             telemetry.addData("Current Heading", "%.2f degrees", Math.toDegrees(currentHeading));
             telemetry.addData("Target Heading", "%.2f degrees", targetHeadingDegrees);
             telemetry.addData("Turn Power", "%.3f", turnPower);
+            telemetry.update();
+
+            sleep(20);
+        }
+
+        driveController.stopDrive();
+    }
+
+    /**
+     * Drive backward a specified distance using odometry only (no pure pursuit)
+     */
+    private void driveBackwardWithOdometry(double distance) throws InterruptedException {
+        double startX = driveController.getX();
+        double startY = driveController.getY();
+
+        long driveStartTime = System.currentTimeMillis();
+        long maxDriveTimeMs = 8000; // 8 second timeout
+
+        while (opModeIsActive() && (System.currentTimeMillis() - driveStartTime) < maxDriveTimeMs) {
+            driveController.updateOdometry();
+
+            // Calculate distance traveled (backward movement)
+            double currentX = driveController.getX();
+            double currentY = driveController.getY();
+            double distanceTraveled = Math.abs(startY - currentY); // Assuming backward is negative Y
+
+            // Check if we've reached the target distance
+            if (distanceTraveled >= distance) {
+                break;
+            }
+
+            // Drive straight backward
+            driveController.tankDrive(-DRIVE_SPEED, -DRIVE_SPEED);
+
+            telemetry.addData("Distance Traveled", "%.2f inches", distanceTraveled);
+            telemetry.addData("Target Distance", "%.1f inches", distance);
+            telemetry.addData("Remaining", "%.2f inches", distance - distanceTraveled);
+            telemetry.addData("Current Y", "%.2f", currentY);
             telemetry.update();
 
             sleep(20);
