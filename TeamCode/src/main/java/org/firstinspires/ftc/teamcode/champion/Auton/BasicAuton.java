@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.BallAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
@@ -32,6 +33,7 @@ public class BasicAuton extends LinearOpMode {
     private TransferController transferController;
     private LimelightAlignmentController limelightController;
     private BallAlignmentController ballAlignmentController;
+    private RampController rampController;
 
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
@@ -54,6 +56,20 @@ public class BasicAuton extends LinearOpMode {
             if (isStopRequested()) return;
 
             runtime.reset();
+
+            // Move ramp to 170 degrees at autonomous start
+            if (rampController != null) {
+                telemetry.clear();
+                telemetry.addLine("=== MOVING RAMP TO 170 DEGREES ===");
+                telemetry.update();
+
+                rampController.setAngle(170.0);
+
+                telemetry.addLine("✓ Ramp moved to 170 degrees");
+                telemetry.addData("Ramp Angle", "%.1f°", rampController.getAngle());
+                telemetry.update();
+                sleep(1000); // Give ramp time to move
+            }
 
             // Execute autonomous sequence
             telemetry.addLine("Starting autonomous sequence...");
@@ -105,6 +121,18 @@ public class BasicAuton extends LinearOpMode {
         } catch (Exception e) {
             telemetry.addData("WARNING", "Ball alignment failed to init: " + e.getMessage());
             ballAlignmentController = null;
+        }
+
+        // Initialize ramp controller
+        try {
+            telemetry.addLine("Initializing ramp controller...");
+            telemetry.update();
+            rampController = new RampController(this);
+            rampController.setTo0Degrees(); // Initialize ramp at 0 degrees
+            telemetry.addLine("✓ Ramp controller initialized at 0 degrees");
+        } catch (Exception e) {
+            telemetry.addData("WARNING", "Ramp controller failed to init: " + e.getMessage());
+            rampController = null;
         }
 
         telemetry.addLine("All controllers initialized successfully");
