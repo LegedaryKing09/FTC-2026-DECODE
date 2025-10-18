@@ -5,7 +5,6 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
@@ -13,11 +12,10 @@ import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentCont
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
-import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 
 @Config
-@TeleOp
-public class BasicTeleop extends LinearOpMode {
+@TeleOp(name = "Enhanced TeleOp", group = "Competition")
+public class AutoTeleop extends LinearOpMode {
 
     SixWheelDriveController driveController;
     TransferController transferController;
@@ -25,11 +23,9 @@ public class BasicTeleop extends LinearOpMode {
     IntakeController intakeController;
     LimelightAlignmentController limelightController;
     AutoShootController autoShootController;
-    RampController rampController;
 
     public static double SHOOTING_POWER = 0.55;
     public static double INTAKE_POWER = 0;
-    public static double RAMP_INCREMENT = 2.5;
 
     boolean isManualAligning = false;
     boolean lastdpadLeft = false;
@@ -54,12 +50,11 @@ public class BasicTeleop extends LinearOpMode {
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
-        rampController = new RampController(this);
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         LimelightAlignmentController tempLimelight = null;
         try {
-            tempLimelight = new LimelightAlignmentController(this, driveController);
+            tempLimelight = new LimelightAlignmentController(this);
             tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
@@ -67,12 +62,19 @@ public class BasicTeleop extends LinearOpMode {
         }
         limelightController = tempLimelight;
 
-        autoShootController = new AutoShootController(this, driveController, shooterController, intakeController, transferController, limelightController);
+        // Initialize enhanced auto shoot controller (6 parameters)
+        autoShootController = new AutoShootController(
+                this,
+                driveController,
+                shooterController,
+                intakeController,
+                transferController,
+                limelightController
+        );
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
 
-        rampController.setTo0Degrees();
         waitForStart();
 
         while (opModeIsActive()) {
@@ -90,30 +92,31 @@ public class BasicTeleop extends LinearOpMode {
 
             driveController.arcadeDrive(drive, turn);
 
-            // A button: Retract ramp (decrease angle by 2.5 degrees)
+            // A button: Set to FAST speed mode
             if (gamepad1.a && !isPressingA) {
                 isPressingA = true;
-                rampController.decrementAngle(RAMP_INCREMENT);
+                driveController.setFastSpeed();
             } else if (!gamepad1.a && isPressingA) {
                 isPressingA = false;
             }
 
-            // B button: Extend ramp (increase angle by 2.5 degrees)
+            // B button: Set to SLOW speed mode
             if (gamepad1.b && !isPressingB) {
                 isPressingB = true;
-                rampController.incrementAngle(RAMP_INCREMENT);
+                driveController.setSlowSpeed();
             } else if (!gamepad1.b && isPressingB) {
                 isPressingB = false;
             }
 
+            // Y button: Set shooter to custom power (calculated distance RPM)
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
-                // setShooterPower already converts power (0-1) to RPM by multiplying with SHOOTER_FULL_RPM
                 shooterController.setShooterPower(SHOOTING_POWER);
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
             }
 
+            // X button: Stop all systems
             if (gamepad1.x && !isPressingX) {
                 isPressingX = true;
                 shooterController.shooterStop();
@@ -123,6 +126,7 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingX = false;
             }
 
+            // D-pad UP: Increase shooting power
             if (gamepad1.dpad_up && SHOOTING_POWER < 1 && !isPressingDpadUp) {
                 isPressingDpadUp = true;
                 SHOOTING_POWER = SHOOTING_POWER + 0.01;
@@ -130,6 +134,7 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingDpadUp = false;
             }
 
+            // D-pad DOWN: Decrease shooting power
             if (gamepad1.dpad_down && SHOOTING_POWER > 0 && !isPressingDpadDown) {
                 isPressingDpadDown = true;
                 SHOOTING_POWER = SHOOTING_POWER - 0.01;
@@ -137,6 +142,7 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingDpadDown = false;
             }
 
+            // Right trigger: Transfer full
             if (gamepad1.right_trigger > 0.1 && !isPressingRightTrigger) {
                 isPressingRightTrigger = true;
                 transferController.transferFull();
@@ -145,6 +151,7 @@ public class BasicTeleop extends LinearOpMode {
                 transferController.transferFull();
             }
 
+            // Right bumper: Intake full
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
                 intakeController.intakeFull();
@@ -153,6 +160,7 @@ public class BasicTeleop extends LinearOpMode {
                 intakeController.intakeStop();
             }
 
+            // Left bumper: Intake eject
             if (gamepad1.left_bumper && !isPressingLeftBumper) {
                 isPressingLeftBumper = true;
                 intakeController.intakeEject();
@@ -161,6 +169,7 @@ public class BasicTeleop extends LinearOpMode {
                 intakeController.intakeStop();
             }
 
+            // Back button: Toggle speed mode (kept for redundancy)
             if (gamepad1.back && !isPressingBack) {
                 isPressingBack = true;
                 if (driveController.isFastSpeedMode()) {
@@ -172,26 +181,31 @@ public class BasicTeleop extends LinearOpMode {
                 isPressingBack = false;
             }
 
+            // Start button: Toggle telemetry
             if (gamepad1.start && !isPressingStart) {
                 isPressingStart = true;
                 isUsingTelemetry = !isUsingTelemetry;
-
             } else if (!gamepad1.start && isPressingStart) {
                 isPressingStart = false;
             }
 
+            // Manual alignment logic
             if (isManualAligning) {
                 limelightController.align(AutoShootController.APRILTAG_ID);
+                limelightController.displayAlignmentWithInitialAngle();
                 if (limelightController.hasTarget() &&
                         limelightController.getTargetError() <= AutoShootController.ALIGNMENT_THRESHOLD) {
                     telemetry.addLine(">>> ALIGNED - Ready to shoot!");
                 }
             }
-            //if (gamepad1.dpad_left && !lastdpadLeft && !autoShootController.isAutoShooting()) {
-               // autoShootController.executeAutoShootSequence();
-            //}
+
+            // D-pad LEFT: Distance-based auto-shoot
+            if (gamepad1.dpad_left && !lastdpadLeft && !autoShootController.isAutoShooting()) {
+                autoShootController.executeDistanceBasedAutoShoot();
+            }
             lastdpadLeft = gamepad1.dpad_left;
 
+            // D-pad RIGHT: Toggle manual alignment
             if (gamepad1.dpad_right && !lastdpadRight) {
                 if (!isManualAligning && !autoShootController.isAutoShooting()) {
                     isManualAligning = true;
@@ -226,22 +240,27 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
                 telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
                 telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
-                telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✓ YES" : "NO");
-                //telemetry.addData("Is Fast Mode:", driveController.isFastSpeedMode());
+                telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✅ YES" : "NO");
 
                 telemetry.addData("Robot X (inches)", "%.2f", driveController.getX());
                 telemetry.addData("Robot Y (inches)", "%.2f", driveController.getY());
                 telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
 
-                // Add ramp telemetry
-                telemetry.addData("Ramp Angle (degrees)", "%.1f", rampController.getAngle());
-                telemetry.addData("Ramp Position", "%.2f", rampController.getPosition());
-
+                // Enhanced telemetry showing distance-based shooting info
                 autoShootController.addTelemetry(telemetry);
+
+                telemetry.addLine();
+                telemetry.addLine("=== CONTROLS ===");
+                telemetry.addLine("A: Fast Speed Mode");
+                telemetry.addLine("B: Slow Speed Mode");
+                telemetry.addLine("Y: Custom Power Shooter");
+                telemetry.addLine("X: Stop All");
+                telemetry.addLine("D-Pad UP/DOWN: Adjust Shooter Power");
+                telemetry.addLine("D-Pad LEFT: Distance-Based Auto-Shoot");
+                telemetry.addLine("D-Pad RIGHT: Toggle Manual Alignment");
             }
 
             telemetry.update();
-
         }
     }
 }

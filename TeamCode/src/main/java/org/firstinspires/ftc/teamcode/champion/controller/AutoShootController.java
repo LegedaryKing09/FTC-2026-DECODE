@@ -17,12 +17,12 @@ public class AutoShootController {
     // ========== LIMELIGHT DISTANCE CALIBRATION ==========
     public static double LIMELIGHT_LENS_HEIGHT_INCHES = 14.8;
     public static double GOAL_HEIGHT_INCHES = 29.5;
-    public static double LIMELIGHT_MOUNT_ANGLE_DEGREES = 19.7;
+    public static double LIMELIGHT_MOUNT_ANGLE_DEGREES = 20.41;
 
     // ========== DISTANCE-TO-RPM MAPPING ==========
     public static double DISTANCE_THRESHOLD = 100;
-    public static double RPM_CLOSE = 2600;
-    public static double RPM_FAR = 3000;
+    public static double RPM_CLOSE = 3050;
+    public static double RPM_FAR = 3300;
     public static double MIN_DISTANCE = 12;
     public static double MAX_DISTANCE = 200;
 
