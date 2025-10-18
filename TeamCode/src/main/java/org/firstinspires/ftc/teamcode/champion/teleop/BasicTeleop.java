@@ -72,6 +72,7 @@ public class BasicTeleop extends LinearOpMode {
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
 
+        rampController.setTo0Degrees();
         waitForStart();
 
         while (opModeIsActive()) {
