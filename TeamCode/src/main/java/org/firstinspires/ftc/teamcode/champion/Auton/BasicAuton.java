@@ -307,11 +307,18 @@ public class BasicAuton extends LinearOpMode {
     }
 
     /**
-     * Drive backward a specified distance using odometry only
+     * Drive backward a specified distance using odometry with IMU-based heading correction
      */
     private void driveBackwardWithOdometry(double distance) throws InterruptedException {
+        telemetry.addLine("=== DRIVING BACKWARD WITH ODOMETRY ===");
+        telemetry.addData("Target Distance", "%.1f inches", distance);
+        telemetry.update();
+
+        // Update odometry to get fresh position
+        driveController.updateOdometry();
         double startX = driveController.getX();
         double startY = driveController.getY();
+        double startHeading = driveController.getHeading();
 
         long driveStartTime = System.currentTimeMillis();
         long maxDriveTimeMs = 8000; // 8 second timeout
@@ -319,37 +326,59 @@ public class BasicAuton extends LinearOpMode {
         while (opModeIsActive() && (System.currentTimeMillis() - driveStartTime) < maxDriveTimeMs) {
             driveController.updateOdometry();
 
-            // Calculate distance traveled (backward movement - check X coordinate change)
+            // Calculate distance traveled using position delta
             double currentX = driveController.getX();
             double currentY = driveController.getY();
-            double distanceTraveled = Math.abs(startX - currentX);
+            double deltaX = startX - currentX; // Negative X movement for backward
+            double deltaY = startY - currentY;
+            double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
             // Check if we've reached the target distance
             if (distanceTraveled >= distance) {
                 break;
             }
 
-            // Drive straight backward (negative X direction)
-            driveController.tankDrive(-DRIVE_SPEED, -DRIVE_SPEED);
+            // Calculate heading correction for straight movement
+            double currentHeading = driveController.getHeading();
+            double headingError = normalizeAngle(startHeading - currentHeading);
+
+            // Adjust motor speeds for straight backward movement with heading correction
+            double baseSpeed = -DRIVE_SPEED; // Negative for backward
+            double correction = headingError * 0.02; // Proportional correction
+            double leftSpeed = baseSpeed - correction;
+            double rightSpeed = baseSpeed + correction;
+
+            driveController.tankDrive(leftSpeed, rightSpeed);
 
             telemetry.addData("Distance Traveled", "%.2f inches", distanceTraveled);
             telemetry.addData("Target Distance", "%.1f inches", distance);
             telemetry.addData("Remaining", "%.2f inches", distance - distanceTraveled);
-            telemetry.addData("Current X", "%.2f", currentX);
+            telemetry.addData("Current Heading", "%.2f°", currentHeading);
+            telemetry.addData("Heading Error", "%.2f°", headingError);
             telemetry.update();
 
             sleep(20);
         }
 
         driveController.stopDrive();
+        telemetry.addLine("✓ Backward movement complete");
+        telemetry.update();
+        sleep(500);
     }
 
-    /**
-      * Drive forward a specified distance using odometry only
+     /**
+      * Drive forward a specified distance using odometry with IMU-based heading correction
       */
      private void driveForwardWithOdometry(double distance) throws InterruptedException {
+         telemetry.addLine("=== DRIVING FORWARD WITH ODOMETRY ===");
+         telemetry.addData("Target Distance", "%.1f inches", distance);
+         telemetry.update();
+
+         // Update odometry to get fresh position
+         driveController.updateOdometry();
          double startX = driveController.getX();
          double startY = driveController.getY();
+         double startHeading = driveController.getHeading();
 
          long driveStartTime = System.currentTimeMillis();
          long maxDriveTimeMs = 8000; // 8 second timeout
@@ -357,127 +386,203 @@ public class BasicAuton extends LinearOpMode {
          while (opModeIsActive() && (System.currentTimeMillis() - driveStartTime) < maxDriveTimeMs) {
              driveController.updateOdometry();
 
-             // Calculate distance traveled (forward movement - check X coordinate change)
+             // Calculate distance traveled using position delta
              double currentX = driveController.getX();
              double currentY = driveController.getY();
-             double distanceTraveled = Math.abs(currentX - startX);
+             double deltaX = currentX - startX; // Positive X movement for forward
+             double deltaY = currentY - startY;
+             double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
              // Check if we've reached the target distance
              if (distanceTraveled >= distance) {
                  break;
              }
 
-             // Drive straight forward (positive X direction)
-             driveController.tankDrive(DRIVE_SPEED, DRIVE_SPEED);
+             // Calculate heading correction for straight movement
+             double currentHeading = driveController.getHeading();
+             double headingError = normalizeAngle(startHeading - currentHeading);
+
+             // Adjust motor speeds for straight forward movement with heading correction
+             double baseSpeed = DRIVE_SPEED; // Positive for forward
+             double correction = headingError * 0.02; // Proportional correction
+             double leftSpeed = baseSpeed + correction;
+             double rightSpeed = baseSpeed - correction;
+
+             driveController.tankDrive(leftSpeed, rightSpeed);
 
              telemetry.addData("Distance Traveled", "%.2f inches", distanceTraveled);
              telemetry.addData("Target Distance", "%.1f inches", distance);
              telemetry.addData("Remaining", "%.2f inches", distance - distanceTraveled);
-             telemetry.addData("Current X", "%.2f", currentX);
-             telemetry.update();
-
-             sleep(20);
-         }
-
-         driveController.stopDrive();
-     }
-
-     /**
-      * Turn left 90 degrees using timed turn (with IMU logging for debugging)
-      */
-     private void turnLeft90Degrees() throws InterruptedException {
-         telemetry.addLine("=== TURNING LEFT 90 DEGREES ===");
-         telemetry.update();
-
-         double turnSpeed = 0.4; // Adjust as needed for your robot
-         long turnTimeMs = 1000; // Adjust timing based on robot testing
-         long turnStartTime = System.currentTimeMillis();
-         double startHeading = driveController.getHeadingDegrees();
-
-         telemetry.addData("Start Heading", "%.2f°", startHeading);
-         telemetry.addData("Target Heading", "%.2f°", startHeading - 90.0);
-         telemetry.update();
-
-         while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < turnTimeMs) {
-             // Update odometry to get current heading
-             driveController.updateOdometry();
-
-             // Turn left (counter-clockwise): left side reverse, right side forward
-             driveController.tankDrive(-turnSpeed, turnSpeed);
-
-             double currentHeading = driveController.getHeadingDegrees();
-             double headingChange = startHeading - currentHeading;
-
-             telemetry.addData("Turn Progress", "%.1f seconds",
-                 (System.currentTimeMillis() - turnStartTime) / 1000.0);
              telemetry.addData("Current Heading", "%.2f°", currentHeading);
-             telemetry.addData("Heading Change", "%.2f°", headingChange);
-             telemetry.addData("Target Change", "-90.0°");
-             telemetry.addData("Error", "%.2f°", -90.0 - headingChange);
+             telemetry.addData("Heading Error", "%.2f°", headingError);
              telemetry.update();
 
              sleep(20);
          }
 
          driveController.stopDrive();
-         double finalHeading = driveController.getHeadingDegrees();
-         double finalHeadingChange = startHeading - finalHeading;
-
-         telemetry.addLine("✓ Left turn complete");
-         telemetry.addData("Final Heading", "%.2f°", finalHeading);
-         telemetry.addData("Final Heading Change", "%.2f°", finalHeadingChange);
-         telemetry.addData("Target Change", "-90.0°");
-         telemetry.addData("Final Error", "%.2f°", -90.0 - finalHeadingChange);
+         telemetry.addLine("✓ Forward movement complete");
          telemetry.update();
          sleep(500);
      }
 
      /**
-      * Turn right 90 degrees using timed turn (with IMU logging for debugging)
+      * Turn left 90 degrees using IMU-based closed-loop control
       */
-     private void turnRight90Degrees() throws InterruptedException {
-         telemetry.addLine("=== TURNING RIGHT 90 DEGREES ===");
+     private void turnLeft90Degrees() throws InterruptedException {
+         telemetry.addLine("=== TURNING LEFT 90 DEGREES (IMU-BASED) ===");
          telemetry.update();
 
-         double turnSpeed = 0.4; // Adjust as needed for your robot
-         long turnTimeMs = 1000; // Adjust timing based on robot testing
-         long turnStartTime = System.currentTimeMillis();
+         // Update odometry to get fresh heading
+         driveController.updateOdometry();
          double startHeading = driveController.getHeadingDegrees();
+         double targetHeading = startHeading - 90.0;
+
+         // Normalize target heading to -180 to 180 range
+         targetHeading = normalizeAngle(targetHeading);
 
          telemetry.addData("Start Heading", "%.2f°", startHeading);
-         telemetry.addData("Target Heading", "%.2f°", startHeading + 90.0);
+         telemetry.addData("Target Heading", "%.2f°", targetHeading);
          telemetry.update();
 
-         while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < turnTimeMs) {
+         double turnSpeed = 0.3; // Reduced for better control
+         double minTurnSpeed = 0.15; // Minimum speed to maintain turning
+         double headingTolerance = 2.0; // Degrees tolerance
+         double slowdownAngle = 15.0; // Start slowing down within this many degrees
+
+         long timeoutMs = 3000; // 3 second timeout
+         long turnStartTime = System.currentTimeMillis();
+
+         while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < timeoutMs) {
              // Update odometry to get current heading
              driveController.updateOdometry();
-
-             // Turn right (clockwise): left side forward, right side reverse
-             driveController.tankDrive(turnSpeed, -turnSpeed);
-
              double currentHeading = driveController.getHeadingDegrees();
-             double headingChange = currentHeading - startHeading;
 
-             telemetry.addData("Turn Progress", "%.1f seconds",
-                 (System.currentTimeMillis() - turnStartTime) / 1000.0);
+             // Calculate shortest angle to target
+             double headingError = getAngleError(targetHeading, currentHeading);
+
+             // Check if we're within tolerance
+             if (Math.abs(headingError) <= headingTolerance) {
+                 break;
+             }
+
+             // Dynamic speed based on error
+             double speed = turnSpeed;
+             if (Math.abs(headingError) <= slowdownAngle) {
+                 // Slow down as we approach target
+                 speed = minTurnSpeed + (turnSpeed - minTurnSpeed) * (Math.abs(headingError) / slowdownAngle);
+             }
+
+             // Turn left (counter-clockwise): left side reverse, right side forward
+             driveController.tankDrive(-speed, speed);
+
              telemetry.addData("Current Heading", "%.2f°", currentHeading);
-             telemetry.addData("Heading Change", "%.2f°", headingChange);
-             telemetry.addData("Target Change", "+90.0°");
-             telemetry.addData("Error", "%.2f°", 90.0 - headingChange);
+             telemetry.addData("Heading Error", "%.2f°", headingError);
+             telemetry.addData("Turn Speed", "%.3f", speed);
+             telemetry.addData("Target Heading", "%.2f°", targetHeading);
              telemetry.update();
 
              sleep(20);
          }
 
          driveController.stopDrive();
+         driveController.updateOdometry();
          double finalHeading = driveController.getHeadingDegrees();
-         double finalHeadingChange = finalHeading - startHeading;
+         double finalError = getAngleError(targetHeading, finalHeading);
+
+         telemetry.addLine("✓ Left turn complete");
+         telemetry.addData("Final Heading", "%.2f°", finalHeading);
+         telemetry.addData("Final Error", "%.2f°", finalError);
+         telemetry.addData("Target Heading", "%.2f°", targetHeading);
+         telemetry.update();
+         sleep(500);
+     }
+
+     /**
+      * Normalize angle to -180 to 180 degrees
+      */
+     private double normalizeAngle(double angle) {
+         while (angle > 180) angle -= 360;
+         while (angle <= -180) angle += 360;
+         return angle;
+     }
+
+     /**
+      * Calculate the shortest angle error between target and current heading
+      */
+     private double getAngleError(double target, double current) {
+         double error = target - current;
+         return normalizeAngle(error);
+     }
+
+     /**
+      * Turn right 90 degrees using IMU-based closed-loop control
+      */
+     private void turnRight90Degrees() throws InterruptedException {
+         telemetry.addLine("=== TURNING RIGHT 90 DEGREES (IMU-BASED) ===");
+         telemetry.update();
+
+         // Update odometry to get fresh heading
+         driveController.updateOdometry();
+         double startHeading = driveController.getHeadingDegrees();
+         double targetHeading = startHeading + 90.0;
+
+         // Normalize target heading to -180 to 180 range
+         targetHeading = normalizeAngle(targetHeading);
+
+         telemetry.addData("Start Heading", "%.2f°", startHeading);
+         telemetry.addData("Target Heading", "%.2f°", targetHeading);
+         telemetry.update();
+
+         double turnSpeed = 0.3; // Reduced for better control
+         double minTurnSpeed = 0.15; // Minimum speed to maintain turning
+         double headingTolerance = 2.0; // Degrees tolerance
+         double slowdownAngle = 15.0; // Start slowing down within this many degrees
+
+         long timeoutMs = 3000; // 3 second timeout
+         long turnStartTime = System.currentTimeMillis();
+
+         while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < timeoutMs) {
+             // Update odometry to get current heading
+             driveController.updateOdometry();
+             double currentHeading = driveController.getHeadingDegrees();
+
+             // Calculate shortest angle to target
+             double headingError = getAngleError(targetHeading, currentHeading);
+
+             // Check if we're within tolerance
+             if (Math.abs(headingError) <= headingTolerance) {
+                 break;
+             }
+
+             // Dynamic speed based on error
+             double speed = turnSpeed;
+             if (Math.abs(headingError) <= slowdownAngle) {
+                 // Slow down as we approach target
+                 speed = minTurnSpeed + (turnSpeed - minTurnSpeed) * (Math.abs(headingError) / slowdownAngle);
+             }
+
+             // Turn right (clockwise): left side forward, right side reverse
+             driveController.tankDrive(speed, -speed);
+
+             telemetry.addData("Current Heading", "%.2f°", currentHeading);
+             telemetry.addData("Heading Error", "%.2f°", headingError);
+             telemetry.addData("Turn Speed", "%.3f", speed);
+             telemetry.addData("Target Heading", "%.2f°", targetHeading);
+             telemetry.update();
+
+             sleep(20);
+         }
+
+         driveController.stopDrive();
+         driveController.updateOdometry();
+         double finalHeading = driveController.getHeadingDegrees();
+         double finalError = getAngleError(targetHeading, finalHeading);
 
          telemetry.addLine("✓ Right turn complete");
          telemetry.addData("Final Heading", "%.2f°", finalHeading);
-         telemetry.addData("Final Heading Change", "%.2f°", finalHeadingChange);
-         telemetry.addData("Target Change", "+90.0°");
-         telemetry.addData("Final Error", "%.2f°", 90.0 - finalHeadingChange);
+         telemetry.addData("Final Error", "%.2f°", finalError);
+         telemetry.addData("Target Heading", "%.2f°", targetHeading);
          telemetry.update();
          sleep(500);
      }
