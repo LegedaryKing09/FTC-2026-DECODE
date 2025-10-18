@@ -225,80 +225,62 @@ public class BasicAuton extends LinearOpMode {
         telemetry.update();
         sleep(500);
 
-        // Step 5: Ball Detection
+        // Step 5: New Movement Sequence
         telemetry.clear();
-        telemetry.addLine("=== STEP 5: BALL DETECTION ===");
+        telemetry.addLine("=== STEP 5: MOVEMENT SEQUENCE ===");
         telemetry.update();
 
-        if (ballAlignmentController != null) {
-            telemetry.addLine("Starting ball detection...");
-            telemetry.update();
+        // Step 5.1: Turn left 90 degrees
+        turnLeft90Degrees();
 
-            ballAlignmentController.startTracking();
-
-            long detectionStartTime = System.currentTimeMillis();
-            boolean ballFound = false;
-
-            while (opModeIsActive() &&
-                   (System.currentTimeMillis() - detectionStartTime) < BALL_DETECTION_TIMEOUT_MS) {
-
-                driveController.updateOdometry();
-                ballAlignmentController.align();
-
-                if (ballAlignmentController.hasBall()) {
-                    ballFound = true;
-                    telemetry.addLine("✓ Ball detected!");
-                    telemetry.addData("Ball Distance", "%.1f in", ballAlignmentController.getBallDistance());
-                    telemetry.addData("Ball Color", ballAlignmentController.getBallColor() == 1 ? "GREEN" : "PURPLE");
-                    telemetry.update();
-                    break;
-                }
-
-                ballAlignmentController.displayTelemetry();
-                telemetry.update();
-                sleep(20);
-            }
-
-            if (!ballFound) {
-                telemetry.addLine("⚠ Ball detection timeout");
-                telemetry.update();
-                sleep(1000);
-            }
-
-            ballAlignmentController.stopTracking();
-        } else {
-            telemetry.addLine("⚠ Ball alignment controller not available");
-            telemetry.update();
-            sleep(2000);
-        }
-
-        // Step 6: Ball Pursuit
+        // Step 5.2: Move forward 10 inches with intake on
         telemetry.clear();
-        telemetry.addLine("=== STEP 6: BALL PURSUIT ===");
+        telemetry.addLine("=== STEP 5.2: FORWARD MOVEMENT WITH INTAKE ===");
+        telemetry.addData("Target Distance", "10.0 inches");
         telemetry.update();
 
-        if (ballAlignmentController != null && ballAlignmentController.hasBall()) {
-            double ballDistance = ballAlignmentController.getBallDistance();
+        intakeController.intakeFull(); // Turn on intake
+        driveForwardWithOdometry(10.0);
 
-            if (ballDistance > 0) {
-                // Calculate target distance (ball distance + overshoot)
-                double targetDistance = ballDistance + BALL_PURSUIT_OVERSHOOT_INCHES;
+        telemetry.addLine("✓ Forward movement with intake complete");
+        telemetry.update();
+        sleep(500);
 
-                telemetry.addData("Ball Distance", "%.1f in", ballDistance);
-                telemetry.addData("Overshoot", "%.1f in", BALL_PURSUIT_OVERSHOOT_INCHES);
-                telemetry.addData("Target Distance", "%.1f in", targetDistance);
-                telemetry.update();
+        // Step 5.3: Move backward 10 inches (intake remains on)
+        telemetry.clear();
+        telemetry.addLine("=== STEP 5.3: BACKWARD MOVEMENT ===");
+        telemetry.addData("Target Distance", "10.0 inches");
+        telemetry.update();
 
-                // Drive to ball with overshoot
-                driveForwardWithOdometry(targetDistance);
+        driveBackwardWithOdometry(10.0);
 
-                telemetry.addLine("✓ Ball pursuit complete");
-            } else {
-                telemetry.addLine("⚠ Invalid ball distance");
-            }
-        } else {
-            telemetry.addLine("⚠ No ball detected for pursuit");
-        }
+        telemetry.addLine("✓ Backward movement complete");
+        telemetry.update();
+        sleep(500);
+
+        // Step 5.4: Turn right 90 degrees
+        turnRight90Degrees();
+
+        // Step 5.5: Activate shooting mechanism
+        telemetry.clear();
+        telemetry.addLine("=== STEP 5.5: ACTIVATING SHOOTER ===");
+        telemetry.update();
+
+        // Turn off intake before shooting
+        intakeController.intakeStop();
+
+        // Activate shooting mechanism (reuse existing shooting logic)
+        transferController.transferFull();
+        shooterController.updatePID();
+
+        telemetry.addLine("✓ Shooting mechanism activated");
+        telemetry.update();
+        sleep(1000); // Brief activation time
+
+        // Turn off transfer after shooting
+        transferController.transferStop();
+
+        telemetry.addLine("✓ Movement sequence complete");
         telemetry.update();
         sleep(500);
 
@@ -363,40 +345,96 @@ public class BasicAuton extends LinearOpMode {
     }
 
     /**
-     * Drive forward a specified distance using odometry only
-     */
-    private void driveForwardWithOdometry(double distance) throws InterruptedException {
-        double startX = driveController.getX();
-        double startY = driveController.getY();
+      * Drive forward a specified distance using odometry only
+      */
+     private void driveForwardWithOdometry(double distance) throws InterruptedException {
+         double startX = driveController.getX();
+         double startY = driveController.getY();
 
-        long driveStartTime = System.currentTimeMillis();
-        long maxDriveTimeMs = 8000; // 8 second timeout
+         long driveStartTime = System.currentTimeMillis();
+         long maxDriveTimeMs = 8000; // 8 second timeout
 
-        while (opModeIsActive() && (System.currentTimeMillis() - driveStartTime) < maxDriveTimeMs) {
-            driveController.updateOdometry();
+         while (opModeIsActive() && (System.currentTimeMillis() - driveStartTime) < maxDriveTimeMs) {
+             driveController.updateOdometry();
 
-            // Calculate distance traveled (forward movement - check X coordinate change)
-            double currentX = driveController.getX();
-            double currentY = driveController.getY();
-            double distanceTraveled = Math.abs(currentX - startX);
+             // Calculate distance traveled (forward movement - check X coordinate change)
+             double currentX = driveController.getX();
+             double currentY = driveController.getY();
+             double distanceTraveled = Math.abs(currentX - startX);
 
-            // Check if we've reached the target distance
-            if (distanceTraveled >= distance) {
-                break;
-            }
+             // Check if we've reached the target distance
+             if (distanceTraveled >= distance) {
+                 break;
+             }
 
-            // Drive straight forward (positive X direction)
-            driveController.tankDrive(DRIVE_SPEED, DRIVE_SPEED);
+             // Drive straight forward (positive X direction)
+             driveController.tankDrive(DRIVE_SPEED, DRIVE_SPEED);
 
-            telemetry.addData("Distance Traveled", "%.2f inches", distanceTraveled);
-            telemetry.addData("Target Distance", "%.1f inches", distance);
-            telemetry.addData("Remaining", "%.2f inches", distance - distanceTraveled);
-            telemetry.addData("Current X", "%.2f", currentX);
-            telemetry.update();
+             telemetry.addData("Distance Traveled", "%.2f inches", distanceTraveled);
+             telemetry.addData("Target Distance", "%.1f inches", distance);
+             telemetry.addData("Remaining", "%.2f inches", distance - distanceTraveled);
+             telemetry.addData("Current X", "%.2f", currentX);
+             telemetry.update();
 
-            sleep(20);
-        }
+             sleep(20);
+         }
 
-        driveController.stopDrive();
-    }
+         driveController.stopDrive();
+     }
+
+     /**
+      * Turn left 90 degrees using timed turn
+      */
+     private void turnLeft90Degrees() throws InterruptedException {
+         telemetry.addLine("=== TURNING LEFT 90 DEGREES ===");
+         telemetry.update();
+
+         double turnSpeed = 0.4; // Adjust as needed for your robot
+         long turnTimeMs = 1000; // Adjust timing based on robot testing
+         long turnStartTime = System.currentTimeMillis();
+
+         while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < turnTimeMs) {
+             // Turn left (counter-clockwise): left side reverse, right side forward
+             driveController.tankDrive(-turnSpeed, turnSpeed);
+
+             telemetry.addData("Turn Progress", "%.1f seconds",
+                 (System.currentTimeMillis() - turnStartTime) / 1000.0);
+             telemetry.update();
+
+             sleep(20);
+         }
+
+         driveController.stopDrive();
+         telemetry.addLine("✓ Left turn complete");
+         telemetry.update();
+         sleep(500);
+     }
+
+     /**
+      * Turn right 90 degrees using timed turn
+      */
+     private void turnRight90Degrees() throws InterruptedException {
+         telemetry.addLine("=== TURNING RIGHT 90 DEGREES ===");
+         telemetry.update();
+
+         double turnSpeed = 0.4; // Adjust as needed for your robot
+         long turnTimeMs = 1000; // Adjust timing based on robot testing
+         long turnStartTime = System.currentTimeMillis();
+
+         while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < turnTimeMs) {
+             // Turn right (clockwise): left side forward, right side reverse
+             driveController.tankDrive(turnSpeed, -turnSpeed);
+
+             telemetry.addData("Turn Progress", "%.1f seconds",
+                 (System.currentTimeMillis() - turnStartTime) / 1000.0);
+             telemetry.update();
+
+             sleep(20);
+         }
+
+         driveController.stopDrive();
+         telemetry.addLine("✓ Right turn complete");
+         telemetry.update();
+         sleep(500);
+     }
 }
