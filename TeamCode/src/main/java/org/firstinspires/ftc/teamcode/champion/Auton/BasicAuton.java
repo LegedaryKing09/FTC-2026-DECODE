@@ -13,8 +13,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 
 @Config
-@Autonomous(name = "Second Autonomous", group = "Competition")
-public class SecondAuton extends LinearOpMode {
+@Autonomous(name = "Basic Autonomous", group = "Competition")
+public class BasicAuton extends LinearOpMode {
 
     // Configurable parameters
     public static double SHOOTER_TARGET_RPM = 2750.0;
