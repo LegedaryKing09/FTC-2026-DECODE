@@ -36,7 +36,7 @@ public class LimelightAlignmentController {
     @Config
     public static class PIDParams {
         // PID Gains - tune these for your robot
-        public static double KP = 4.1;      // Proportional gain
+        public static double KP = 5;      // Proportional gain
         public static double KI = 0;      // Integral gain
         public static double KD = 0;      // Derivative gain
 
@@ -48,7 +48,7 @@ public class LimelightAlignmentController {
         public static double INTEGRAL_MAX = 30.0;  // Max integral accumulation
 
         // Deadband
-        public static double DEADBAND_DEGREES = 0.7;  // Don't move if error is this small
+        public static double DEADBAND_DEGREES = 0.5;  // Don't move if error is this small
     }
 
     @Config
