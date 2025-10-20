@@ -123,7 +123,8 @@ public class FirstAuton extends LinearOpMode {
                 shooterController,
                 intakeController,
                 transferController,
-                limelightController
+                limelightController,
+                rampController
         );
 
         telemetry.addLine("All controllers initialized successfully");

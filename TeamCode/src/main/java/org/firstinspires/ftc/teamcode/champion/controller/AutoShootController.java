@@ -19,22 +19,30 @@ public class AutoShootController {
     public static double GOAL_HEIGHT_INCHES = 29.5;
     public static double LIMELIGHT_MOUNT_ANGLE_DEGREES = 20.41;
 
-    // ========== DISTANCE-TO-RPM MAPPING ==========
+    // ========== DISTANCE-TO-RPM AND RAMP MAPPING ==========
     public static double DISTANCE_THRESHOLD = 100;
-    public static double RPM_CLOSE = 3050;
-    public static double RPM_FAR = 3300;
+
+    // Close distance settings
+    public static double RPM_CLOSE = 2800;
+    public static double RAMP_ANGLE_CLOSE = 169.3;  // Convert to degrees (0.71 position = ~170.4 degrees)
+
+    // Far distance settings
+    public static double RPM_FAR = 3150;
+    public static double RAMP_ANGLE_FAR = 168.1;// Convert to degrees (0.70 position = 168 degrees)
+
     public static double MIN_DISTANCE = 12;
     public static double MAX_DISTANCE = 200;
 
     // ========== SHOOTING SEQUENCE PARAMETERS ==========
     public static int APRILTAG_ID = 20;
-    public static double ALIGNMENT_THRESHOLD = 1.0;      // Tighter threshold for velocity control
-    public static long ALIGNMENT_TIMEOUT = 4000;         // Increased for velocity-based alignment
+    public static double ALIGNMENT_THRESHOLD = 1.0;
+    public static long ALIGNMENT_TIMEOUT = 2000;
     public static long RPM_TIMEOUT = 3000;
     public static long SHOOT_DURATION = 1000;
-    public static long STABILITY_DELAY = 200;            // Reduced - velocity control is more stable
+    public static long STABILITY_DELAY = 200;
     public static double RPM_TOLERANCE = 100;
-    public static int STABILITY_CHECK_DURATION = 200;    // Time to verify robot is stable (ms)
+    public static int STABILITY_CHECK_DURATION = 200;
+    public static long RAMP_ADJUSTMENT_DELAY = 500;  // Time to wait for ramp to adjust
 
     private final LinearOpMode opMode;
     private final SixWheelDriveController driveController;
@@ -42,6 +50,7 @@ public class AutoShootController {
     private final IntakeController intakeController;
     private final TransferController transferController;
     private final LimelightAlignmentController limelightController;
+    private final RampController rampController;
     private Limelight3A limelight;
 
     private boolean isAutoShooting = false;
@@ -49,6 +58,7 @@ public class AutoShootController {
     private double lastShotTime = 0;
     private double lastTargetDistance = 0;
     private double lastCalculatedRPM = 0;
+    private double lastRampAngle = 0;
     private final ElapsedTime sessionTimer = new ElapsedTime();
 
     private String currentStatus = "IDLE";
@@ -58,13 +68,15 @@ public class AutoShootController {
                                ShooterController shooterController,
                                IntakeController intakeController,
                                TransferController transferController,
-                               LimelightAlignmentController limelightController) {
+                               LimelightAlignmentController limelightController,
+                               RampController rampController) {
         this.opMode = opMode;
         this.driveController = driveController;
         this.shooterController = shooterController;
         this.intakeController = intakeController;
         this.transferController = transferController;
         this.limelightController = limelightController;
+        this.rampController = rampController;
 
         try {
             this.limelight = opMode.hardwareMap.get(Limelight3A.class, "limelight");
@@ -77,7 +89,7 @@ public class AutoShootController {
     }
 
     /**
-     * Execute complete auto-shoot sequence with velocity-based alignment
+     * Execute complete auto-shoot sequence with velocity-based alignment and ramp control
      */
     public void executeDistanceBasedAutoShoot() {
         if (isAutoShooting) {
@@ -103,22 +115,39 @@ public class AutoShootController {
 
                 lastTargetDistance = distance;
 
-                // STEP 2: Calculate required RPM
-                currentStatus = "CALCULATING RPM";
+                // STEP 2: Calculate required RPM and ramp angle
+                currentStatus = "CALCULATING SETTINGS";
                 double targetRPM = calculateRPMFromDistance(distance);
+                double targetRampAngle = calculateRampAngleFromDistance(distance);
                 lastCalculatedRPM = targetRPM;
+                lastRampAngle = targetRampAngle;
 
                 opMode.telemetry.addLine("=== AUTO-SHOOT SEQUENCE ===");
                 opMode.telemetry.addData("Distance", String.format(Locale.US, "%.1f inches", distance));
                 opMode.telemetry.addData("Target RPM", String.format(Locale.US, "%.0f", targetRPM));
+                opMode.telemetry.addData("Target Ramp Angle", String.format(Locale.US, "%.1f°", targetRampAngle));
                 opMode.telemetry.update();
                 sleep(500);
 
-                // STEP 3: Start shooter (do this BEFORE alignment to save time)
+                // STEP 3: Adjust ramp angle
+                currentStatus = "ADJUSTING RAMP";
+                if (rampController != null) {
+                    rampController.setAngle(targetRampAngle);
+
+                    opMode.telemetry.addLine("📐 Adjusting ramp angle...");
+                    opMode.telemetry.addData("Current Angle", String.format(Locale.US, "%.1f°", rampController.getAngle()));
+                    opMode.telemetry.addData("Target Angle", String.format(Locale.US, "%.1f°", targetRampAngle));
+                    opMode.telemetry.update();
+
+                    // Wait for ramp to reach position
+                    sleep(RAMP_ADJUSTMENT_DELAY);
+                }
+
+                // STEP 4: Start shooter (do this BEFORE alignment to save time)
                 currentStatus = "SPINNING UP";
                 shooterController.setShooterRPM(targetRPM);
 
-                // STEP 4: Align to target using VELOCITY-BASED CONTROL
+                // STEP 5: Align to target using VELOCITY-BASED CONTROL
                 currentStatus = "ALIGNING";
                 if (limelightController != null) {
                     // Set drive controller to velocity mode
@@ -175,7 +204,7 @@ public class AutoShootController {
                     sleep(STABILITY_DELAY);
                 }
 
-                // STEP 5: Wait for shooter to reach RPM (if not already there)
+                // STEP 6: Wait for shooter to reach RPM (if not already there)
                 currentStatus = "VERIFYING RPM";
                 ElapsedTime rpmTimer = new ElapsedTime();
                 while (opMode.opModeIsActive() &&
@@ -190,7 +219,7 @@ public class AutoShootController {
                     sleep(50);
                 }
 
-                // STEP 6: Execute shot
+                // STEP 7: Execute shot
                 currentStatus = "SHOOTING";
 
                 if (shooterController.isAtTargetRPM() ||
@@ -216,6 +245,7 @@ public class AutoShootController {
                     opMode.telemetry.addData("Shot #", shotsCompleted);
                     opMode.telemetry.addData("Distance", String.format(Locale.US, "%.1f in", lastTargetDistance));
                     opMode.telemetry.addData("RPM Used", String.format(Locale.US, "%.0f", lastCalculatedRPM));
+                    opMode.telemetry.addData("Ramp Angle", String.format(Locale.US, "%.1f°", lastRampAngle));
                     if (limelightController != null) {
                         opMode.telemetry.addData("Align Time", String.format(Locale.US, "%.2fs",
                                 limelightController.getTotalAlignmentTime()));
@@ -334,6 +364,21 @@ public class AutoShootController {
     }
 
     /**
+     * Calculate required ramp angle based on distance
+     * Close distance: 0.71 position (170.4 degrees)
+     * Far distance: 0.70 position (168 degrees)
+     */
+    private double calculateRampAngleFromDistance(double distanceInches) {
+        distanceInches = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, distanceInches));
+
+        if (distanceInches < DISTANCE_THRESHOLD) {
+            return RAMP_ANGLE_CLOSE;
+        } else {
+            return RAMP_ANGLE_FAR;
+        }
+    }
+
+    /**
      * Helper method to replace Thread.sleep with proper exception handling
      */
     private void sleep(long milliseconds) throws InterruptedException {
@@ -362,6 +407,10 @@ public class AutoShootController {
         return lastCalculatedRPM;
     }
 
+    public double getLastRampAngle() {
+        return lastRampAngle;
+    }
+
     public String getCurrentStatus() {
         return currentStatus;
     }
@@ -371,13 +420,14 @@ public class AutoShootController {
         lastShotTime = 0;
         lastTargetDistance = 0;
         lastCalculatedRPM = 0;
+        lastRampAngle = 0;
     }
 
     /**
      * Add telemetry information
      */
     public void addTelemetry(Telemetry telemetry) {
-        telemetry.addLine("┌─── AUTO-SHOOT STATUS ───┐");
+        telemetry.addLine("┌─── AUTO-SHOOT STATUS ───");
         telemetry.addData("│ Status", currentStatus);
         telemetry.addData("│ Active", isAutoShooting ? "YES" : "NO");
         telemetry.addData("│ Shots Completed", shotsCompleted);
@@ -386,14 +436,20 @@ public class AutoShootController {
             telemetry.addLine("├─── LAST SHOT DATA ───");
             telemetry.addData("│ Distance", String.format(Locale.US, "%.1f inches", lastTargetDistance));
             telemetry.addData("│ RPM Used", String.format(Locale.US, "%.0f", lastCalculatedRPM));
+            telemetry.addData("│ Ramp Angle", String.format(Locale.US, "%.1f°", lastRampAngle));
             telemetry.addData("│ Time", String.format(Locale.US, "%.1f s ago", sessionTimer.seconds() - lastShotTime));
         }
+
+        telemetry.addLine("├─── SHOOTING SETTINGS ───");
+        telemetry.addData("│ Close: ", String.format(Locale.US, "%.0f RPM @ %.1f°", RPM_CLOSE, RAMP_ANGLE_CLOSE));
+        telemetry.addData("│ Far: ", String.format(Locale.US, "%.0f RPM @ %.1f°", RPM_FAR, RAMP_ANGLE_FAR));
+        telemetry.addData("│ Distance Threshold", String.format(Locale.US, "%.0f in", DISTANCE_THRESHOLD));
 
         telemetry.addLine("├─── CALIBRATION ───");
         telemetry.addData("│ Lens Height", String.format(Locale.US, "%.1f in", LIMELIGHT_LENS_HEIGHT_INCHES));
         telemetry.addData("│ Goal Height", String.format(Locale.US, "%.1f in", GOAL_HEIGHT_INCHES));
         telemetry.addData("│ Mount Angle", String.format(Locale.US, "%.2f°", LIMELIGHT_MOUNT_ANGLE_DEGREES));
         telemetry.addData("│ AprilTag ID", APRILTAG_ID);
-        telemetry.addLine("└───────────────────────┘");
+        telemetry.addLine("└──────────────────────");
     }
 }

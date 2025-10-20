@@ -12,9 +12,10 @@ import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentCont
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
+import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 
 @Config
-@TeleOp(name = "Enhanced TeleOp", group = "Competition")
+@TeleOp(name = "Enhanced TeleOp with Ramp", group = "Competition")
 public class AutoTeleop extends LinearOpMode {
 
     SixWheelDriveController driveController;
@@ -23,9 +24,11 @@ public class AutoTeleop extends LinearOpMode {
     IntakeController intakeController;
     LimelightAlignmentController limelightController;
     AutoShootController autoShootController;
+    RampController rampController;
 
     public static double SHOOTING_POWER = 0.55;
     public static double INTAKE_POWER = 0;
+    public static double RAMP_INCREMENT = 2.5;  // Manual ramp control increment
 
     boolean isManualAligning = false;
     boolean lastdpadLeft = false;
@@ -42,6 +45,8 @@ public class AutoTeleop extends LinearOpMode {
     boolean isPressingDpadDown = false;
     boolean isPressingDpadUp = false;
     boolean isPressingBack = false;
+    boolean isPressingLeftStickButton = false;
+    boolean isPressingRightStickButton = false;
 
     @Override
     public void runOpMode() {
@@ -50,6 +55,7 @@ public class AutoTeleop extends LinearOpMode {
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
+        rampController = new RampController(this);
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         LimelightAlignmentController tempLimelight = null;
@@ -62,18 +68,22 @@ public class AutoTeleop extends LinearOpMode {
         }
         limelightController = tempLimelight;
 
-        // Initialize enhanced auto shoot controller (6 parameters)
+        // Initialize enhanced auto shoot controller with ramp controller (7 parameters now)
         autoShootController = new AutoShootController(
                 this,
                 driveController,
                 shooterController,
                 intakeController,
                 transferController,
-                limelightController
+                limelightController,
+                rampController
         );
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
+
+        // Initialize ramp to starting position
+        rampController.setTo0Degrees();
 
         waitForStart();
 
@@ -169,6 +179,22 @@ public class AutoTeleop extends LinearOpMode {
                 intakeController.intakeStop();
             }
 
+            // Left stick button: Manual ramp retract (decrease angle)
+            if (gamepad1.left_stick_button && !isPressingLeftStickButton) {
+                isPressingLeftStickButton = true;
+                rampController.decrementAngle(RAMP_INCREMENT);
+            } else if (!gamepad1.left_stick_button && isPressingLeftStickButton) {
+                isPressingLeftStickButton = false;
+            }
+
+            // Right stick button: Manual ramp extend (increase angle)
+            if (gamepad1.right_stick_button && !isPressingRightStickButton) {
+                isPressingRightStickButton = true;
+                rampController.incrementAngle(RAMP_INCREMENT);
+            } else if (!gamepad1.right_stick_button && isPressingRightStickButton) {
+                isPressingRightStickButton = false;
+            }
+
             // Back button: Toggle speed mode (kept for redundancy)
             if (gamepad1.back && !isPressingBack) {
                 isPressingBack = true;
@@ -199,7 +225,7 @@ public class AutoTeleop extends LinearOpMode {
                 }
             }
 
-            // D-pad LEFT: Distance-based auto-shoot
+            // D-pad LEFT: Distance-based auto-shoot with automatic ramp adjustment
             if (gamepad1.dpad_left && !lastdpadLeft && !autoShootController.isAutoShooting()) {
                 autoShootController.executeDistanceBasedAutoShoot();
             }
@@ -216,6 +242,7 @@ public class AutoTeleop extends LinearOpMode {
                     driveController.stopDrive();
                 }
             }
+            lastdpadRight = gamepad1.dpad_right;
 
             double leftPower = drive + turn;
             double rightPower = drive - turn;
@@ -246,7 +273,11 @@ public class AutoTeleop extends LinearOpMode {
                 telemetry.addData("Robot Y (inches)", "%.2f", driveController.getY());
                 telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
 
-                // Enhanced telemetry showing distance-based shooting info
+                // Ramp telemetry
+                telemetry.addData("Ramp Angle (degrees)", "%.1f", rampController.getAngle());
+                telemetry.addData("Ramp Position", "%.2f", rampController.getPosition());
+
+                // Enhanced telemetry showing distance-based shooting info with ramp angle
                 autoShootController.addTelemetry(telemetry);
 
                 telemetry.addLine();
@@ -256,8 +287,9 @@ public class AutoTeleop extends LinearOpMode {
                 telemetry.addLine("Y: Custom Power Shooter");
                 telemetry.addLine("X: Stop All");
                 telemetry.addLine("D-Pad UP/DOWN: Adjust Shooter Power");
-                telemetry.addLine("D-Pad LEFT: Distance-Based Auto-Shoot");
+                telemetry.addLine("D-Pad LEFT: Auto-Shoot (with auto ramp)");
                 telemetry.addLine("D-Pad RIGHT: Toggle Manual Alignment");
+                telemetry.addLine("L/R Stick Buttons: Manual Ramp Control");
             }
 
             telemetry.update();

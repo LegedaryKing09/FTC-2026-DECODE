@@ -67,7 +67,15 @@ public class BasicTeleop extends LinearOpMode {
         }
         limelightController = tempLimelight;
 
-        autoShootController = new AutoShootController(this, driveController, shooterController, intakeController, transferController, limelightController);
+        autoShootController = new AutoShootController(
+                this,
+                driveController,
+                shooterController,
+                intakeController,
+                transferController,
+                limelightController,
+                rampController
+        );
 
         double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
         double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
