@@ -43,7 +43,7 @@ public class WorkingCompositeTeleop extends LinearOpMode {
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
         try {
-            LimelightAlignmentController = new LimelightAlignmentController(this);
+            LimelightAlignmentController = new LimelightAlignmentController(this, driveController);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
