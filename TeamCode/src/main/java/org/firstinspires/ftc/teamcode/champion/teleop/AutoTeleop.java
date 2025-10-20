@@ -60,13 +60,15 @@ public class AutoTeleop extends LinearOpMode {
 
         LimelightAlignmentController tempLimelight = null;
         try {
-            tempLimelight = new LimelightAlignmentController(this);
+            // FIX: Pass both opMode (this) and driveController
+            tempLimelight = new LimelightAlignmentController(this, driveController);
             tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
             telemetry.update();
         }
         limelightController = tempLimelight;
+
 
         // Initialize enhanced auto shoot controller with ramp controller (7 parameters now)
         autoShootController = new AutoShootController(

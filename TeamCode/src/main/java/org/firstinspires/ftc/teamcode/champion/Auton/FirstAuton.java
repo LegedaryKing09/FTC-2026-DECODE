@@ -104,17 +104,16 @@ public class FirstAuton extends LinearOpMode {
         transferController = new TransferController(this);
         rampController = new RampController(this);
 
-        // Initialize Limelight alignment
-        limelightController = new LimelightAlignmentController(this);
-
-        // Initialize ball alignment controller - passes opMode which initializes its own drive controller
+        LimelightAlignmentController tempLimelight = null;
         try {
-            ballAlignmentController = new BallAlignmentController(this);
-            telemetry.addLine("✓ Ball alignment controller initialized");
+            // FIX: Pass both opMode (this) and driveController
+            tempLimelight = new LimelightAlignmentController(this, driveController);
+            tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
         } catch (Exception e) {
-            telemetry.addData("WARNING", "Ball alignment failed to init: " + e.getMessage());
-            ballAlignmentController = null;
+            telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
+            telemetry.update();
         }
+        limelightController = tempLimelight;
 
         // Initialize auto shoot controller
         autoShootController = new AutoShootController(
