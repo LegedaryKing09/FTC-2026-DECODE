@@ -39,6 +39,16 @@ public class SixWheelDriveController {
     private double robotY = 0.0;
     private double robotHeading = 0.0;
 
+    // Previous position for smoothing and drift correction
+    private double lastRobotX = 0.0;
+    private double lastRobotY = 0.0;
+    private double lastRobotHeading = 0.0;
+    private long lastOdometryUpdate = 0;
+
+    // IMU calibration and drift tracking
+    private double imuDriftRate = 0.0;
+    private long lastImuCalibration = 0;
+
     // Speed mode settings - ADJUSTED FOR BETTER CONTROL
     public static double FAST_SPEED_MULTIPLIER = 0.3;
     public static double FAST_TURN_MULTIPLIER = 1.5;
@@ -78,6 +88,11 @@ public class SixWheelDriveController {
         public static double YAW_SCALAR = 1.0;
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
+
+        // IMU and odometry accuracy improvements
+        public static double HEADING_DRIFT_CORRECTION = 0.02; // Proportional correction for heading drift
+        public static long ODOMETRY_UPDATE_INTERVAL_MS = 10; // Update odometry every 10ms for better accuracy
+        public static double POSITION_SMOOTHING_FACTOR = 0.1; // Smoothing factor for position data
     }
 
     // Constructor for LinearOpMode
@@ -275,12 +290,56 @@ public class SixWheelDriveController {
     // === ODOMETRY METHODS ===
 
     public void updateOdometry() {
+        long currentTime = System.currentTimeMillis();
+
+        // Update pinpoint sensor
         pinpoint.update();
         Pose2D pose = pinpoint.getPosition();
 
-        robotX = pose.getX(DistanceUnit.INCH);
-        robotY = pose.getY(DistanceUnit.INCH);
-        robotHeading = pose.getHeading(AngleUnit.RADIANS);
+        // Get raw position data
+        double rawX = pose.getX(DistanceUnit.INCH);
+        double rawY = pose.getY(DistanceUnit.INCH);
+        double rawHeading = pose.getHeading(AngleUnit.RADIANS);
+
+        // Apply position smoothing to reduce noise
+        if (lastOdometryUpdate > 0) {
+            double deltaTime = (currentTime - lastOdometryUpdate) / 1000.0; // Convert to seconds
+
+            // Smooth position updates
+            robotX = lastRobotX + (rawX - lastRobotX) * OdometryParams.POSITION_SMOOTHING_FACTOR;
+            robotY = lastRobotY + (rawY - lastRobotY) * OdometryParams.POSITION_SMOOTHING_FACTOR;
+
+            // Calculate heading drift and apply correction
+            double headingDelta = rawHeading - lastRobotHeading;
+            // Normalize heading delta to -pi to pi
+            while (headingDelta > Math.PI) headingDelta -= 2 * Math.PI;
+            while (headingDelta < -Math.PI) headingDelta += 2 * Math.PI;
+
+            // Apply heading drift correction based on time elapsed
+            double driftCorrection = imuDriftRate * deltaTime;
+            robotHeading = lastRobotHeading + headingDelta - driftCorrection;
+        } else {
+            // First update - use raw values
+            robotX = rawX;
+            robotY = rawY;
+            robotHeading = rawHeading;
+        }
+
+        // Normalize heading to -pi to pi
+        while (robotHeading > Math.PI) robotHeading -= 2 * Math.PI;
+        while (robotHeading < -Math.PI) robotHeading += 2 * Math.PI;
+
+        // Store current values for next update
+        lastRobotX = robotX;
+        lastRobotY = robotY;
+        lastRobotHeading = robotHeading;
+        lastOdometryUpdate = currentTime;
+
+        // Update IMU drift calibration periodically (every 5 seconds)
+        if (currentTime - lastImuCalibration > 5000) {
+            calibrateImuDrift();
+            lastImuCalibration = currentTime;
+        }
     }
 
     public void resetOdometry() {
@@ -289,6 +348,30 @@ public class SixWheelDriveController {
         robotX = 0.0;
         robotY = 0.0;
         robotHeading = 0.0;
+
+        // Reset tracking variables
+        lastRobotX = 0.0;
+        lastRobotY = 0.0;
+        lastRobotHeading = 0.0;
+        lastOdometryUpdate = 0;
+        imuDriftRate = 0.0;
+        lastImuCalibration = System.currentTimeMillis();
+    }
+
+    /**
+     * Calibrate IMU drift rate by monitoring heading changes over time
+     */
+    private void calibrateImuDrift() {
+        // This method can be enhanced to detect and correct systematic IMU drift
+        // For now, we'll use a simple approach based on expected drift patterns
+        if (lastOdometryUpdate > 0) {
+            long timeDelta = System.currentTimeMillis() - lastOdometryUpdate;
+            if (timeDelta > 0) {
+                // Estimate drift rate based on typical IMU characteristics
+                // This can be tuned based on observed behavior
+                imuDriftRate = 0.001; // Small constant drift correction (rad/s)
+            }
+        }
     }
 
     private void setMotorsBrakeMode() {

@@ -34,7 +34,7 @@ public class TankDriveTestTeleop extends OpMode {
 
             // Set motor directions to match existing configuration
             leftFront.setDirection(DcMotor.Direction.FORWARD);
-            leftBack.setDirection(DcMotor.Direction.FORWARD);
+            leftBack.setDirection(DcMotor.Direction.REVERSE);
             rightFront.setDirection(DcMotor.Direction.REVERSE);
             rightBack.setDirection(DcMotor.Direction.FORWARD);
 
@@ -51,9 +51,8 @@ public class TankDriveTestTeleop extends OpMode {
             rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
             telemetry.addData("Status", "✓ Tank Drive Test Initialized");
-            telemetry.addData("Controls", "Left Stick: Left Motors | Right Stick: Right Motors");
-            telemetry.addData("Left Motors", "%s, %s", LF_NAME, LB_NAME);
-            telemetry.addData("Right Motors", "%s, %s", RF_NAME, RB_NAME);
+            telemetry.addData("Controls", "Left Stick Y: Forward/Back | Right Stick X: Turn");
+            telemetry.addData("Drive Motors", "%s, %s, %s, %s", LF_NAME, RF_NAME, LB_NAME, RB_NAME);
 
         } catch (Exception e) {
             telemetry.addData("Error", "Failed to initialize: " + e.getMessage());
@@ -64,9 +63,20 @@ public class TankDriveTestTeleop extends OpMode {
 
     @Override
     public void loop() {
-        // Get joystick inputs
-        double leftPower = -gamepad1.left_stick_y;  // Negative because up is negative Y
-        double rightPower = -gamepad1.right_stick_y; // Negative because up is negative Y
+        // Get joystick inputs - forward/backward and turning
+        double drive = -gamepad1.left_stick_y;  // Forward/backward movement
+        double turn = gamepad1.right_stick_x;   // Turning movement
+
+        // Calculate motor powers using arcade drive math
+        double leftPower = drive + turn;
+        double rightPower = drive - turn;
+
+        // Normalize powers if they exceed 1.0 or -1.0
+        double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
+        if (maxPower > 1.0) {
+            leftPower /= maxPower;
+            rightPower /= maxPower;
+        }
 
         // Apply power to motors
         leftFront.setPower(leftPower);
@@ -75,14 +85,16 @@ public class TankDriveTestTeleop extends OpMode {
         rightBack.setPower(rightPower);
 
         // Update telemetry
-        telemetry.addData("Status", "Tank Drive Active");
-        telemetry.addData("Left Power", "%.3f", leftPower);
-        telemetry.addData("Right Power", "%.3f", rightPower);
+        telemetry.addData("Status", "Arcade Drive Active");
+        telemetry.addData("Drive Power", "%.3f", drive);
+        telemetry.addData("Turn Power", "%.3f", turn);
+        telemetry.addData("Left Motors", "%.3f", leftPower);
+        telemetry.addData("Right Motors", "%.3f", rightPower);
         telemetry.addData("Left Y", "%.3f", gamepad1.left_stick_y);
-        telemetry.addData("Right Y", "%.3f", gamepad1.right_stick_y);
+        telemetry.addData("Right X", "%.3f", gamepad1.right_stick_x);
 
         // Show gamepad inputs for debugging
-        telemetry.addData("Gamepad Active", gamepad1.left_stick_y != 0.0 || gamepad1.right_stick_y != 0.0);
+        telemetry.addData("Gamepad Active", gamepad1.left_stick_y != 0.0 || gamepad1.right_stick_x != 0.0);
 
         telemetry.update();
     }

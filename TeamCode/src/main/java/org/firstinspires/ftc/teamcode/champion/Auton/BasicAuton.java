@@ -26,6 +26,12 @@ public class BasicAuton extends LinearOpMode {
     public static long SHOOTING_DURATION_MS = 2000;
     public static long BALL_DETECTION_TIMEOUT_MS = 8000;
 
+    // Heading correction parameters for better turning accuracy
+    public static double HEADING_CORRECTION_FACTOR = 0.03; // Increased for better correction
+    public static double HEADING_TOLERANCE_DEGREES = 1.5; // Tighter tolerance for more precise turns
+    public static double MINIMUM_TURN_SPEED = 0.12; // Minimum speed to maintain turning
+    public static double HEADING_SMOOTHING_FACTOR = 0.3; // Smoothing for heading readings
+
     // Controllers
     private SixWheelDriveController driveController;
     private ShooterController shooterController;
@@ -89,10 +95,11 @@ public class BasicAuton extends LinearOpMode {
         telemetry.addLine("=== INITIALIZING CONTROLLERS ===");
         telemetry.update();
 
-        // Initialize drive controller
+        // Initialize drive controller first (required by other controllers)
         telemetry.addLine("Initializing drive controller...");
         telemetry.update();
         driveController = new SixWheelDriveController(this);
+        telemetry.addLine("✓ Drive controller initialized");
 
         // Initialize shooter components
         telemetry.addLine("Initializing shooter components...");
@@ -100,6 +107,19 @@ public class BasicAuton extends LinearOpMode {
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
         transferController = new TransferController(this);
+        telemetry.addLine("✓ Shooter components initialized");
+
+        // Initialize ramp controller
+        try {
+            telemetry.addLine("Initializing ramp controller...");
+            telemetry.update();
+            rampController = new RampController(this);
+            rampController.setTo0Degrees(); // Initialize ramp at 0 degrees
+            telemetry.addLine("✓ Ramp controller initialized at 0 degrees");
+        } catch (Exception e) {
+            telemetry.addData("WARNING", "Ramp controller failed to init: " + e.getMessage());
+            rampController = null;
+        }
 
         // Initialize Limelight alignment
         try {
@@ -123,20 +143,9 @@ public class BasicAuton extends LinearOpMode {
             ballAlignmentController = null;
         }
 
-        // Initialize ramp controller
-        try {
-            telemetry.addLine("Initializing ramp controller...");
-            telemetry.update();
-            rampController = new RampController(this);
-            rampController.setTo0Degrees(); // Initialize ramp at 0 degrees
-            telemetry.addLine("✓ Ramp controller initialized at 0 degrees");
-        } catch (Exception e) {
-            telemetry.addData("WARNING", "Ramp controller failed to init: " + e.getMessage());
-            rampController = null;
-        }
-
         telemetry.addLine("All controllers initialized successfully");
         telemetry.update();
+        sleep(500); // Brief pause to ensure all hardware is ready
     }
 
     private void executeAutonomousSequence() throws InterruptedException {
@@ -153,14 +162,19 @@ public class BasicAuton extends LinearOpMode {
         while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
                 (System.currentTimeMillis() - shooterStartTime) < SHOOTER_STARTUP_TIMEOUT_MS) {
             shooterController.updatePID();
+
+            // Update odometry more frequently for better accuracy
             driveController.updateOdometry();
 
             telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
             telemetry.addData("Target RPM", "%.0f", SHOOTER_TARGET_RPM);
             telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
+            telemetry.addData("Position X", "%.2f in", driveController.getX());
+            telemetry.addData("Position Y", "%.2f in", driveController.getY());
+            telemetry.addData("Heading", "%.2f°", driveController.getHeadingDegrees());
             telemetry.update();
 
-            sleep(20);
+            sleep(10); // Faster update rate for better responsiveness
         }
 
         if (shooterController.isAtTargetRPM()) {
@@ -370,11 +384,15 @@ public class BasicAuton extends LinearOpMode {
             double currentHeading = driveController.getHeading();
             double headingError = normalizeAngle(startHeading - currentHeading);
 
-            // Adjust motor speeds for straight backward movement with heading correction
+            // Adjust motor speeds for straight backward movement with improved heading correction
             double baseSpeed = -DRIVE_SPEED; // Negative for backward
-            double correction = headingError * 0.02; // Proportional correction
+            double correction = headingError * HEADING_CORRECTION_FACTOR; // Use configurable correction factor
             double leftSpeed = baseSpeed - correction;
             double rightSpeed = baseSpeed + correction;
+
+            // Apply speed limits to prevent excessive correction
+            leftSpeed = Math.max(-1.0, Math.min(1.0, leftSpeed));
+            rightSpeed = Math.max(-1.0, Math.min(1.0, rightSpeed));
 
             driveController.tankDrive(leftSpeed, rightSpeed);
 
@@ -430,11 +448,15 @@ public class BasicAuton extends LinearOpMode {
              double currentHeading = driveController.getHeading();
              double headingError = normalizeAngle(startHeading - currentHeading);
 
-             // Adjust motor speeds for straight forward movement with heading correction
+             // Adjust motor speeds for straight forward movement with improved heading correction
              double baseSpeed = DRIVE_SPEED; // Positive for forward
-             double correction = headingError * 0.02; // Proportional correction
+             double correction = headingError * HEADING_CORRECTION_FACTOR; // Use configurable correction factor
              double leftSpeed = baseSpeed + correction;
              double rightSpeed = baseSpeed - correction;
+
+             // Apply speed limits to prevent excessive correction
+             leftSpeed = Math.max(-1.0, Math.min(1.0, leftSpeed));
+             rightSpeed = Math.max(-1.0, Math.min(1.0, rightSpeed));
 
              driveController.tankDrive(leftSpeed, rightSpeed);
 
@@ -474,8 +496,8 @@ public class BasicAuton extends LinearOpMode {
          telemetry.update();
 
          double turnSpeed = 0.3; // Reduced for better control
-         double minTurnSpeed = 0.15; // Minimum speed to maintain turning
-         double headingTolerance = 2.0; // Degrees tolerance
+         double minTurnSpeed = MINIMUM_TURN_SPEED; // Use configurable minimum speed
+         double headingTolerance = HEADING_TOLERANCE_DEGREES; // Use configurable tolerance
          double slowdownAngle = 15.0; // Start slowing down within this many degrees
 
          long timeoutMs = 3000; // 3 second timeout
@@ -563,8 +585,8 @@ public class BasicAuton extends LinearOpMode {
          telemetry.update();
 
          double turnSpeed = 0.3; // Reduced for better control
-         double minTurnSpeed = 0.15; // Minimum speed to maintain turning
-         double headingTolerance = 2.0; // Degrees tolerance
+         double minTurnSpeed = MINIMUM_TURN_SPEED; // Use configurable minimum speed
+         double headingTolerance = HEADING_TOLERANCE_DEGREES; // Use configurable tolerance
          double slowdownAngle = 15.0; // Start slowing down within this many degrees
 
          long timeoutMs = 3000; // 3 second timeout

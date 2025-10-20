@@ -23,6 +23,9 @@ public class ShooterController {
     public static double SHOOTER_QUARTER_RPM = 1250;
     public static double SHOOTER_STOP_RPM = 0;
 
+    // Maximum allowed RPM for safety (configurable but enforced)
+    public static double MAX_SAFE_RPM = 2750.0;
+
     // Motor specifications
     public static double TICKS_PER_REV = 28;  // Adjust based on your encoder
     public static double WHEEL_DIAMETER_METERS = 0.10795;
@@ -172,6 +175,11 @@ public class ShooterController {
     }
 
     private void setTargetRPM(double rpm) {
+        // Enforce maximum safe RPM limit
+        if (rpm > MAX_SAFE_RPM) {
+            rpm = MAX_SAFE_RPM;
+        }
+
         targetRPM = rpm;
 
         if (rpm <= 0) {
