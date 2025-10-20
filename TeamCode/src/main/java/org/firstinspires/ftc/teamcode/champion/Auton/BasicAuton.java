@@ -493,6 +493,7 @@ public class BasicAuton extends LinearOpMode {
 
          telemetry.addData("Start Heading", "%.2f°", startHeading);
          telemetry.addData("Target Heading", "%.2f°", targetHeading);
+         telemetry.addData("Raw IMU Heading", "%.2f°", Math.toDegrees(driveController.getHeading()));
          telemetry.update();
 
          double turnSpeed = 0.3; // Reduced for better control
@@ -503,10 +504,15 @@ public class BasicAuton extends LinearOpMode {
          long timeoutMs = 3000; // 3 second timeout
          long turnStartTime = System.currentTimeMillis();
 
+         int loopCount = 0;
+         double initialRawHeading = driveController.getHeading(); // Raw radians
+
          while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < timeoutMs) {
+             loopCount++;
              // Update odometry to get current heading
              driveController.updateOdometry();
              double currentHeading = driveController.getHeadingDegrees();
+             double currentRawHeading = driveController.getHeading(); // Raw radians
 
              // Calculate shortest angle to target
              double headingError = getAngleError(targetHeading, currentHeading);
@@ -526,11 +532,18 @@ public class BasicAuton extends LinearOpMode {
              // Turn left (counter-clockwise): left side reverse, right side forward
              driveController.tankDrive(-speed, speed);
 
-             telemetry.addData("Current Heading", "%.2f°", currentHeading);
-             telemetry.addData("Heading Error", "%.2f°", headingError);
-             telemetry.addData("Turn Speed", "%.3f", speed);
-             telemetry.addData("Target Heading", "%.2f°", targetHeading);
-             telemetry.update();
+             // Debug logging every 5 loops to avoid telemetry spam
+             if (loopCount % 5 == 0) {
+                 telemetry.addData("Loop", loopCount);
+                 telemetry.addData("Current Heading", "%.2f°", currentHeading);
+                 telemetry.addData("Raw IMU (rad)", "%.4f", currentRawHeading);
+                 telemetry.addData("Heading Delta", "%.2f°", currentHeading - startHeading);
+                 telemetry.addData("Heading Error", "%.2f°", headingError);
+                 telemetry.addData("Turn Speed", "%.3f", speed);
+                 telemetry.addData("Target Heading", "%.2f°", targetHeading);
+                 telemetry.addData("Time Elapsed", "%.1fs", (System.currentTimeMillis() - turnStartTime) / 1000.0);
+                 telemetry.update();
+             }
 
              sleep(20);
          }
@@ -538,12 +551,21 @@ public class BasicAuton extends LinearOpMode {
          driveController.stopDrive();
          driveController.updateOdometry();
          double finalHeading = driveController.getHeadingDegrees();
+         double finalRawHeading = driveController.getHeading(); // Raw radians
          double finalError = getAngleError(targetHeading, finalHeading);
+         double totalTurnDegrees = finalHeading - startHeading;
+         double rawTurnRadians = finalRawHeading - initialRawHeading;
+         double rawTurnDegrees = Math.toDegrees(rawTurnRadians);
 
          telemetry.addLine("✓ Left turn complete");
          telemetry.addData("Final Heading", "%.2f°", finalHeading);
+         telemetry.addData("Final Raw IMU (rad)", "%.4f", finalRawHeading);
+         telemetry.addData("Total Turn (processed)", "%.2f°", totalTurnDegrees);
+         telemetry.addData("Total Turn (raw IMU)", "%.2f°", rawTurnDegrees);
+         telemetry.addData("Ratio (raw/processed)", "%.2f", Math.abs(rawTurnDegrees / totalTurnDegrees));
          telemetry.addData("Final Error", "%.2f°", finalError);
          telemetry.addData("Target Heading", "%.2f°", targetHeading);
+         telemetry.addData("Loops Executed", loopCount);
          telemetry.update();
          sleep(500);
      }
@@ -582,6 +604,7 @@ public class BasicAuton extends LinearOpMode {
 
          telemetry.addData("Start Heading", "%.2f°", startHeading);
          telemetry.addData("Target Heading", "%.2f°", targetHeading);
+         telemetry.addData("Raw IMU Heading", "%.2f°", Math.toDegrees(driveController.getHeading()));
          telemetry.update();
 
          double turnSpeed = 0.3; // Reduced for better control
@@ -592,10 +615,15 @@ public class BasicAuton extends LinearOpMode {
          long timeoutMs = 3000; // 3 second timeout
          long turnStartTime = System.currentTimeMillis();
 
+         int loopCount = 0;
+         double initialRawHeading = driveController.getHeading(); // Raw radians
+
          while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < timeoutMs) {
+             loopCount++;
              // Update odometry to get current heading
              driveController.updateOdometry();
              double currentHeading = driveController.getHeadingDegrees();
+             double currentRawHeading = driveController.getHeading(); // Raw radians
 
              // Calculate shortest angle to target
              double headingError = getAngleError(targetHeading, currentHeading);
@@ -615,11 +643,18 @@ public class BasicAuton extends LinearOpMode {
              // Turn right (clockwise): left side forward, right side reverse
              driveController.tankDrive(speed, -speed);
 
-             telemetry.addData("Current Heading", "%.2f°", currentHeading);
-             telemetry.addData("Heading Error", "%.2f°", headingError);
-             telemetry.addData("Turn Speed", "%.3f", speed);
-             telemetry.addData("Target Heading", "%.2f°", targetHeading);
-             telemetry.update();
+             // Debug logging every 5 loops to avoid telemetry spam
+             if (loopCount % 5 == 0) {
+                 telemetry.addData("Loop", loopCount);
+                 telemetry.addData("Current Heading", "%.2f°", currentHeading);
+                 telemetry.addData("Raw IMU (rad)", "%.4f", currentRawHeading);
+                 telemetry.addData("Heading Delta", "%.2f°", currentHeading - startHeading);
+                 telemetry.addData("Heading Error", "%.2f°", headingError);
+                 telemetry.addData("Turn Speed", "%.3f", speed);
+                 telemetry.addData("Target Heading", "%.2f°", targetHeading);
+                 telemetry.addData("Time Elapsed", "%.1fs", (System.currentTimeMillis() - turnStartTime) / 1000.0);
+                 telemetry.update();
+             }
 
              sleep(20);
          }
@@ -627,12 +662,21 @@ public class BasicAuton extends LinearOpMode {
          driveController.stopDrive();
          driveController.updateOdometry();
          double finalHeading = driveController.getHeadingDegrees();
+         double finalRawHeading = driveController.getHeading(); // Raw radians
          double finalError = getAngleError(targetHeading, finalHeading);
+         double totalTurnDegrees = finalHeading - startHeading;
+         double rawTurnRadians = finalRawHeading - initialRawHeading;
+         double rawTurnDegrees = Math.toDegrees(rawTurnRadians);
 
          telemetry.addLine("✓ Right turn complete");
          telemetry.addData("Final Heading", "%.2f°", finalHeading);
+         telemetry.addData("Final Raw IMU (rad)", "%.4f", finalRawHeading);
+         telemetry.addData("Total Turn (processed)", "%.2f°", totalTurnDegrees);
+         telemetry.addData("Total Turn (raw IMU)", "%.2f°", rawTurnDegrees);
+         telemetry.addData("Ratio (raw/processed)", "%.2f", Math.abs(rawTurnDegrees / totalTurnDegrees));
          telemetry.addData("Final Error", "%.2f°", finalError);
          telemetry.addData("Target Heading", "%.2f°", targetHeading);
+         telemetry.addData("Loops Executed", loopCount);
          telemetry.update();
          sleep(500);
      }

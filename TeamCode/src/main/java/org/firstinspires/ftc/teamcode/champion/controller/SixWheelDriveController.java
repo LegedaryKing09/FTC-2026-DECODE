@@ -483,6 +483,15 @@ public class SixWheelDriveController {
                 linearOpMode.telemetry.addData("Left Avg Vel", String.format(Locale.US, "%.0f ticks/s", getLeftVelocity()));
                 linearOpMode.telemetry.addData("Right Avg Vel", String.format(Locale.US, "%.0f ticks/s", getRightVelocity()));
             }
+
+            // Debug IMU and odometry
+            linearOpMode.telemetry.addLine();
+            linearOpMode.telemetry.addData("X Position", String.format(Locale.US, "%.2f in", robotX));
+            linearOpMode.telemetry.addData("Y Position", String.format(Locale.US, "%.2f in", robotY));
+            linearOpMode.telemetry.addData("Heading (processed)", String.format(Locale.US, "%.2f°", Math.toDegrees(robotHeading)));
+            linearOpMode.telemetry.addData("Yaw Scalar", OdometryParams.YAW_SCALAR);
+            linearOpMode.telemetry.addData("IMU Drift Rate", String.format(Locale.US, "%.6f rad/s", imuDriftRate));
+
         } else if (iterativeOpMode != null) {
             iterativeOpMode.telemetry.addLine("=== DRIVE STATUS ===");
             iterativeOpMode.telemetry.addData("Mode", currentDriveMode);
@@ -496,6 +505,14 @@ public class SixWheelDriveController {
                 iterativeOpMode.telemetry.addData("Left Vel", String.format(Locale.US, "%.0f t/s", getLeftVelocity()));
                 iterativeOpMode.telemetry.addData("Right Vel", String.format(Locale.US, "%.0f t/s", getRightVelocity()));
             }
+
+            // Debug IMU and odometry
+            iterativeOpMode.telemetry.addLine();
+            iterativeOpMode.telemetry.addData("X Position", String.format(Locale.US, "%.2f in", robotX));
+            iterativeOpMode.telemetry.addData("Y Position", String.format(Locale.US, "%.2f in", robotY));
+            iterativeOpMode.telemetry.addData("Heading (processed)", String.format(Locale.US, "%.2f°", Math.toDegrees(robotHeading)));
+            iterativeOpMode.telemetry.addData("Yaw Scalar", OdometryParams.YAW_SCALAR);
+            iterativeOpMode.telemetry.addData("IMU Drift Rate", String.format(Locale.US, "%.6f rad/s", imuDriftRate));
         }
     }
 
