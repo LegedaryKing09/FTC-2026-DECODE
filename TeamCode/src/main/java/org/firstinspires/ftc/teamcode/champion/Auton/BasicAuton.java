@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.champion.Auton;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.roadrunner.Vector2d;
+import com.acmerobotics.roadrunner.Pose2d;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -8,6 +10,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.BallAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.PurePursuitController;
 import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
@@ -40,6 +43,7 @@ public class BasicAuton extends LinearOpMode {
     private LimelightAlignmentController limelightController;
     private BallAlignmentController ballAlignmentController;
     private RampController rampController;
+    private PurePursuitController purePursuitController;
 
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
@@ -141,6 +145,17 @@ public class BasicAuton extends LinearOpMode {
         } catch (Exception e) {
             telemetry.addData("WARNING", "Ball alignment failed to init: " + e.getMessage());
             ballAlignmentController = null;
+        }
+
+        // Initialize pure pursuit controller
+        try {
+            telemetry.addLine("Initializing pure pursuit controller...");
+            telemetry.update();
+            purePursuitController = new PurePursuitController();
+            telemetry.addLine("✓ Pure pursuit controller initialized");
+        } catch (Exception e) {
+            telemetry.addData("WARNING", "Pure pursuit controller failed to init: " + e.getMessage());
+            purePursuitController = null;
         }
 
         telemetry.addLine("All controllers initialized successfully");
@@ -269,39 +284,117 @@ public class BasicAuton extends LinearOpMode {
 
         // Step 5: New Movement Sequence
         telemetry.clear();
-        telemetry.addLine("=== STEP 5: MOVEMENT SEQUENCE ===");
+        telemetry.addLine("=== STEP 5: PURE PURSUIT MOVEMENT SEQUENCE ===");
         telemetry.update();
 
-        // Step 5.1: Turn left 90 degrees
-        turnLeft90Degrees();
+        if (purePursuitController != null) {
+            // Step 5.1: Reset odometry to (0,0) at the start of the new movement sequence
+            driveController.resetOdometry();
+            telemetry.addLine("✓ Odometry reset to (0,0)");
+            telemetry.update();
+            sleep(500);
 
-        // Step 5.2: Move forward 10 inches with intake on
-        telemetry.clear();
-        telemetry.addLine("=== STEP 5.2: FORWARD MOVEMENT WITH INTAKE ===");
-        telemetry.addData("Target Distance", "10.0 inches");
-        telemetry.update();
+            // Step 5.2: Use PurePursuitController to navigate to point (0, 10) with intake on
+            telemetry.clear();
+            telemetry.addLine("=== STEP 5.2: NAVIGATING TO (0, 10) WITH INTAKE ===");
+            telemetry.addData("Target Point", "(0, 10)");
+            telemetry.update();
 
-        intakeController.intakeFull(); // Turn on intake
-        driveForwardWithOdometry(10.0);
+            intakeController.intakeFull(); // Turn on intake
+            purePursuitController.setTargetPosition(new Vector2d(0, 10));
 
-        telemetry.addLine("✓ Forward movement with intake complete");
-        telemetry.update();
-        sleep(500);
+            long navigationStartTime = System.currentTimeMillis();
+            long maxNavigationTime = 10000; // 10 second timeout
 
-        // Step 5.3: Move backward 10 inches (intake remains on)
-        telemetry.clear();
-        telemetry.addLine("=== STEP 5.3: BACKWARD MOVEMENT ===");
-        telemetry.addData("Target Distance", "10.0 inches");
-        telemetry.update();
+            while (opModeIsActive() && (System.currentTimeMillis() - navigationStartTime) < maxNavigationTime) {
+                driveController.updateOdometry();
 
-        driveBackwardWithOdometry(10.0);
+                Pose2d currentPose = new Pose2d(
+                    new Vector2d(driveController.getX(), driveController.getY()),
+                    driveController.getHeading()
+                );
 
-        telemetry.addLine("✓ Backward movement complete");
-        telemetry.update();
-        sleep(500);
+                double[] powers = purePursuitController.update(currentPose);
+                driveController.tankDriveVelocityNormalized(powers[0], powers[1]);
 
-        // Step 5.4: Turn right 90 degrees
-        turnRight90Degrees();
+                // Check if we've reached the target (within 1 inch)
+                double distanceToTarget = Math.sqrt(
+                    Math.pow(driveController.getX() - 0, 2) +
+                    Math.pow(driveController.getY() - 10, 2)
+                );
+
+                telemetry.addData("Current Position", "(%.1f, %.1f)", driveController.getX(), driveController.getY());
+                telemetry.addData("Distance to Target", "%.1f inches", distanceToTarget);
+                telemetry.addData("Intake", "ACTIVE");
+                telemetry.update();
+
+                if (distanceToTarget < 1.0) {
+                    break;
+                }
+
+                sleep(20);
+            }
+
+            driveController.stopDrive();
+            telemetry.addLine("✓ Navigation to (0, 10) complete");
+            telemetry.update();
+            sleep(500);
+
+            // Step 5.3: Reset odometry to (0,0) before the second navigation
+            driveController.resetOdometry();
+            telemetry.addLine("✓ Odometry reset to (0,0) before second navigation");
+            telemetry.update();
+            sleep(500);
+
+            // Step 5.4: Navigate to point (-10, 0) going backwards (to avoid 180 degree turn requirement)
+            telemetry.clear();
+            telemetry.addLine("=== STEP 5.4: NAVIGATING TO (-10, 0) BACKWARDS ===");
+            telemetry.addData("Target Point", "(-10, 0)");
+            telemetry.addData("Direction", "BACKWARDS");
+            telemetry.update();
+
+            purePursuitController.setTargetPosition(new Vector2d(-10, 0));
+
+            navigationStartTime = System.currentTimeMillis();
+
+            while (opModeIsActive() && (System.currentTimeMillis() - navigationStartTime) < maxNavigationTime) {
+                driveController.updateOdometry();
+
+                Pose2d currentPose = new Pose2d(
+                    new Vector2d(driveController.getX(), driveController.getY()),
+                    driveController.getHeading()
+                );
+
+                double[] powers = purePursuitController.update(currentPose);
+                // Reverse the powers for backward movement
+                driveController.tankDriveVelocityNormalized(-powers[0], -powers[1]);
+
+                // Check if we've reached the target (within 1 inch)
+                double distanceToTarget = Math.sqrt(
+                    Math.pow(driveController.getX() - (-10), 2) +
+                    Math.pow(driveController.getY() - 0, 2)
+                );
+
+                telemetry.addData("Current Position", "(%.1f, %.1f)", driveController.getX(), driveController.getY());
+                telemetry.addData("Distance to Target", "%.1f inches", distanceToTarget);
+                telemetry.addData("Direction", "BACKWARDS");
+                telemetry.update();
+
+                if (distanceToTarget < 1.0) {
+                    break;
+                }
+
+                sleep(20);
+            }
+
+            driveController.stopDrive();
+            telemetry.addLine("✓ Backward navigation to (-10, 0) complete");
+            telemetry.update();
+            sleep(500);
+
+        } else {
+            telemetry.addLine("⚠ Pure pursuit controller not available - skipping movement sequence");
+        }
 
         // Step 5.5: Activate shooting mechanism
         telemetry.clear();
