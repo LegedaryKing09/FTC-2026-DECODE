@@ -282,7 +282,7 @@ public class BasicAuton extends LinearOpMode {
             telemetry.update();
 
             intakeController.intakeFull(); // Turn on intake
-            purePursuitController.setTargetPosition(new Vector2d(0, 10));
+            purePursuitController.setTargetPosition(new Vector2d(0, -10));
 
             long navigationStartTime = System.currentTimeMillis();
             long maxNavigationTime = 10000; // 10 second timeout
