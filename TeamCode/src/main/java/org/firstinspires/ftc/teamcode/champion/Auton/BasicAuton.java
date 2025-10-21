@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.BallAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
@@ -44,6 +45,7 @@ public class BasicAuton extends LinearOpMode {
     private BallAlignmentController ballAlignmentController;
     private RampController rampController;
     private PurePursuitController purePursuitController;
+    private AutoShootController autoShootController;
 
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
@@ -158,6 +160,23 @@ public class BasicAuton extends LinearOpMode {
             purePursuitController = null;
         }
 
+        // Initialize auto shoot controller
+        try {
+            telemetry.addLine("Initializing auto shoot controller...");
+            telemetry.update();
+            autoShootController = new AutoShootController(this,
+                    driveController,
+                    shooterController,
+                    intakeController,
+                    transferController,
+                    limelightController,
+                    rampController);
+            telemetry.addLine("✓ Auto shoot controller initialized");
+        } catch (Exception e) {
+            telemetry.addData("WARNING", "Auto shoot controller failed to init: " + e.getMessage());
+            autoShootController = null;
+        }
+
         telemetry.addLine("All controllers initialized successfully");
         telemetry.update();
         sleep(500); // Brief pause to ensure all hardware is ready
@@ -212,73 +231,35 @@ public class BasicAuton extends LinearOpMode {
         telemetry.update();
         sleep(500);
 
-        // Step 3: AprilTag Alignment
+        // Step 3 & 4: Auto Shooting Sequence
         telemetry.clear();
-        telemetry.addLine("=== STEP 3: APRILTAG ALIGNMENT ===");
+        telemetry.addLine("=== STEPS 3 & 4: AUTO SHOOTING SEQUENCE ===");
         telemetry.update();
 
-        if (limelightController != null) {
-            limelightController.startAlignment();
+        if (autoShootController != null) {
+            autoShootController.executeDistanceBasedAutoShoot();
 
-            // Wait for alignment to complete
-            long alignmentStartTime = System.currentTimeMillis();
+            // Wait for auto-shoot to complete
+            long autoShootStartTime = System.currentTimeMillis();
             while (opModeIsActive() &&
-                   !limelightController.isAligned() &&
-                   (System.currentTimeMillis() - alignmentStartTime) < 5000) {
+                   autoShootController.isAutoShooting() &&
+                   (System.currentTimeMillis() - autoShootStartTime) < 15000) { // 15 second timeout
 
                 driveController.updateOdometry();
-                limelightController.displayTelemetry();
-
-                if (limelightController.hasTarget()) {
-                    telemetry.addData("Target Error", "%.2f°", limelightController.getTargetError());
-                }
-
+                autoShootController.addTelemetry(telemetry);
                 telemetry.update();
+
                 sleep(20);
             }
 
-            if (limelightController.isAligned()) {
-                telemetry.addLine("✓ AprilTag alignment complete");
+            if (!autoShootController.isAutoShooting()) {
+                telemetry.addLine("✓ Auto shooting sequence complete");
             } else {
-                telemetry.addLine("⚠ AprilTag alignment timeout");
+                telemetry.addLine("⚠ Auto shooting sequence timeout");
             }
         } else {
-            telemetry.addLine("⚠ Limelight controller not available");
+            telemetry.addLine("⚠ Auto shoot controller not available");
         }
-        telemetry.update();
-        sleep(500);
-
-        // Step 4: Shooting Sequence
-        telemetry.clear();
-        telemetry.addLine("=== STEP 4: SHOOTING SEQUENCE ===");
-        telemetry.update();
-
-        // Turn on transfer mechanism
-        transferController.transferFull();
-
-        // Turn on intake to feed balls
-        intakeController.intakeFull();
-
-        // Wait for shooting duration
-        long shootStartTime = System.currentTimeMillis();
-        while (opModeIsActive() && (System.currentTimeMillis() - shootStartTime) < SHOOTING_DURATION_MS) {
-            shooterController.updatePID();
-            driveController.updateOdometry();
-
-            telemetry.addData("Shooting Progress", "%.1f seconds",
-                (System.currentTimeMillis() - shootStartTime) / 1000.0);
-            telemetry.addData("Shooter RPM", "%.0f", shooterController.getShooterRPM());
-            telemetry.addData("Transfer", "ACTIVE");
-            telemetry.addData("Intake", "ACTIVE");
-            telemetry.update();
-
-            sleep(20);
-        }
-
-        // Turn off transfer
-        transferController.transferStop();
-
-        telemetry.addLine("✓ Shooting sequence complete");
         telemetry.update();
         sleep(500);
 
