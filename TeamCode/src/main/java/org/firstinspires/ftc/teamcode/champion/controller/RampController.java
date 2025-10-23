@@ -12,17 +12,17 @@ public class RampController {
     public static double RANGE_SERVO_MAX_POSITION = 1.0;
     public static double RANGE_SERVO_CENTER_POSITION = 0.5;
 
-    // 240-degree specific constants
-    public static double MAX_ANGLE_DEGREES = 240.0;
+    // 170-degree specific constants
+    public static double MAX_ANGLE_DEGREES = 170.0;
     public static double MIN_ANGLE_DEGREES = 0.0;
-    public static double CENTER_ANGLE_DEGREES = 120.0;
+    public static double CENTER_ANGLE_DEGREES = 85.0;
 
     // Common angle positions
     public static double ANGLE_0_DEG = 0.0;
-    public static double ANGLE_60_DEG = 60.0;
-    public static double ANGLE_120_DEG = 120.0;
-    public static double ANGLE_180_DEG = 180.0;
-    public static double ANGLE_240_DEG = 240.0;
+    public static double ANGLE_42_5_DEG = 42.5;
+    public static double ANGLE_85_DEG = 85.0;
+    public static double ANGLE_127_5_DEG = 127.5;
+    public static double ANGLE_170_DEG = 170.0;
 
     private final Servo ramp;
 
@@ -44,11 +44,11 @@ public class RampController {
         return ramp.getPosition();
     }
 
-    // Angle-based methods (0 to 240 degrees)
+    // Angle-based methods (0 to 170 degrees)
     public void setAngle(double angleDegrees) {
         // Clamp angle to valid range
         angleDegrees = Math.max(MIN_ANGLE_DEGREES, Math.min(MAX_ANGLE_DEGREES, angleDegrees));
-        // Convert angle to position (0-240° maps to 0.0-1.0)
+        // Convert angle to position (0-170° maps to 0.0-1.0)
         double position = angleDegrees / MAX_ANGLE_DEGREES;
         setPosition(position);
     }
@@ -84,23 +84,23 @@ public class RampController {
         setAngle(ANGLE_0_DEG);
     }
 
-    public void setTo60Degrees() {
-        setAngle(ANGLE_60_DEG);
+    public void setTo42_5Degrees() {
+        setAngle(ANGLE_42_5_DEG);
     }
 
-    public void setTo120Degrees() {
-        setAngle(ANGLE_120_DEG);
+    public void setTo85Degrees() {
+        setAngle(ANGLE_85_DEG);
     }
 
-    public void setTo180Degrees() {
-        setAngle(ANGLE_180_DEG);
+    public void setTo127_5Degrees() {
+        setAngle(ANGLE_127_5_DEG);
     }
 
-    public void setTo240Degrees() {
-        setAngle(ANGLE_240_DEG);
+    public void setTo170Degrees() {
+        setAngle(ANGLE_170_DEG);
     }
 
-    // Incremental movement methods
+    // Incremental movement methods (still 2.5 degrees per increment)
     public void incrementAngle(double degrees) {
         double currentAngle = getAngle();
         setAngle(currentAngle + degrees);
