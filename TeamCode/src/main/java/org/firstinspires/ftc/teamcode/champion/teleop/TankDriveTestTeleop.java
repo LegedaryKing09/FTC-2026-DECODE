@@ -35,7 +35,7 @@ public class TankDriveTestTeleop extends OpMode {
             // Set motor directions to match existing configuration
             leftFront.setDirection(DcMotor.Direction.FORWARD);
             leftBack.setDirection(DcMotor.Direction.REVERSE);
-            rightFront.setDirection(DcMotor.Direction.REVERSE);
+            rightFront.setDirection(DcMotor.Direction.FORWARD);
             rightBack.setDirection(DcMotor.Direction.FORWARD);
 
             // Set motors to brake mode for better control
@@ -64,8 +64,8 @@ public class TankDriveTestTeleop extends OpMode {
     @Override
     public void loop() {
         // Get joystick inputs - forward/backward and turning
-        double drive = -gamepad1.left_stick_y;  // Forward/backward movement
-        double turn = gamepad1.right_stick_x;   // Turning movement
+        double drive = gamepad1.right_stick_x;  // Forward/backward movement
+        double turn = -gamepad1.left_stick_y;   // Turning movement
 
         // Calculate motor powers using arcade drive math
         double leftPower = drive + turn;

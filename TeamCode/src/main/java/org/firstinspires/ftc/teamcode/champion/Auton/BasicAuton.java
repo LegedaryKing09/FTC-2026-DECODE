@@ -159,13 +159,13 @@ public class BasicAuton extends LinearOpMode {
 
         // Get initial position
         driveController.updateOdometry();
-        double startY = driveController.getY();
+        double startX = driveController.getX();
 
         // Move backward (negative Y direction) until 60 inches traveled
         double targetDistance = 60.0; // inches
         double speed = -0.3; // backward speed
 
-        while (opModeIsActive() && Math.abs(driveController.getY() - startY) < targetDistance) {
+        while (opModeIsActive() && Math.abs(driveController.getX() - startX) < targetDistance) {
             // Update odometry
             driveController.updateOdometry();
 
@@ -174,8 +174,8 @@ public class BasicAuton extends LinearOpMode {
 
             // Telemetry
             multiTelemetry.addData("Step 1 Progress", "%.1f / %.1f inches",
-                    Math.abs(driveController.getY() - startY), targetDistance);
-            multiTelemetry.addData("Current Y", "%.2f", driveController.getY());
+                    Math.abs(driveController.getX() - startX), targetDistance);
+            multiTelemetry.addData("Current Y", "%.2f", driveController.getX());
             multiTelemetry.addData("Shooter RPM", "%.0f", shooterController.getShooterRPM());
             multiTelemetry.update();
 
