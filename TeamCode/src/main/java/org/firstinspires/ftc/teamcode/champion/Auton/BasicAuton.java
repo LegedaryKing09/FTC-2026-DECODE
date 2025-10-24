@@ -206,18 +206,6 @@ public class BasicAuton extends LinearOpMode {
             // Execute autoshoot sequence
             autoShootController.executeDistanceBasedAutoShoot();
 
-            // Wait for autoshoot to complete (polling)
-            ElapsedTime shootTimer = new ElapsedTime();
-            while (opModeIsActive() && autoShootController.isAutoShooting() &&
-                   shootTimer.seconds() < 10.0) { // 10 second timeout
-
-                multiTelemetry.addData("AutoShoot Status", autoShootController.getCurrentStatus());
-                multiTelemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
-                multiTelemetry.update();
-
-                sleep(100);
-            }
-
             if (!autoShootController.isAutoShooting()) {
                 multiTelemetry.addLine("✓ Step 2 complete: Autoshoot sequence finished");
             } else {
@@ -264,7 +252,7 @@ public class BasicAuton extends LinearOpMode {
             multiTelemetry.update();
 
             // Check if turn is complete (within 2 degrees)
-            if (Math.abs(headingError) <= 2.0) {
+            if (Math.abs(headingError) <= 10.0) {
                 break;
             }
 
@@ -395,7 +383,7 @@ public class BasicAuton extends LinearOpMode {
             multiTelemetry.update();
 
             // Check if turn is complete (within 2 degrees)
-            if (Math.abs(headingError) <= 2.0) {
+            if (Math.abs(headingError) <= 10.0) {
                 break;
             }
 
@@ -419,18 +407,6 @@ public class BasicAuton extends LinearOpMode {
         if (autoShootController != null) {
             // Execute autoshoot sequence - this will change RPM to calculated value, then back to half after
             autoShootController.executeDistanceBasedAutoShoot();
-
-            // Wait for autoshoot to complete
-            ElapsedTime shootTimer = new ElapsedTime();
-            while (opModeIsActive() && autoShootController.isAutoShooting() &&
-                   shootTimer.seconds() < 10.0) { // 10 second timeout
-
-                multiTelemetry.addData("AutoShoot Status", autoShootController.getCurrentStatus());
-                multiTelemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
-                multiTelemetry.update();
-
-                sleep(100);
-            }
 
             if (!autoShootController.isAutoShooting()) {
                 multiTelemetry.addLine("✓ Step 6 complete: Second autoshoot sequence finished");
