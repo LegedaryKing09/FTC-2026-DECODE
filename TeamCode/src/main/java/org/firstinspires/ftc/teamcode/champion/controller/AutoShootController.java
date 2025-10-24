@@ -35,7 +35,7 @@ public class AutoShootController {
 
     // ========== SHOOTING SEQUENCE PARAMETERS ==========
     public static int APRILTAG_ID = 20;
-    public static double ALIGNMENT_THRESHOLD = 1.0;
+    public static double ALIGNMENT_THRESHOLD = 1.5;  // Increased from 1.0 to match user's error
     public static long ALIGNMENT_TIMEOUT = 2000;
     public static long RPM_TIMEOUT = 3000;
     public static long SHOOT_DURATION = 1000;

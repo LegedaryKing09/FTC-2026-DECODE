@@ -154,8 +154,12 @@ public class BasicAuton extends LinearOpMode {
      * Step 1: Move backward 60in with shooter at half RPM
      */
     private void executeStep1() throws InterruptedException {
-        // Start shooter at half RPM
+        // Start shooter at half RPM FIRST
         shooterController.shooterHalf();
+
+        // Let shooter start accelerating during movement
+        // Update PID regularly to accelerate shooter
+        shooterController.updatePID();
 
         // Get initial position
         driveController.updateOdometry();
@@ -169,14 +173,18 @@ public class BasicAuton extends LinearOpMode {
             // Update odometry
             driveController.updateOdometry();
 
+            // Keep shooter accelerating
+            shooterController.updatePID();
+
             // Arcade drive backward (drive = negative, turn = 0)
             driveController.arcadeDrive(speed, 0);
 
             // Telemetry
             multiTelemetry.addData("Step 1 Progress", "%.1f / %.1f inches",
                     Math.abs(driveController.getX() - startX), targetDistance);
-            multiTelemetry.addData("Current Y", "%.2f", driveController.getX());
+            multiTelemetry.addData("Current X", "%.2f", driveController.getX());
             multiTelemetry.addData("Shooter RPM", "%.0f", shooterController.getShooterRPM());
+            multiTelemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
             multiTelemetry.update();
 
             sleep(20);
@@ -227,7 +235,7 @@ public class BasicAuton extends LinearOpMode {
      * Step 3: Turn left 90 degrees
      */
     private void executeStep3() throws InterruptedException {
-        // Get initial heading
+        // Use odometry IMU heading (from pinpoint) as used in tests and purepursuit
         driveController.updateOdometry();
         double startHeading = driveController.getHeadingDegrees();
         double targetHeading = startHeading - 90.0; // Left turn = negative
@@ -260,7 +268,7 @@ public class BasicAuton extends LinearOpMode {
                 break;
             }
 
-            // Apply turn
+            // Apply turn using odometry heading
             driveController.arcadeDrive(0, turnSpeed);
 
             sleep(20);
@@ -358,7 +366,7 @@ public class BasicAuton extends LinearOpMode {
      * Step 6: Turn right 90 degrees and execute autoshoot sequence again
      */
     private void executeStep6() throws InterruptedException {
-        // Turn right 90 degrees
+        // Turn right 90 degrees - using odometry IMU heading
         driveController.updateOdometry();
         double startHeading = driveController.getHeadingDegrees();
         double targetHeading = startHeading + 90.0; // Right turn = positive
@@ -391,7 +399,7 @@ public class BasicAuton extends LinearOpMode {
                 break;
             }
 
-            // Apply turn
+            // Apply turn using odometry heading
             driveController.arcadeDrive(0, turnSpeed);
 
             sleep(20);
@@ -404,12 +412,12 @@ public class BasicAuton extends LinearOpMode {
         multiTelemetry.update();
         sleep(500);
 
-        // Execute autoshoot sequence again
+        // Execute autoshoot sequence again - shooter should already be at half RPM
         multiTelemetry.addLine("Step 6b: Executing autoshoot sequence again");
         multiTelemetry.update();
 
         if (autoShootController != null) {
-            // Execute autoshoot sequence
+            // Execute autoshoot sequence - this will change RPM to calculated value, then back to half after
             autoShootController.executeDistanceBasedAutoShoot();
 
             // Wait for autoshoot to complete
