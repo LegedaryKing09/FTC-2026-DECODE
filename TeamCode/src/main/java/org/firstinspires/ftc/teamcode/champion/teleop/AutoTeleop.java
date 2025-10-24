@@ -48,6 +48,10 @@ public class AutoTeleop extends LinearOpMode {
     boolean isPressingLeftStickButton = false;
     boolean isPressingRightStickButton = false;
 
+    // Toggle states for intake
+    boolean isIntakeRunning = false;
+    boolean isIntakeEjecting = false;
+
     @Override
     public void runOpMode() {
 
@@ -60,7 +64,6 @@ public class AutoTeleop extends LinearOpMode {
 
         LimelightAlignmentController tempLimelight = null;
         try {
-            // FIX: Pass both opMode (this) and driveController
             tempLimelight = new LimelightAlignmentController(this, driveController);
             tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
         } catch (Exception e) {
@@ -68,7 +71,6 @@ public class AutoTeleop extends LinearOpMode {
             telemetry.update();
         }
         limelightController = tempLimelight;
-
 
         // Initialize enhanced auto shoot controller with ramp controller (7 parameters now)
         autoShootController = new AutoShootController(
@@ -81,9 +83,6 @@ public class AutoTeleop extends LinearOpMode {
                 rampController
         );
 
-        double drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
-        double turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
-
         // Initialize ramp to starting position
         rampController.setTo0Degrees();
 
@@ -93,11 +92,12 @@ public class AutoTeleop extends LinearOpMode {
 
             shooterController.updatePID();
 
+            // Calculate drive and turn based on current speed mode
+            double drive, turn;
             if (driveController.isFastSpeedMode()) {
                 drive = -gamepad1.left_stick_y * SixWheelDriveController.FAST_SPEED_MULTIPLIER;
                 turn = gamepad1.right_stick_x * SixWheelDriveController.FAST_TURN_MULTIPLIER;
-            }
-            if (!driveController.isFastSpeedMode()) {
+            } else {
                 drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
                 turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
             }
@@ -134,6 +134,9 @@ public class AutoTeleop extends LinearOpMode {
                 shooterController.shooterStop();
                 intakeController.intakeStop();
                 transferController.transferStop();
+                // Reset intake toggle states
+                isIntakeRunning = false;
+                isIntakeEjecting = false;
             } else if (!gamepad1.x && isPressingX) {
                 isPressingX = false;
             }
@@ -154,31 +157,49 @@ public class AutoTeleop extends LinearOpMode {
                 isPressingDpadDown = false;
             }
 
-            // Right trigger: Transfer full
+            // Right trigger: Transfer full (hold to run)
             if (gamepad1.right_trigger > 0.1 && !isPressingRightTrigger) {
                 isPressingRightTrigger = true;
                 transferController.transferFull();
             } else if (gamepad1.right_trigger < 0.1 && isPressingRightTrigger) {
                 isPressingRightTrigger = false;
-                transferController.transferFull();
+                transferController.transferStop();
             }
 
-            // Right bumper: Intake full
+            // Right bumper: Toggle intake forward
             if (gamepad1.right_bumper && !isPressingRightBumper) {
                 isPressingRightBumper = true;
-                intakeController.intakeFull();
+
+                if (isIntakeRunning) {
+                    // If intake is running, stop it
+                    intakeController.intakeStop();
+                    isIntakeRunning = false;
+                } else {
+                    // If intake is not running, start it (and stop ejecting if it was)
+                    intakeController.intakeFull();
+                    isIntakeRunning = true;
+                    isIntakeEjecting = false;
+                }
             } else if (!gamepad1.right_bumper && isPressingRightBumper) {
                 isPressingRightBumper = false;
-                intakeController.intakeStop();
             }
 
-            // Left bumper: Intake eject
+            // Left bumper: Toggle intake eject
             if (gamepad1.left_bumper && !isPressingLeftBumper) {
                 isPressingLeftBumper = true;
-                intakeController.intakeEject();
+
+                if (isIntakeEjecting) {
+                    // If intake is ejecting, stop it
+                    intakeController.intakeStop();
+                    isIntakeEjecting = false;
+                } else {
+                    // If intake is not ejecting, start it (and stop forward if it was)
+                    intakeController.intakeEject();
+                    isIntakeEjecting = true;
+                    isIntakeRunning = false;
+                }
             } else if (!gamepad1.left_bumper && isPressingLeftBumper) {
                 isPressingLeftBumper = false;
-                intakeController.intakeStop();
             }
 
             // Left stick button: Manual ramp retract (decrease angle)
@@ -263,7 +284,12 @@ public class AutoTeleop extends LinearOpMode {
 
                 telemetry.addData("Shooting Power", "%.2f%% (%.0f RPM)",
                         SHOOTING_POWER * 100, SHOOTING_POWER * ShooterController.SHOOTER_FULL_RPM);
-                telemetry.addData("Intake Power:", INTAKE_POWER);
+
+                // Updated intake status display
+                String intakeStatus = "STOPPED";
+                if (isIntakeRunning) intakeStatus = "RUNNING";
+                else if (isIntakeEjecting) intakeStatus = "EJECTING";
+                telemetry.addData("Intake Status", intakeStatus);
 
                 telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
                 telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
@@ -284,14 +310,15 @@ public class AutoTeleop extends LinearOpMode {
 
                 telemetry.addLine();
                 telemetry.addLine("=== CONTROLS ===");
-                telemetry.addLine("A: Fast Speed Mode");
-                telemetry.addLine("B: Slow Speed Mode");
-                telemetry.addLine("Y: Custom Power Shooter");
-                telemetry.addLine("X: Stop All");
+                telemetry.addLine("A: Fast Speed Mode | B: Slow Speed Mode");
+                telemetry.addLine("Y: Custom Power Shooter | X: Stop All");
                 telemetry.addLine("D-Pad UP/DOWN: Adjust Shooter Power");
-                telemetry.addLine("D-Pad LEFT: Auto-Shoot (with auto ramp)");
-                telemetry.addLine("D-Pad RIGHT: Toggle Manual Alignment");
+                telemetry.addLine("D-Pad LEFT: Auto-Shoot | D-Pad RIGHT: Toggle Alignment");
+                telemetry.addLine("Right Bumper: Toggle Intake Forward");
+                telemetry.addLine("Left Bumper: Toggle Intake Eject");
+                telemetry.addLine("Right Trigger: Transfer (hold)");
                 telemetry.addLine("L/R Stick Buttons: Manual Ramp Control");
+                telemetry.addLine("Back: Toggle Speed Mode | Start: Toggle Telemetry");
             }
 
             telemetry.update();
