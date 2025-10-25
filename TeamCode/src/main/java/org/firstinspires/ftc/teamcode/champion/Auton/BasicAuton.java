@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.Auton;
 
+import android.annotation.SuppressLint;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -117,6 +119,7 @@ public class BasicAuton extends LinearOpMode {
     /**
      * Move backward a specified distance using odometry
      */
+    @SuppressLint("DefaultLocale")
     private void moveBackwardWithOdometry(double distanceInches) {
         // Record starting position
         driveController.updateOdometry();
@@ -163,6 +166,7 @@ public class BasicAuton extends LinearOpMode {
     /**
      * Execute the auto-shoot sequence and wait for completion
      */
+    @SuppressLint("DefaultLocale")
     private void executeAutoShootSequence() {
         // Trigger the auto-shoot sequence (runs in separate thread)
         autoShootController.executeDistanceBasedAutoShoot();

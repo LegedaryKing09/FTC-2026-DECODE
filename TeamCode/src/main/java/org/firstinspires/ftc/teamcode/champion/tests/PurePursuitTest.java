@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.tests;
 
+import android.annotation.SuppressLint;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Pose2d;
@@ -15,7 +17,6 @@ public class PurePursuitTest extends LinearOpMode {
 
     private SixWheelDriveController driveController;
     private PurePursuitController pursuitController;
-    private Vector2d targetPosition;
     public static double targetX = 48;
     public static double targetY = 48;
     private static final double DISTANCE_THRESHOLD = 5.0;
@@ -39,8 +40,9 @@ public class PurePursuitTest extends LinearOpMode {
         }
     }
 
+    @SuppressLint("DefaultLocale")
     public void goToPosition(double x, double y) {
-        targetPosition = new Vector2d(x, y);
+        Vector2d targetPosition = new Vector2d(x, y);
         pursuitController.setTargetPosition(targetPosition);
 
         telemetry.addData("Target", String.format("(%.1f, %.1f)", targetPosition.x, targetPosition.y));

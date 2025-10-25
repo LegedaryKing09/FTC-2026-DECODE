@@ -15,7 +15,6 @@ public class RampController {
     // 170-degree specific constants
     public static double MAX_ANGLE_DEGREES = 170.0;
     public static double MIN_ANGLE_DEGREES = 0.0;
-    public static double CENTER_ANGLE_DEGREES = 85.0;
 
     // Common angle positions
     public static double ANGLE_0_DEG = 0.0;

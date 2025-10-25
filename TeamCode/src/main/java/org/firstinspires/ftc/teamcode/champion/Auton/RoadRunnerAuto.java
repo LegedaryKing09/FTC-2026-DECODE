@@ -8,16 +8,12 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDrive;
 
 @Config
 @Autonomous
 public class RoadRunnerAuto extends LinearOpMode {
 
     public static double ForwardInch = 24.0;
-    public static double BackwardInch = -8.0;
-    public static double TurnAngle = 90.0;
-    public static double SecondForward = 4.0;
     public static double SecondTurn = 180.0;
 
 

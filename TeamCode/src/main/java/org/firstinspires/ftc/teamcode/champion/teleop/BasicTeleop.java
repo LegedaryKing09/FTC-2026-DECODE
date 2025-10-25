@@ -5,7 +5,6 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
@@ -32,8 +31,8 @@ public class BasicTeleop extends LinearOpMode {
     public static double RAMP_INCREMENT = 2.5;
 
     boolean isManualAligning = false;
-    boolean lastdpadLeft = false;
-    boolean lastdpadRight = false;
+    boolean last_dpadLeft = false;
+    boolean last_dpadRight = false;
     boolean isUsingTelemetry = true;
     boolean isPressingB = false;
     boolean isPressingA = false;
@@ -195,12 +194,9 @@ public class BasicTeleop extends LinearOpMode {
                     telemetry.addLine(">>> ALIGNED - Ready to shoot!");
                 }
             }
-            //if (gamepad1.dpad_left && !lastdpadLeft && !autoShootController.isAutoShooting()) {
-               // autoShootController.executeAutoShootSequence();
-            //}
-            lastdpadLeft = gamepad1.dpad_left;
+            last_dpadLeft = gamepad1.dpad_left;
 
-            if (gamepad1.dpad_right && !lastdpadRight) {
+            if (gamepad1.dpad_right && !last_dpadRight) {
                 if (!isManualAligning && !autoShootController.isAutoShooting()) {
                     isManualAligning = true;
                     limelightController.startAlignment();

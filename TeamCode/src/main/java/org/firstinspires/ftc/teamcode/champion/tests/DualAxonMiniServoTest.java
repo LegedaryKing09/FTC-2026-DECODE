@@ -7,12 +7,9 @@ import org.firstinspires.ftc.teamcode.champion.controller.AxonMiniServoControlle
 
 @TeleOp(name = "Dual AXON Mini Servo Test", group = "Tests")
 public class DualAxonMiniServoTest extends LinearOpMode {
-
-    private AxonMiniServoController axonMiniServoController;
-
     @Override
     public void runOpMode() throws InterruptedException {
-        axonMiniServoController = new AxonMiniServoController(this);
+        AxonMiniServoController axonMiniServoController = new AxonMiniServoController(this);
 
         telemetry.addData("Status", "Initialized - Second servo: " + (axonMiniServoController.hasSecondServo() ? "Present" : "Not Found"));
         telemetry.addData("Controls", "");

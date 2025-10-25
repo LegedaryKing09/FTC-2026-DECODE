@@ -13,7 +13,6 @@ import java.util.List;
 
 /**
  * Limelight Mount Angle Calibration Tool
- *
  * HOW TO USE:
  * 1. Measure the actual distance from your robot to the AprilTag (use a tape measure)
  * 2. Enter this distance in ACTUAL_DISTANCE_INCHES via FTC Dashboard
@@ -180,9 +179,8 @@ public class LimelightCalibrationTool extends LinearOpMode {
         double heightDiff = GOAL_HEIGHT_INCHES - LIMELIGHT_LENS_HEIGHT_INCHES;
         double correctTotalAngleRadians = Math.atan(heightDiff / actualDistance);
         double correctTotalAngleDegrees = correctTotalAngleRadians * (180.0 / Math.PI);
-        double correctMountAngle = correctTotalAngleDegrees - ty;
 
-        return correctMountAngle;
+        return correctTotalAngleDegrees - ty;
     }
 
     /**

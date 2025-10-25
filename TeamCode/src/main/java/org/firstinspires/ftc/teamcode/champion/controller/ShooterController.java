@@ -144,13 +144,11 @@ public class ShooterController {
                     double iTerm = kI * integralSum;
 
                     // Derivative term - predicts future error based on rate of change
-                    double derivative = 0;
-                    if (deltaTime > 0) {
-                        derivative = (error - lastError) / deltaTime;
-                        // Low-pass filter to reduce noise
-                        derivative = (DERIVATIVE_FILTER_GAIN * derivative) +
-                                ((1 - DERIVATIVE_FILTER_GAIN) * lastDerivative);
-                    }
+                    double derivative;
+                    derivative = (error - lastError) / deltaTime;
+                    // Low-pass filter to reduce noise
+                    derivative = (DERIVATIVE_FILTER_GAIN * derivative) +
+                            ((1 - DERIVATIVE_FILTER_GAIN) * lastDerivative);
                     double dTerm = kD * derivative;
 
                     // Calculate total PID output as motor power adjustment

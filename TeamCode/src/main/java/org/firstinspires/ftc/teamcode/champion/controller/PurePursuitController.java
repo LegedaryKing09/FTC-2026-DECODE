@@ -4,8 +4,6 @@ import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Pose2d;
 
 import java.util.List;
-import java.util.Arrays;
-import java.util.ArrayList;
 
 public class PurePursuitController {
 
@@ -13,9 +11,6 @@ public class PurePursuitController {
     private double lookAheadDistance = 12.0; // inches
     private double maxSpeed = 0.6; // Reduced for better control with velocity control
     private double trackWidth = 15.0; // inches - match the track width used in auton
-    private double minSpeed = 0.2; // Reduced minimum speed for finer control
-    private double maxCurvatureLeft = 1.2; // Reduced for smoother turns
-    private double maxCurvatureRight = 1.2; // Reduced for smoother turns
     private Vector2d targetPosition;
 
     public PurePursuitController() {
@@ -46,7 +41,6 @@ public class PurePursuitController {
 
         // Find closest point on path
         int closestIndex = findClosestPoint(currentPose.position);
-        Vector2d closestPoint = path.get(closestIndex);
 
         // Find look-ahead point
         Vector2d lookAheadPoint = findLookAheadPoint(closestIndex, currentPose.position);
@@ -66,12 +60,17 @@ public class PurePursuitController {
         double curvature = 2 * cross / (distToLookAhead * distToLookAhead);
 
         // Clamp curvature to prevent over-turning, using different limits for left/right
-        double maxCurv = (curvature > 0) ? maxCurvatureLeft : maxCurvatureRight;
+        // Reduced for smoother turns
+        double maxCurvatureLeft = 1.2;
+        // Reduced for smoother turns
+        double maxCurvatureRight = 1.2;
         curvature = Math.max(-maxCurvatureRight, Math.min(maxCurvatureLeft, curvature));
 
         // Speed based on distance to end with smoother deceleration
         double distToEnd = currentPose.position.minus(path.get(path.size() - 1)).norm();
         double speed;
+        // Reduced minimum speed for finer control
+        double minSpeed = 0.2;
         if (distToEnd < 12.0) {
             // Linear deceleration in final 12 inches
             speed = minSpeed + (maxSpeed - minSpeed) * (distToEnd / 12.0);

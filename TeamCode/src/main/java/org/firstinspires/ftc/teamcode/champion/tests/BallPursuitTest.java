@@ -14,13 +14,13 @@ import org.firstinspires.ftc.teamcode.champion.controller.BallPursuitController;
 public class BallPursuitTest extends LinearOpMode {
 
     private BallPursuitController ballPursuit;
-    private ElapsedTime runtime = new ElapsedTime();
+    private final ElapsedTime runtime = new ElapsedTime();
 
     // Performance tracking
     private int pursuitStartedCount = 0;
     private int ballReachedCount = 0;
     private int ballLostCount = 0;
-    private ElapsedTime pursuitTimer = new ElapsedTime();
+    private final ElapsedTime pursuitTimer = new ElapsedTime();
     private boolean pursuitActive = false;
 
     @Override
@@ -60,7 +60,7 @@ public class BallPursuitTest extends LinearOpMode {
         runtime.reset();
         pursuitTimer.reset();
 
-        // Start pursuit immediately when opmode starts
+        // Start pursuit immediately when OpMode starts
         ballPursuit.startPursuit();
 
         // Main loop

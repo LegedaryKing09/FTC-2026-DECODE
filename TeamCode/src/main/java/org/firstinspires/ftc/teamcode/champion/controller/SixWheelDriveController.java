@@ -70,7 +70,7 @@ public class SixWheelDriveController {
         public static double MAX_RPM = 312.0;
         public static double MAX_TICKS_PER_SEC = (MAX_RPM / 60.0) * TICKS_PER_REV;
 
-        // TUNABLE PIDF - Based on your testing results
+        // TUNABLE PID - Based on your testing results
         public static double VELOCITY_P = 29;
         public static double VELOCITY_I = 0.0;
         public static double VELOCITY_D = 0.2;
@@ -88,10 +88,6 @@ public class SixWheelDriveController {
         public static double YAW_SCALAR = 1.0;
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
-
-        // IMU and odometry accuracy improvements
-        public static double HEADING_DRIFT_CORRECTION = 0.02; // Proportional correction for heading drift
-        public static long ODOMETRY_UPDATE_INTERVAL_MS = 10; // Update odometry every 10ms for better accuracy
         public static double POSITION_SMOOTHING_FACTOR = 0.1; // Smoothing factor for position data
     }
 

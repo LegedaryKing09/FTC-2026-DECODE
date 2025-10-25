@@ -14,15 +14,15 @@ import org.firstinspires.ftc.teamcode.champion.controller.BallAlignmentControlle
 public class BallAlignmentTest extends LinearOpMode {
 
     private BallAlignmentController ballController;
-    private ElapsedTime runtime = new ElapsedTime();
+    private final ElapsedTime runtime = new ElapsedTime();
 
     // Performance tracking
     private int ballsTracked = 0;
     private int greenBalls = 0;
     private int purpleBalls = 0;
     private int lastSeenColor = 0;
-    private ElapsedTime colorChangeTimer = new ElapsedTime();
-    private ElapsedTime alignmentTimer = new ElapsedTime();
+    private final ElapsedTime colorChangeTimer = new ElapsedTime();
+    private final ElapsedTime alignmentTimer = new ElapsedTime();
 
     @Override
     public void runOpMode() {
@@ -99,11 +99,6 @@ public class BallAlignmentTest extends LinearOpMode {
                 }
                 lastSeenColor = currentColor;
                 colorChangeTimer.reset();
-            }
-
-            // Track alignment time
-            if (ballController.isAligned()) {
-                // Ball is aligned
             }
         }
     }
