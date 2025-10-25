@@ -21,7 +21,6 @@ public class PurePursuitController {
     public PurePursuitController() {
         // Default constructor
     }
-
     public void setPath(List<Vector2d> path) {
         this.path = path;
     }
