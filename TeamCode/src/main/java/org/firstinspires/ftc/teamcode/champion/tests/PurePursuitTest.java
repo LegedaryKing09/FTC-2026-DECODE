@@ -82,4 +82,46 @@ public class PurePursuitTest extends LinearOpMode {
             telemetry.update();
         }
     }
+    /**
+     * Rotates the robot to the specified heading angle.
+     * This method blocks until the target heading is reached.
+     *
+     * @param targetHeadingDeg Target heading in degrees (0 = forward, 90 = left, -90 = right)
+     */
+    public void turnToHeading(double targetHeadingDeg) {
+        double targetHeadingRad = Math.toRadians(targetHeadingDeg);
+        double HEADING_THRESHOLD = Math.toRadians(2.0); // 2 degrees tolerance
+        double TURN_POWER = 0.3; // Adjust this for turn speed
+
+        telemetry.addData("Target Heading", "%.1f deg", targetHeadingDeg);
+        telemetry.update();
+
+        while (opModeIsActive()) {
+            driveController.updateOdometry();
+
+            double currentHeading = driveController.getHeading();
+            double headingError = targetHeadingRad - currentHeading;
+
+            // Normalize error to [-PI, PI]
+            while (headingError > Math.PI) headingError -= 2 * Math.PI;
+            while (headingError < -Math.PI) headingError += 2 * Math.PI;
+
+            // Check if we've reached the target
+            if (Math.abs(headingError) < HEADING_THRESHOLD) {
+                driveController.stopDrive();
+                telemetry.addData("Status", "Turn Complete");
+                telemetry.update();
+                break;
+            }
+
+            // Calculate turn power (positive = counterclockwise, negative = clockwise)
+            double turnPower = Math.signum(headingError) * TURN_POWER;
+            driveController.tankDrive(-turnPower, turnPower); // Left negative, right positive = turn right
+
+            telemetry.addData("Status", "Turning");
+            telemetry.addData("Current Heading", "%.1f deg", Math.toDegrees(currentHeading));
+            telemetry.addData("Heading Error", "%.1f deg", Math.toDegrees(headingError));
+            telemetry.update();
+        }
+    }
 }

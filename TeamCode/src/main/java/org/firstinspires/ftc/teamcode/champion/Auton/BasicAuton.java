@@ -3,6 +3,8 @@ package org.firstinspires.ftc.teamcode.champion.Auton;
 import android.annotation.SuppressLint;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.acmerobotics.dashboard.FtcDashboard;
@@ -31,7 +33,6 @@ public class BasicAuton extends LinearOpMode {
     AutoShootController autoShootController;
     RampController rampController;
     PurePursuitController pursuitController;
-    PurePursuitTest pathing;
 
     // Autonomous parameters
     public static double SHOOTER_START_RPM = 2750.0;
@@ -49,8 +50,7 @@ public class BasicAuton extends LinearOpMode {
         intakeController = new IntakeController(this);
         rampController = new RampController(this);
         pursuitController = new PurePursuitController();
-        pathing = new PurePursuitTest();
-        pursuitController.setParameters(12.0, 0.5, 15.0);
+        pursuitController.setParameters(4.0, 0.6, 11.0);
 
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
         telemetry.addData("Status", "Initializing...");
@@ -109,13 +109,64 @@ public class BasicAuton extends LinearOpMode {
         telemetry.addLine("Starting auto-shoot sequence...");
         telemetry.update();
         executeAutoShootSequence();
-
+        intakeController.intakeFull();
+        turnToHeading(30);
+        moveForwardWithOdometry(3);
+        moveBackwardWithOdometry(3);
+        turnToHeading(0);
+        executeAutoShootSequence();
         // Final status
         telemetry.addLine("=== AUTONOMOUS COMPLETE ===");
         telemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
         telemetry.update();
     }
+    /**
+     * Move forward a specified distance using odometry
+     * Add this method to your BasicAuton class
+     */
+    @SuppressLint("DefaultLocale")
+    private void moveForwardWithOdometry(double distanceInches) {
+        // Record starting position
+        driveController.updateOdometry();
+        double startX = driveController.getX();
+        double targetX = startX + distanceInches; // Positive X is forward
 
+        telemetry.addData("Starting X", String.format("%.2f in", startX));
+        telemetry.addData("Target X", String.format("%.2f in", targetX));
+        telemetry.update();
+
+        // Set drive mode to velocity for precise control
+        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
+
+        // Move forward at constant speed
+        driveController.tankDriveVelocityNormalized(MOVEMENT_SPEED, MOVEMENT_SPEED);
+
+        // Monitor progress
+        while (opModeIsActive()) {
+            driveController.updateOdometry();
+            double currentX = driveController.getX();
+            double distanceMoved = Math.abs(currentX - startX);
+
+            telemetry.addData("Current X", String.format("%.2f in", currentX));
+            telemetry.addData("Distance Moved", String.format("%.2f in", distanceMoved));
+            telemetry.addData("Target Distance", String.format("%.2f in", distanceInches));
+            telemetry.update();
+
+            // Check if we've reached the target distance
+            if (distanceMoved >= Math.abs(distanceInches)) {
+                break;
+            }
+
+            sleep(20);
+        }
+
+        // Stop movement
+        driveController.stopDrive();
+
+        telemetry.addLine("✅ Forward movement complete");
+        telemetry.update();
+        sleep(200);
+    }
     /**
      * Move backward a specified distance using odometry
      */
@@ -210,5 +261,77 @@ public class BasicAuton extends LinearOpMode {
         intakeController.intakeStop();
         transferController.transferStop();
         driveController.stopDrive();
+    }
+    @SuppressLint("DefaultLocale")
+    private void goToPositionWithPursuit(double x, double y) {
+        Vector2d targetPosition = new Vector2d(x, y);
+        pursuitController.setTargetPosition(targetPosition);
+
+        final double DISTANCE_THRESHOLD = 5.0;
+
+        while (opModeIsActive()) {
+            driveController.updateOdometry();
+
+            Pose2d currentPose = new Pose2d(
+                    driveController.getX(),
+                    driveController.getY(),
+                    driveController.getHeading()
+            );
+
+            double distToEnd = Math.hypot(
+                    currentPose.position.x - targetPosition.x,
+                    currentPose.position.y - targetPosition.y
+            );
+
+            if (distToEnd < DISTANCE_THRESHOLD) {
+                driveController.stopDrive();
+                telemetry.addLine("✅ Position reached");
+                telemetry.update();
+                break;
+            }
+
+            double[] powers = pursuitController.update(currentPose);
+            driveController.tankDrive(powers[0], powers[1]);
+
+            telemetry.addData("Target", String.format("(%.1f, %.1f)", x, y));
+            telemetry.addData("Current", String.format("(%.1f, %.1f)", currentPose.position.x, currentPose.position.y));
+            telemetry.addData("Dist to Target", String.format("%.1f in", distToEnd));
+            telemetry.update();
+
+            sleep(20);
+        }
+    }
+
+    private void turnToHeading(double targetHeadingDeg) {
+        double targetHeadingRad = Math.toRadians(targetHeadingDeg);
+        final double HEADING_THRESHOLD = Math.toRadians(2.0);
+        final double TURN_POWER = 0.3;
+
+        while (opModeIsActive()) {
+            driveController.updateOdometry();
+
+            double currentHeading = driveController.getHeading();
+            double headingError = targetHeadingRad - currentHeading;
+
+            // Normalize error to [-PI, PI]
+            while (headingError > Math.PI) headingError -= 2 * Math.PI;
+            while (headingError < -Math.PI) headingError += 2 * Math.PI;
+
+            if (Math.abs(headingError) < HEADING_THRESHOLD) {
+                driveController.stopDrive();
+                telemetry.addLine("✅ Turn complete");
+                telemetry.update();
+                break;
+            }
+
+            double turnPower = Math.signum(headingError) * TURN_POWER;
+            driveController.tankDrive(-turnPower, turnPower);
+
+            telemetry.addData("Target Heading", String.format("%.1f°", targetHeadingDeg));
+            telemetry.addData("Current Heading", String.format("%.1f°", Math.toDegrees(currentHeading)));
+            telemetry.update();
+
+            sleep(20);
+        }
     }
 }
