@@ -1,617 +1,376 @@
 package org.firstinspires.ftc.teamcode.champion.Auton;
 
+import android.annotation.SuppressLint;
+
 import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.BallAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
-import org.firstinspires.ftc.teamcode.champion.controller.RampController;
+import org.firstinspires.ftc.teamcode.champion.controller.PurePursuitController;
+import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
-import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.RampController;
+
+import java.util.Locale;
 
 @Config
-@Autonomous(name = "Basic Autonomous", group = "Competition")
+@Autonomous(name = "Basic Auton", group = "Competition")
 public class BasicAuton extends LinearOpMode {
 
-    // Configurable parameters
-    public static double SHOOTER_TARGET_RPM = 2750.0;
-    public static double BACKWARD_DISTANCE_INCHES = 48.0;
-    public static double DRIVE_SPEED = 0.5;
-    public static double BALL_PURSUIT_OVERSHOOT_INCHES = 6.0;
-    public static long SHOOTER_STARTUP_TIMEOUT_MS = 5000;
-    public static long SHOOTING_DURATION_MS = 2000;
-    public static long BALL_DETECTION_TIMEOUT_MS = 8000;
+    SixWheelDriveController driveController;
+    TransferController transferController;
+    ShooterController shooterController;
+    IntakeController intakeController;
+    LimelightAlignmentController limelightController;
+    AutoShootController autoShootController;
+    RampController rampController;
+    PurePursuitController pursuitController;
 
-    // Controllers
-    private SixWheelDriveController driveController;
-    private ShooterController shooterController;
-    private IntakeController intakeController;
-    private TransferController transferController;
-    private LimelightAlignmentController limelightController;
-    private BallAlignmentController ballAlignmentController;
-    private RampController rampController;
-
-    // Timers
-    private final ElapsedTime runtime = new ElapsedTime();
+    // Autonomous parameters
+    public static double SHOOTER_START_RPM = 2750.0;
+    public static double BACKWARD_DISTANCE_INCHES = 50.0;
+    public static double FORWARD_DISTANCE_INCHES = 3.0;
+    public static double REPOSITIONING_DISTANCE = 3.0;
+    public static double MOVEMENT_SPEED = 0.3; // Conservative speed for odometry
+    public static long AUTO_SHOOT_TIMEOUT = 8000; // Maximum time to wait for auto-shoot sequence
+    public static long SETTLE_TIME = 500; // Time to settle after movement before shooting
+    public static double TURN_ANGLE_DEGREES = 30.0; // Angle to turn for repositioning
 
     @Override
-    public void runOpMode() throws InterruptedException {
-        try {
-            // Initialize all controllers
-            initializeControllers();
+    public void runOpMode() {
 
-            // Display initialization status
-            telemetry.addLine("=== SECOND AUTONOMOUS INITIALIZED ===");
-            telemetry.addData("Shooter RPM", "%.0f", SHOOTER_TARGET_RPM);
-            telemetry.addData("Backward Distance", "%.1f inches", BACKWARD_DISTANCE_INCHES);
-            telemetry.addData("Ball Overshoot", "%.1f inches", BALL_PURSUIT_OVERSHOOT_INCHES);
-            telemetry.addLine("Press START to begin");
-            telemetry.update();
-
-            waitForStart();
-            if (isStopRequested()) return;
-
-            runtime.reset();
-
-            // Move ramp to 170 degrees at autonomous start
-            if (rampController != null) {
-                telemetry.clear();
-                telemetry.addLine("=== MOVING RAMP TO 170 DEGREES ===");
-                telemetry.update();
-
-                rampController.setAngle(170.0);
-
-                telemetry.addLine("✓ Ramp moved to 170 degrees");
-                telemetry.addData("Ramp Angle", "%.1f°", rampController.getAngle());
-                telemetry.update();
-                sleep(1000); // Give ramp time to move
-            }
-
-            // Execute autonomous sequence
-            telemetry.addLine("Starting autonomous sequence...");
-            telemetry.update();
-            executeAutonomousSequence();
-
-        } catch (Exception e) {
-            telemetry.addData("ERROR", e.getMessage());
-            telemetry.update();
-
-            // Log error but don't crash
-            sleep(3000);
-        }
-    }
-
-    private void initializeControllers() throws Exception {
-        telemetry.addLine("=== INITIALIZING CONTROLLERS ===");
-        telemetry.update();
-
-        // Initialize drive controller
-        telemetry.addLine("Initializing drive controller...");
-        telemetry.update();
         driveController = new SixWheelDriveController(this);
-
-        // Initialize shooter components
-        telemetry.addLine("Initializing shooter components...");
-        telemetry.update();
+        transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
-        transferController = new TransferController(this);
+        rampController = new RampController(this);
+        pursuitController = new PurePursuitController();
+        pursuitController.setParameters(4.0, 0.6, 11.0);
 
-        // Initialize Limelight alignment
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
+        telemetry.addData("Status", "Initializing...");
+        telemetry.update();
+
+        LimelightAlignmentController tempLimelight = null;
         try {
-            telemetry.addLine("Initializing Limelight alignment controller...");
-            telemetry.update();
-            limelightController = new LimelightAlignmentController(this, driveController);
-            telemetry.addLine("✓ Limelight alignment controller initialized");
+            tempLimelight = new LimelightAlignmentController(this, driveController);
+            tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
+            telemetry.addData("Limelight", "✅ Initialized");
         } catch (Exception e) {
-            telemetry.addData("WARNING", "Limelight alignment failed to init: " + e.getMessage());
-            limelightController = null;
+            telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
         }
+        limelightController = tempLimelight;
 
-        // Initialize ball alignment controller
-        try {
-            telemetry.addLine("Initializing ball alignment controller...");
-            telemetry.update();
-            ballAlignmentController = new BallAlignmentController(this);
-            telemetry.addLine("✓ Ball alignment controller initialized");
-        } catch (Exception e) {
-            telemetry.addData("WARNING", "Ball alignment failed to init: " + e.getMessage());
-            ballAlignmentController = null;
-        }
+        // Initialize auto shoot controller with all required dependencies
+        autoShootController = new AutoShootController(
+                this,
+                driveController,
+                shooterController,
+                intakeController,
+                transferController,
+                limelightController,
+                rampController
+        );
 
-        // Initialize ramp controller
-        try {
-            telemetry.addLine("Initializing ramp controller...");
-            telemetry.update();
-            rampController = new RampController(this);
-            rampController.setTo0Degrees(); // Initialize ramp at 0 degrees
-            telemetry.addLine("✓ Ramp controller initialized at 0 degrees");
-        } catch (Exception e) {
-            telemetry.addData("WARNING", "Ramp controller failed to init: " + e.getMessage());
-            rampController = null;
-        }
+        // Initialize ramp to starting position
+        rampController.setTo0Degrees();
 
-        telemetry.addLine("All controllers initialized successfully");
+        telemetry.addLine("=== BASIC AUTON READY ===");
+        telemetry.addData("Shooter Start RPM", SHOOTER_START_RPM);
+        telemetry.addData("Backward Distance", BACKWARD_DISTANCE_INCHES + " inches");
+        telemetry.addData("AprilTag Target", AutoShootController.APRILTAG_ID);
+        telemetry.update();
+
+        waitForStart();
+
+        if (!opModeIsActive()) return;
+
+        // Start shooter spinning early
+        telemetry.addLine("Starting shooter...");
+        telemetry.update();
+        shooterController.setShooterRPM(SHOOTER_START_RPM);
+
+        // Execute backward movement
+        telemetry.addLine("Moving backward...");
+        telemetry.update();
+        moveBackwardWithOdometry(BACKWARD_DISTANCE_INCHES);
+
+        // Settle after movement
+        telemetry.addLine("Settling...");
+        telemetry.update();
+        sleep(SETTLE_TIME);
+
+        // Execute auto-shoot sequence - FIRST SHOT
+        telemetry.addLine("Starting first auto-shoot sequence...");
+        telemetry.update();
+        executeAutoShootSequence();
+
+        // Wait for first sequence to fully complete
+        sleep(500);
+
+        // Start intake for second ball
+        telemetry.addLine("Starting intake for second ball...");
+        telemetry.update();
+        intakeController.intakeFull();
+
+        // Reposition for second shot
+        turnToHeading(TURN_ANGLE_DEGREES);
+        moveForwardWithOdometry(FORWARD_DISTANCE_INCHES);
+        moveBackwardWithOdometry(REPOSITIONING_DISTANCE);
+        turnToHeading(0);
+
+        // Stop intake before second shot
+        intakeController.intakeStop();
+        sleep(200);
+
+        // Execute auto-shoot sequence - SECOND SHOT
+        telemetry.addLine("Starting second auto-shoot sequence...");
+        telemetry.update();
+        executeAutoShootSequence();
+
+        // Final status
+        telemetry.addLine("=== AUTONOMOUS COMPLETE ===");
+        telemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
         telemetry.update();
     }
 
-    private void executeAutonomousSequence() throws InterruptedException {
-        // Step 1: Shooter Startup
-        telemetry.clear();
-        telemetry.addLine("=== STEP 1: SHOOTER STARTUP ===");
-        telemetry.addData("Target RPM", "%.0f", SHOOTER_TARGET_RPM);
+    /**
+     * Move forward a specified distance using odometry
+     */
+    @SuppressLint("DefaultLocale")
+    private void moveForwardWithOdometry(double distanceInches) {
+        // Record starting position
+        driveController.updateOdometry();
+        double startX = driveController.getX();
+        double targetX = startX + distanceInches; // Positive X is forward
+
+        telemetry.addData("Starting X", String.format(Locale.US, "%.2f in", startX));
+        telemetry.addData("Target X", String.format(Locale.US, "%.2f in", targetX));
         telemetry.update();
 
-        shooterController.setShooterRPM(SHOOTER_TARGET_RPM);
+        // Set drive mode to velocity for precise control
+        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
 
-        // Wait for shooter to reach RPM
-        long shooterStartTime = System.currentTimeMillis();
-        while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
-                (System.currentTimeMillis() - shooterStartTime) < SHOOTER_STARTUP_TIMEOUT_MS) {
-            shooterController.updatePID();
+        // Move forward at constant speed
+        driveController.tankDriveVelocityNormalized(MOVEMENT_SPEED, MOVEMENT_SPEED);
+
+        // Monitor progress
+        while (opModeIsActive()) {
             driveController.updateOdometry();
+            double currentX = driveController.getX();
+            double distanceMoved = Math.abs(currentX - startX);
 
-            telemetry.addData("Current RPM", "%.0f", shooterController.getShooterRPM());
-            telemetry.addData("Target RPM", "%.0f", SHOOTER_TARGET_RPM);
-            telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
+            telemetry.addData("Current X", String.format(Locale.US, "%.2f in", currentX));
+            telemetry.addData("Distance Moved", String.format(Locale.US, "%.2f in", distanceMoved));
+            telemetry.addData("Target Distance", String.format(Locale.US, "%.2f in", distanceInches));
             telemetry.update();
+
+            // Check if we've reached the target distance
+            if (distanceMoved >= Math.abs(distanceInches)) {
+                break;
+            }
 
             sleep(20);
         }
 
-        if (shooterController.isAtTargetRPM()) {
-            telemetry.addLine("✓ Shooter at target RPM");
-        } else {
-            telemetry.addLine("⚠ Shooter startup timeout - continuing anyway");
-        }
+        // Stop movement
+        driveController.stopDrive();
+
+        telemetry.addLine("✅ Forward movement complete");
         telemetry.update();
-        sleep(500);
+        sleep(200);
+    }
 
-        // Step 2: Backward Movement
-        telemetry.clear();
-        telemetry.addLine("=== STEP 2: MOVING BACKWARD ===");
-        telemetry.addData("Target Distance", "%.1f inches", BACKWARD_DISTANCE_INCHES);
-        telemetry.update();
+    /**
+     * Move backward a specified distance using odometry
+     */
+    @SuppressLint("DefaultLocale")
+    private void moveBackwardWithOdometry(double distanceInches) {
+        // Record starting position
+        driveController.updateOdometry();
+        double startX = driveController.getX();
+        double targetX = startX - distanceInches; // Negative X is backward
 
-        driveBackwardWithOdometry(BACKWARD_DISTANCE_INCHES);
-
-        telemetry.addLine("✓ Backward movement complete");
-        telemetry.update();
-        sleep(500);
-
-        // Step 3: AprilTag Alignment
-        telemetry.clear();
-        telemetry.addLine("=== STEP 3: APRILTAG ALIGNMENT ===");
+        telemetry.addData("Starting X", String.format(Locale.US, "%.2f in", startX));
+        telemetry.addData("Target X", String.format(Locale.US, "%.2f in", targetX));
         telemetry.update();
 
-        if (limelightController != null) {
-            limelightController.startAlignment();
+        // Set drive mode to velocity for precise control
+        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
 
-            // Wait for alignment to complete
-            long alignmentStartTime = System.currentTimeMillis();
-            while (opModeIsActive() &&
-                   !limelightController.isAligned() &&
-                   (System.currentTimeMillis() - alignmentStartTime) < 5000) {
+        // Move backward at constant speed
+        driveController.tankDriveVelocityNormalized(-MOVEMENT_SPEED, -MOVEMENT_SPEED);
 
-                driveController.updateOdometry();
-                limelightController.displayTelemetry();
-
-                if (limelightController.hasTarget()) {
-                    telemetry.addData("Target Error", "%.2f°", limelightController.getTargetError());
-                }
-
-                telemetry.update();
-                sleep(20);
-            }
-
-            if (limelightController.isAligned()) {
-                telemetry.addLine("✓ AprilTag alignment complete");
-            } else {
-                telemetry.addLine("⚠ AprilTag alignment timeout");
-            }
-        } else {
-            telemetry.addLine("⚠ Limelight controller not available");
-        }
-        telemetry.update();
-        sleep(500);
-
-        // Step 4: Shooting Sequence
-        telemetry.clear();
-        telemetry.addLine("=== STEP 4: SHOOTING SEQUENCE ===");
-        telemetry.update();
-
-        // Turn on transfer mechanism
-        transferController.transferFull();
-
-        // Turn on intake to feed balls
-        intakeController.intakeFull();
-
-        // Wait for shooting duration
-        long shootStartTime = System.currentTimeMillis();
-        while (opModeIsActive() && (System.currentTimeMillis() - shootStartTime) < SHOOTING_DURATION_MS) {
-            shooterController.updatePID();
+        // Monitor progress
+        while (opModeIsActive()) {
             driveController.updateOdometry();
+            double currentX = driveController.getX();
+            double distanceMoved = Math.abs(startX - currentX);
 
-            telemetry.addData("Shooting Progress", "%.1f seconds",
-                (System.currentTimeMillis() - shootStartTime) / 1000.0);
-            telemetry.addData("Shooter RPM", "%.0f", shooterController.getShooterRPM());
-            telemetry.addData("Transfer", "ACTIVE");
-            telemetry.addData("Intake", "ACTIVE");
+            telemetry.addData("Current X", String.format(Locale.US, "%.2f in", currentX));
+            telemetry.addData("Distance Moved", String.format(Locale.US, "%.2f in", distanceMoved));
+            telemetry.addData("Target Distance", String.format(Locale.US, "%.2f in", distanceInches));
             telemetry.update();
+
+            // Check if we've reached the target distance
+            if (distanceMoved >= Math.abs(distanceInches)) {
+                break;
+            }
 
             sleep(20);
         }
 
-        // Turn off transfer
-        transferController.transferStop();
+        // Stop movement
+        driveController.stopDrive();
 
-        telemetry.addLine("✓ Shooting sequence complete");
+        telemetry.addLine("✅ Backward movement complete");
         telemetry.update();
-        sleep(500);
+        sleep(200);
+    }
 
-        // Step 5: New Movement Sequence
-        telemetry.clear();
-        telemetry.addLine("=== STEP 5: MOVEMENT SEQUENCE ===");
-        telemetry.update();
+    /**
+     * Execute the auto-shoot sequence and wait for completion
+     * Fixed to match AutoTeleop.java working implementation
+     */
+    @SuppressLint("DefaultLocale")
+    private void executeAutoShootSequence() {
+        // Trigger the auto-shoot sequence (runs in separate thread)
+        // This method handles alignment, shooter speed, ramp angle, and transfer automatically
+        autoShootController.executeDistanceBasedAutoShoot();
 
-        // Step 5.1: Turn left 90 degrees
-        turnLeft90Degrees();
+        // Wait for auto-shoot to complete or timeout
+        ElapsedTime timer = new ElapsedTime();
 
-        // Step 5.2: Move forward 10 inches with intake on
-        telemetry.clear();
-        telemetry.addLine("=== STEP 5.2: FORWARD MOVEMENT WITH INTAKE ===");
-        telemetry.addData("Target Distance", "10.0 inches");
-        telemetry.update();
+        while (opModeIsActive() && autoShootController.isAutoShooting() &&
+                timer.milliseconds() < AUTO_SHOOT_TIMEOUT) {
 
-        intakeController.intakeFull(); // Turn on intake
-        driveForwardWithOdometry(10.0);
+            // Update shooter PID during the sequence
+            // This is critical for maintaining target RPM
+            shooterController.updatePID();
 
-        telemetry.addLine("✓ Forward movement with intake complete");
-        telemetry.update();
-        sleep(500);
+            // Display status
+            telemetry.addLine("=== AUTO-SHOOT IN PROGRESS ===");
+            telemetry.addData("Status", autoShootController.getCurrentStatus());
+            telemetry.addData("Time Elapsed", String.format(Locale.US, "%.1f s", timer.seconds()));
+            telemetry.addData("Timeout", String.format(Locale.US, "%.1f s", AUTO_SHOOT_TIMEOUT / 1000.0));
 
-        // Step 5.3: Move backward 10 inches (intake remains on)
-        telemetry.clear();
-        telemetry.addLine("=== STEP 5.3: BACKWARD MOVEMENT ===");
-        telemetry.addData("Target Distance", "10.0 inches");
-        telemetry.update();
+            // Show shooter status
+            telemetry.addData("Current RPM", String.format(Locale.US, "%.0f", shooterController.getShooterRPM()));
+            telemetry.addData("Target RPM", String.format(Locale.US, "%.0f", shooterController.getTargetRPM()));
+            telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✅ YES" : "NO");
 
-        driveBackwardWithOdometry(10.0);
+            // Show ramp status
+            telemetry.addData("Ramp Angle", String.format(Locale.US, "%.1f°", rampController.getAngle()));
 
-        telemetry.addLine("✓ Backward movement complete");
-        telemetry.update();
-        sleep(500);
+            // Show alignment status if limelight is available
+            if (limelightController != null && limelightController.hasTarget()) {
+                telemetry.addData("Alignment Error", String.format(Locale.US, "%.2f°", limelightController.getTargetError()));
+            }
 
-        // Step 5.4: Turn right 90 degrees
-        turnRight90Degrees();
+            telemetry.update();
+            sleep(50);
+        }
 
-        // Step 5.5: Activate shooting mechanism
-        telemetry.clear();
-        telemetry.addLine("=== STEP 5.5: ACTIVATING SHOOTER ===");
-        telemetry.update();
+        // Check if timeout occurred
+        if (timer.milliseconds() >= AUTO_SHOOT_TIMEOUT) {
+            telemetry.addLine("⚠️ Auto-shoot timeout - continuing...");
+            telemetry.update();
+            sleep(1000);
+        }
 
-        // Turn off intake before shooting
-        intakeController.intakeStop();
+        // Give a brief moment for the sequence to fully complete
+        sleep(200);
 
-        // Activate shooting mechanism (reuse existing shooting logic)
-        transferController.transferFull();
-        shooterController.updatePID();
-
-        telemetry.addLine("✓ Shooting mechanism activated");
-        telemetry.update();
-        sleep(1000); // Brief activation time
-
-        // Turn off transfer after shooting
-        transferController.transferStop();
-
-        telemetry.addLine("✓ Movement sequence complete");
-        telemetry.update();
-        sleep(500);
-
-        // Step 7: Final Stop
-        telemetry.clear();
-        telemetry.addLine("=== STEP 7: FINAL STOP ===");
-        telemetry.update();
-
-        // Stop all systems
+        // Clean stop of all systems (the AutoShootController should have already done this)
+        // But we do it again to be safe
         shooterController.shooterStop();
         intakeController.intakeStop();
         transferController.transferStop();
         driveController.stopDrive();
 
-        telemetry.addLine("✓ All systems stopped");
-        telemetry.addData("Total Runtime", "%.2f seconds", runtime.seconds());
+        telemetry.addLine("✅ Auto-shoot sequence complete");
         telemetry.update();
-
-        // Keep robot stopped
-        while (opModeIsActive() && !isStopRequested()) {
-            driveController.stopDrive();
-            sleep(50);
-        }
     }
 
-    /**
-     * Drive backward a specified distance using odometry with IMU-based heading correction
-     */
-    private void driveBackwardWithOdometry(double distance) throws InterruptedException {
-        telemetry.addLine("=== DRIVING BACKWARD WITH ODOMETRY ===");
-        telemetry.addData("Target Distance", "%.1f inches", distance);
-        telemetry.update();
+    @SuppressLint("DefaultLocale")
+    private void goToPositionWithPursuit(double x, double y) {
+        Vector2d targetPosition = new Vector2d(x, y);
+        pursuitController.setTargetPosition(targetPosition);
 
-        // Update odometry to get fresh position
-        driveController.updateOdometry();
-        double startX = driveController.getX();
-        double startY = driveController.getY();
-        double startHeading = driveController.getHeading();
+        final double DISTANCE_THRESHOLD = 5.0;
 
-        long driveStartTime = System.currentTimeMillis();
-        long maxDriveTimeMs = 8000; // 8 second timeout
-
-        while (opModeIsActive() && (System.currentTimeMillis() - driveStartTime) < maxDriveTimeMs) {
+        while (opModeIsActive()) {
             driveController.updateOdometry();
 
-            // Calculate distance traveled using position delta
-            double currentX = driveController.getX();
-            double currentY = driveController.getY();
-            double deltaX = startX - currentX; // Negative X movement for backward
-            double deltaY = startY - currentY;
-            double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            Pose2d currentPose = new Pose2d(
+                    driveController.getX(),
+                    driveController.getY(),
+                    driveController.getHeading()
+            );
 
-            // Check if we've reached the target distance
-            if (distanceTraveled >= distance) {
+            double distToEnd = Math.hypot(
+                    currentPose.position.x - targetPosition.x,
+                    currentPose.position.y - targetPosition.y
+            );
+
+            if (distToEnd < DISTANCE_THRESHOLD) {
+                driveController.stopDrive();
+                telemetry.addLine("✅ Position reached");
+                telemetry.update();
                 break;
             }
 
-            // Calculate heading correction for straight movement
-            double currentHeading = driveController.getHeading();
-            double headingError = normalizeAngle(startHeading - currentHeading);
+            double[] powers = pursuitController.update(currentPose);
+            driveController.tankDrive(powers[0], powers[1]);
 
-            // Adjust motor speeds for straight backward movement with heading correction
-            double baseSpeed = -DRIVE_SPEED; // Negative for backward
-            double correction = headingError * 0.02; // Proportional correction
-            double leftSpeed = baseSpeed - correction;
-            double rightSpeed = baseSpeed + correction;
-
-            driveController.tankDrive(leftSpeed, rightSpeed);
-
-            telemetry.addData("Distance Traveled", "%.2f inches", distanceTraveled);
-            telemetry.addData("Target Distance", "%.1f inches", distance);
-            telemetry.addData("Remaining", "%.2f inches", distance - distanceTraveled);
-            telemetry.addData("Current Heading", "%.2f°", currentHeading);
-            telemetry.addData("Heading Error", "%.2f°", headingError);
+            telemetry.addData("Target", String.format(Locale.US, "(%.1f, %.1f)", x, y));
+            telemetry.addData("Current", String.format(Locale.US, "(%.1f, %.1f)", currentPose.position.x, currentPose.position.y));
+            telemetry.addData("Dist to Target", String.format(Locale.US, "%.1f in", distToEnd));
             telemetry.update();
 
             sleep(20);
         }
-
-        driveController.stopDrive();
-        telemetry.addLine("✓ Backward movement complete");
-        telemetry.update();
-        sleep(500);
     }
 
-     /**
-      * Drive forward a specified distance using odometry with IMU-based heading correction
-      */
-     private void driveForwardWithOdometry(double distance) throws InterruptedException {
-         telemetry.addLine("=== DRIVING FORWARD WITH ODOMETRY ===");
-         telemetry.addData("Target Distance", "%.1f inches", distance);
-         telemetry.update();
+    private void turnToHeading(double targetHeadingDeg) {
+        double targetHeadingRad = Math.toRadians(targetHeadingDeg);
+        final double HEADING_THRESHOLD = Math.toRadians(2.0);
+        final double TURN_POWER = 0.3;
 
-         // Update odometry to get fresh position
-         driveController.updateOdometry();
-         double startX = driveController.getX();
-         double startY = driveController.getY();
-         double startHeading = driveController.getHeading();
+        while (opModeIsActive()) {
+            driveController.updateOdometry();
 
-         long driveStartTime = System.currentTimeMillis();
-         long maxDriveTimeMs = 8000; // 8 second timeout
+            double currentHeading = driveController.getHeading();
+            double headingError = targetHeadingRad - currentHeading;
 
-         while (opModeIsActive() && (System.currentTimeMillis() - driveStartTime) < maxDriveTimeMs) {
-             driveController.updateOdometry();
+            // Normalize error to [-PI, PI]
+            while (headingError > Math.PI) headingError -= 2 * Math.PI;
+            while (headingError < -Math.PI) headingError += 2 * Math.PI;
 
-             // Calculate distance traveled using position delta
-             double currentX = driveController.getX();
-             double currentY = driveController.getY();
-             double deltaX = currentX - startX; // Positive X movement for forward
-             double deltaY = currentY - startY;
-             double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            if (Math.abs(headingError) < HEADING_THRESHOLD) {
+                driveController.stopDrive();
+                telemetry.addLine("✅ Turn complete");
+                telemetry.update();
+                break;
+            }
 
-             // Check if we've reached the target distance
-             if (distanceTraveled >= distance) {
-                 break;
-             }
+            double turnPower = Math.signum(headingError) * TURN_POWER;
+            driveController.tankDrive(-turnPower, turnPower);
 
-             // Calculate heading correction for straight movement
-             double currentHeading = driveController.getHeading();
-             double headingError = normalizeAngle(startHeading - currentHeading);
+            telemetry.addData("Target Heading", String.format(Locale.US, "%.1f°", targetHeadingDeg));
+            telemetry.addData("Current Heading", String.format(Locale.US, "%.1f°", Math.toDegrees(currentHeading)));
+            telemetry.update();
 
-             // Adjust motor speeds for straight forward movement with heading correction
-             double baseSpeed = DRIVE_SPEED; // Positive for forward
-             double correction = headingError * 0.02; // Proportional correction
-             double leftSpeed = baseSpeed + correction;
-             double rightSpeed = baseSpeed - correction;
-
-             driveController.tankDrive(leftSpeed, rightSpeed);
-
-             telemetry.addData("Distance Traveled", "%.2f inches", distanceTraveled);
-             telemetry.addData("Target Distance", "%.1f inches", distance);
-             telemetry.addData("Remaining", "%.2f inches", distance - distanceTraveled);
-             telemetry.addData("Current Heading", "%.2f°", currentHeading);
-             telemetry.addData("Heading Error", "%.2f°", headingError);
-             telemetry.update();
-
-             sleep(20);
-         }
-
-         driveController.stopDrive();
-         telemetry.addLine("✓ Forward movement complete");
-         telemetry.update();
-         sleep(500);
-     }
-
-     /**
-      * Turn left 90 degrees using IMU-based closed-loop control
-      */
-     private void turnLeft90Degrees() throws InterruptedException {
-         telemetry.addLine("=== TURNING LEFT 90 DEGREES (IMU-BASED) ===");
-         telemetry.update();
-
-         // Update odometry to get fresh heading
-         driveController.updateOdometry();
-         double startHeading = driveController.getHeadingDegrees();
-         double targetHeading = startHeading - 90.0;
-
-         // Normalize target heading to -180 to 180 range
-         targetHeading = normalizeAngle(targetHeading);
-
-         telemetry.addData("Start Heading", "%.2f°", startHeading);
-         telemetry.addData("Target Heading", "%.2f°", targetHeading);
-         telemetry.update();
-
-         double turnSpeed = 0.3; // Reduced for better control
-         double minTurnSpeed = 0.15; // Minimum speed to maintain turning
-         double headingTolerance = 2.0; // Degrees tolerance
-         double slowdownAngle = 15.0; // Start slowing down within this many degrees
-
-         long timeoutMs = 3000; // 3 second timeout
-         long turnStartTime = System.currentTimeMillis();
-
-         while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < timeoutMs) {
-             // Update odometry to get current heading
-             driveController.updateOdometry();
-             double currentHeading = driveController.getHeadingDegrees();
-
-             // Calculate shortest angle to target
-             double headingError = getAngleError(targetHeading, currentHeading);
-
-             // Check if we're within tolerance
-             if (Math.abs(headingError) <= headingTolerance) {
-                 break;
-             }
-
-             // Dynamic speed based on error
-             double speed = turnSpeed;
-             if (Math.abs(headingError) <= slowdownAngle) {
-                 // Slow down as we approach target
-                 speed = minTurnSpeed + (turnSpeed - minTurnSpeed) * (Math.abs(headingError) / slowdownAngle);
-             }
-
-             // Turn left (counter-clockwise): left side reverse, right side forward
-             driveController.tankDrive(-speed, speed);
-
-             telemetry.addData("Current Heading", "%.2f°", currentHeading);
-             telemetry.addData("Heading Error", "%.2f°", headingError);
-             telemetry.addData("Turn Speed", "%.3f", speed);
-             telemetry.addData("Target Heading", "%.2f°", targetHeading);
-             telemetry.update();
-
-             sleep(20);
-         }
-
-         driveController.stopDrive();
-         driveController.updateOdometry();
-         double finalHeading = driveController.getHeadingDegrees();
-         double finalError = getAngleError(targetHeading, finalHeading);
-
-         telemetry.addLine("✓ Left turn complete");
-         telemetry.addData("Final Heading", "%.2f°", finalHeading);
-         telemetry.addData("Final Error", "%.2f°", finalError);
-         telemetry.addData("Target Heading", "%.2f°", targetHeading);
-         telemetry.update();
-         sleep(500);
-     }
-
-     /**
-      * Normalize angle to -180 to 180 degrees
-      */
-     private double normalizeAngle(double angle) {
-         while (angle > 180) angle -= 360;
-         while (angle <= -180) angle += 360;
-         return angle;
-     }
-
-     /**
-      * Calculate the shortest angle error between target and current heading
-      */
-     private double getAngleError(double target, double current) {
-         double error = target - current;
-         return normalizeAngle(error);
-     }
-
-     /**
-      * Turn right 90 degrees using IMU-based closed-loop control
-      */
-     private void turnRight90Degrees() throws InterruptedException {
-         telemetry.addLine("=== TURNING RIGHT 90 DEGREES (IMU-BASED) ===");
-         telemetry.update();
-
-         // Update odometry to get fresh heading
-         driveController.updateOdometry();
-         double startHeading = driveController.getHeadingDegrees();
-         double targetHeading = startHeading + 90.0;
-
-         // Normalize target heading to -180 to 180 range
-         targetHeading = normalizeAngle(targetHeading);
-
-         telemetry.addData("Start Heading", "%.2f°", startHeading);
-         telemetry.addData("Target Heading", "%.2f°", targetHeading);
-         telemetry.update();
-
-         double turnSpeed = 0.3; // Reduced for better control
-         double minTurnSpeed = 0.15; // Minimum speed to maintain turning
-         double headingTolerance = 2.0; // Degrees tolerance
-         double slowdownAngle = 15.0; // Start slowing down within this many degrees
-
-         long timeoutMs = 3000; // 3 second timeout
-         long turnStartTime = System.currentTimeMillis();
-
-         while (opModeIsActive() && (System.currentTimeMillis() - turnStartTime) < timeoutMs) {
-             // Update odometry to get current heading
-             driveController.updateOdometry();
-             double currentHeading = driveController.getHeadingDegrees();
-
-             // Calculate shortest angle to target
-             double headingError = getAngleError(targetHeading, currentHeading);
-
-             // Check if we're within tolerance
-             if (Math.abs(headingError) <= headingTolerance) {
-                 break;
-             }
-
-             // Dynamic speed based on error
-             double speed = turnSpeed;
-             if (Math.abs(headingError) <= slowdownAngle) {
-                 // Slow down as we approach target
-                 speed = minTurnSpeed + (turnSpeed - minTurnSpeed) * (Math.abs(headingError) / slowdownAngle);
-             }
-
-             // Turn right (clockwise): left side forward, right side reverse
-             driveController.tankDrive(speed, -speed);
-
-             telemetry.addData("Current Heading", "%.2f°", currentHeading);
-             telemetry.addData("Heading Error", "%.2f°", headingError);
-             telemetry.addData("Turn Speed", "%.3f", speed);
-             telemetry.addData("Target Heading", "%.2f°", targetHeading);
-             telemetry.update();
-
-             sleep(20);
-         }
-
-         driveController.stopDrive();
-         driveController.updateOdometry();
-         double finalHeading = driveController.getHeadingDegrees();
-         double finalError = getAngleError(targetHeading, finalHeading);
-
-         telemetry.addLine("✓ Right turn complete");
-         telemetry.addData("Final Heading", "%.2f°", finalHeading);
-         telemetry.addData("Final Error", "%.2f°", finalError);
-         telemetry.addData("Target Heading", "%.2f°", targetHeading);
-         telemetry.update();
-         sleep(500);
-     }
+            sleep(20);
+        }
+    }
 }
