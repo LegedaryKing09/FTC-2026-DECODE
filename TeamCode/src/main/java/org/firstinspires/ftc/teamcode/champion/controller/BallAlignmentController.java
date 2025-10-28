@@ -73,7 +73,6 @@ public class BallAlignmentController {
     private double ballTx = 0;      // TX from Python (index 1)
     private double ballTy = 0;      // TY from Python (index 2)
     private double ballPixelX = 0;  // Center X from Python (index 3)
-    private double ballPixelY = 0;  // Center Y from Python (index 4)
     private double ballDistance = 0;
     private int ballColor = 0;
     private double ballArea = 0;
@@ -131,7 +130,7 @@ public class BallAlignmentController {
             this.limelight = opMode.hardwareMap.get(Limelight3A.class, "limelight");
 
             // Set pipeline BEFORE starting
-            this.limelight.pipelineSwitch(0);  // Pipeline 0 for Python snapscript
+            this.limelight.pipelineSwitch(0);  // Pipeline 0 for Python snap-script
             Thread.sleep(500);
 
             // Start Limelight
@@ -430,7 +429,7 @@ public class BallAlignmentController {
                     ballTx = pythonOutput[1];
                     ballTy = pythonOutput[2];
                     ballPixelX = pythonOutput[3];
-                    ballPixelY = pythonOutput[4];
+                    // Center Y from Python (index 4)
                     ballDistance = pythonOutput[5];
                     ballColor = (int)pythonOutput[6];
                     ballArea = pythonOutput[7];

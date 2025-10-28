@@ -31,8 +31,8 @@ public class AutoTeleop extends LinearOpMode {
     public static double RAMP_INCREMENT = 2.5;  // Manual ramp control increment
 
     boolean isManualAligning = false;
-    boolean lastdpadLeft = false;
-    boolean lastdpadRight = false;
+    boolean last_dpadLeft = false;
+    boolean last_dpadRight = false;
     boolean isUsingTelemetry = true;
     boolean isPressingB = false;
     boolean isPressingA = false;
@@ -249,13 +249,13 @@ public class AutoTeleop extends LinearOpMode {
             }
 
             // D-pad LEFT: Distance-based auto-shoot with automatic ramp adjustment
-            if (gamepad1.dpad_left && !lastdpadLeft && !autoShootController.isAutoShooting()) {
+            if (gamepad1.dpad_left && !last_dpadLeft && !autoShootController.isAutoShooting()) {
                 autoShootController.executeDistanceBasedAutoShoot();
             }
-            lastdpadLeft = gamepad1.dpad_left;
+            last_dpadLeft = gamepad1.dpad_left;
 
             // D-pad RIGHT: Toggle manual alignment
-            if (gamepad1.dpad_right && !lastdpadRight) {
+            if (gamepad1.dpad_right && !last_dpadRight) {
                 if (!isManualAligning && !autoShootController.isAutoShooting()) {
                     isManualAligning = true;
                     limelightController.startAlignment();
@@ -265,7 +265,7 @@ public class AutoTeleop extends LinearOpMode {
                     driveController.stopDrive();
                 }
             }
-            lastdpadRight = gamepad1.dpad_right;
+            last_dpadRight = gamepad1.dpad_right;
 
             double leftPower = drive + turn;
             double rightPower = drive - turn;

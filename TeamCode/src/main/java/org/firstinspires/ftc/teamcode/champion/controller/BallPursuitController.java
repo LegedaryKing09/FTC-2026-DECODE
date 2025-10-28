@@ -112,6 +112,7 @@ public class BallPursuitController {
         ballWasLost = false;
 
         // Check if close enough to ball
+        assert ballPosition != null;
         double distanceToBall = currentPose.position.minus(ballPosition).norm();
         if (distanceToBall <= BallPursuitConfig.STOP_DISTANCE) {
             // At ball - stop

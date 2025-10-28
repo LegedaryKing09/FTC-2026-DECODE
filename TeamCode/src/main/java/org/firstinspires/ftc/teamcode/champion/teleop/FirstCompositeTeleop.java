@@ -15,23 +15,19 @@ import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentCont
 
 /**
  * Streamlined Composite Shooter TeleOp
- *
  * ASSUMPTIONS:
  * - AprilTag is already in vision (no search needed)
- * - 2 balls are already intaked
- *
+ * - 2 balls are already in
  * SEQUENCE:
  * 1. Spin up shooter to target RPM
  * 2. Align to target (within error threshold OR timeout)
  * 3. Stop alignment, wait briefly for stability
  * 4. Shoot immediately
- *
  * KEY FEATURES:
  * - Uses practical alignment threshold (adjustable, default 1.5°)
  * - 2-second alignment timeout ensures shooting happens
  * - Thread-based execution like the working RPM test
  * - Direct error checking without complex state tracking
- *
  * CONTROLS:
  * - Gamepad1 Left Stick Y: Drive forward/backward
  * - Gamepad1 Right Stick X: Turn
@@ -76,7 +72,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
     // Performance tracking
     private int shotsCompleted = 0;
     private double lastShotTime = 0;
-    private ElapsedTime sessionTimer = new ElapsedTime();
+    private final ElapsedTime sessionTimer = new ElapsedTime();
 
     @Override
     public void runOpMode() {
@@ -190,7 +186,7 @@ public class FirstCompositeTeleop extends LinearOpMode {
                 long rpmStartTime = System.currentTimeMillis();
                 while (opModeIsActive() && !shooterController.isAtTargetRPM() &&
                         (System.currentTimeMillis() - rpmStartTime) < RPM_TIMEOUT) {
-                    Thread.sleep(10);
+                    sleep(10);
                 }
 
                 // Step 4: Align to target (with error threshold check)
@@ -198,7 +194,6 @@ public class FirstCompositeTeleop extends LinearOpMode {
                     limelightController.startAlignment();
 
                     long alignStartTime = System.currentTimeMillis();
-                    boolean alignmentGoodEnough = false;
 
                     // Keep aligning until within threshold OR timeout
                     while (opModeIsActive() &&
@@ -209,11 +204,10 @@ public class FirstCompositeTeleop extends LinearOpMode {
                         // Check if we're within acceptable error threshold
                         if (limelightController.hasTarget() &&
                                 limelightController.getTargetError() <= ALIGNMENT_THRESHOLD) {
-                            alignmentGoodEnough = true;
                             break;
                         }
 
-                        Thread.sleep(20);
+                        sleep(20);
                     }
 
                     // Stop alignment and motors

@@ -8,35 +8,40 @@ import com.qualcomm.robotcore.hardware.Servo;
 public class AxonMiniServoController {
 
     public static String AXON_MINI_NAME = "ramp";
+    public static String AXON_MINI_SECOND_NAME = "ramp2"; // Second servo for opposite direction
     public static double AXON_MINI_MIN_POSITION = 0.0;
     public static double AXON_MINI_MAX_POSITION = 1.0;
     public static double AXON_MINI_HALF_POSITION = 0.5;
     public static double AXON_MINI_QUARTER_POSITION = 0.25;
     public static double AXON_MINI_THREE_QUARTER_POSITION = 0.75;
 
-    // Backward compatibility constants (now represent positions)
-    public static double AXON_MINI_FULL_POWER = AXON_MINI_MAX_POSITION;
-    public static double AXON_MINI_REVERSE_POWER = AXON_MINI_MIN_POSITION;
-    public static double AXON_MINI_STOP_POWER = AXON_MINI_HALF_POSITION;
-    public static double AXON_MINI_HALF_POWER = AXON_MINI_HALF_POSITION;
-    public static double AXON_MINI_QUARTER_POWER = AXON_MINI_QUARTER_POSITION;
-    public static double AXON_MINI_SLOW_POWER = 0.1; // Approximate
-
     private enum ServoMode {
         POSITION
     }
 
     private final Servo axonMini;
-    private ServoMode servoMode = ServoMode.POSITION;
+    private Servo axonMiniSecond; // Second servo, null if not found
+    private final ServoMode servoMode = ServoMode.POSITION;
 
     public AxonMiniServoController(LinearOpMode opMode) {
         axonMini = opMode.hardwareMap.get(Servo.class, AXON_MINI_NAME);
         // Uncomment the line below if you need to reverse the servo direction
         axonMini.setDirection(Servo.Direction.FORWARD);
+
+        // Try to get second servo, set to null if not found
+        try {
+            axonMiniSecond = opMode.hardwareMap.get(Servo.class, AXON_MINI_SECOND_NAME);
+            axonMiniSecond.setDirection(Servo.Direction.REVERSE); // Opposite direction for second servo
+        } catch (Exception e) {
+            axonMiniSecond = null; // Second servo not configured
+        }
     }
 
     public void setPosition(double position) {
         axonMini.setPosition(position);
+        if (axonMiniSecond != null) {
+            axonMiniSecond.setPosition(1.0 - position); // Opposite position for second servo
+        }
     }
 
     public double getPosition() {
@@ -128,5 +133,13 @@ public class AxonMiniServoController {
 
     public Servo getServo() {
         return axonMini;
+    }
+
+    public Servo getSecondServo() {
+        return axonMiniSecond;
+    }
+
+    public boolean hasSecondServo() {
+        return axonMiniSecond != null;
     }
 }

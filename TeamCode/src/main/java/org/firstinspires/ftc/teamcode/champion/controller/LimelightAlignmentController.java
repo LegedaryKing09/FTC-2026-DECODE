@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import static java.lang.Thread.sleep;
+
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
@@ -71,17 +73,13 @@ public class LimelightAlignmentController {
     // === ZONE DEFINITION ===
 
     public enum TXZone {
-        ZONE1_CLOSE(0, 5, "0-5°"),      // 0-5 degrees
-        ZONE2_MEDIUM(5, 10, "5-10°"),   // 5-10 degrees
-        ZONE3_FAR(10, 999, ">10°");     // >10 degrees
+        ZONE1_CLOSE("0-5°"),      // 0-5 degrees
+        ZONE2_MEDIUM("5-10°"),   // 5-10 degrees
+        ZONE3_FAR(">10°");     // >10 degrees
 
-        private final double minTx;
-        private final double maxTx;
         private final String description;
 
-        TXZone(double minTx, double maxTx, String description) {
-            this.minTx = minTx;
-            this.maxTx = maxTx;
+        TXZone(String description) {
             this.description = description;
         }
 
@@ -102,7 +100,7 @@ public class LimelightAlignmentController {
         private double setpoint = 0;
         private double lastError = 0;
         private double integral = 0;
-        private ElapsedTime timer = new ElapsedTime();
+        private final ElapsedTime timer = new ElapsedTime();
         private boolean firstUpdate = true;
 
         // Zone-specific PID gains (set once based on initial TX)
@@ -316,6 +314,7 @@ public class LimelightAlignmentController {
     /**
      * Turn to target heading using PID control with zone-based gains
      * This is a BLOCKING method that returns when aligned or timeout
+     * @noinspection BusyWait
      */
     private void turnToHeadingPID(double targetHeadingDegrees) throws InterruptedException {
         long startTime = System.currentTimeMillis();
@@ -363,7 +362,7 @@ public class LimelightAlignmentController {
                     opMode.telemetry.addLine("✓✓✓ ALIGNED! ✓✓✓");
                     opMode.telemetry.update();
                     driveController.stopDrive();
-                    Thread.sleep((long)AlignmentParams.SETTLING_TIME_MS);
+                    sleep((long)AlignmentParams.SETTLING_TIME_MS);
                     break;
                 }
 
@@ -380,7 +379,7 @@ public class LimelightAlignmentController {
             opMode.telemetry.update();
 
             // Loop timing (50Hz)
-            Thread.sleep(20);
+            sleep(20);
         }
 
         // Ensure stopped
@@ -471,7 +470,7 @@ public class LimelightAlignmentController {
                 }
 
                 try {
-                    Thread.sleep(20);
+                    sleep(20);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return false;
@@ -485,8 +484,7 @@ public class LimelightAlignmentController {
                 return true;
             }
 
-        } catch (Exception e) {
-            hasTarget = false;
+        } catch (Exception ignored) {
         }
 
         hasTarget = false;

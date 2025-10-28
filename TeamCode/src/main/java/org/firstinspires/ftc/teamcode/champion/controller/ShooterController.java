@@ -23,6 +23,9 @@ public class ShooterController {
     public static double SHOOTER_QUARTER_RPM = 1250;
     public static double SHOOTER_STOP_RPM = 0;
 
+    // Maximum allowed RPM for safety (configurable but enforced)
+    public static double MAX_SAFE_RPM = 2750.0;
+
     // Motor specifications
     public static double TICKS_PER_REV = 28;  // Adjust based on your encoder
     public static double WHEEL_DIAMETER_METERS = 0.10795;
@@ -121,6 +124,12 @@ public class ShooterController {
                 double currentRPM = getShooterRPM();
                 double error = targetRPM - currentRPM;
 
+                // DEBUG LOGGING: Log key values to identify unlimited RPM issue
+                if (Math.abs(error) > 500 || currentRPM > 4000) { // Log when error is large or RPM is high
+                    System.out.printf("DEBUG SHOOTER: Target=%.0f, Current=%.0f, Error=%.0f, Mode=%s%n",
+                        targetRPM, currentRPM, error, shooterMode);
+                }
+
                 // NORMAL PID CONTROL
                 if (shooterMode == ShooterMode.VELOCITY_CONTROL) {
                     // Proportional term - immediate response to error
@@ -135,13 +144,11 @@ public class ShooterController {
                     double iTerm = kI * integralSum;
 
                     // Derivative term - predicts future error based on rate of change
-                    double derivative = 0;
-                    if (deltaTime > 0) {
-                        derivative = (error - lastError) / deltaTime;
-                        // Low-pass filter to reduce noise
-                        derivative = (DERIVATIVE_FILTER_GAIN * derivative) +
-                                ((1 - DERIVATIVE_FILTER_GAIN) * lastDerivative);
-                    }
+                    double derivative;
+                    derivative = (error - lastError) / deltaTime;
+                    // Low-pass filter to reduce noise
+                    derivative = (DERIVATIVE_FILTER_GAIN * derivative) +
+                            ((1 - DERIVATIVE_FILTER_GAIN) * lastDerivative);
                     double dTerm = kD * derivative;
 
                     // Calculate total PID output as motor power adjustment
@@ -152,6 +159,14 @@ public class ShooterController {
 
                     // Aggressive clamping - allow full power when needed
                     motorPower = Math.max(0.0, Math.min(1.0, motorPower));
+
+                    // DEBUG LOGGING: Log PID calculations when motor power is at extreme values
+                    if (motorPower >= 1.0 || currentRPM > 4000 || error > 1000) {
+                        System.out.printf("DEBUG SHOOTER PID: P=%.3f, I=%.3f, D=%.3f, Total=%.3f, MotorPower=%.3f%n",
+                            pTerm, iTerm, dTerm, pidCorrection, motorPower);
+                        System.out.printf("DEBUG SHOOTER STATE: Target=%.0f, Current=%.0f, Error=%.0f, IntegralSum=%.1f%n",
+                            targetRPM, currentRPM, error, integralSum);
+                    }
 
                     // Apply power to both motors
                     shooter1.setPower(motorPower);
@@ -172,7 +187,18 @@ public class ShooterController {
     }
 
     private void setTargetRPM(double rpm) {
+        // DEBUG LOGGING: Track RPM target setting
+        System.out.printf("DEBUG SHOOTER SET: Requested RPM=%.0f, MAX_SAFE_RPM=%.0f%n", rpm, MAX_SAFE_RPM);
+
+        // Enforce maximum safe RPM limit
+        if (rpm > MAX_SAFE_RPM) {
+            System.out.printf("DEBUG SHOOTER CLAMP: Clamping RPM from %.0f to %.0f (MAX_SAFE_RPM)%n", rpm, MAX_SAFE_RPM);
+            rpm = MAX_SAFE_RPM;
+        }
+
         targetRPM = rpm;
+
+        System.out.printf("DEBUG SHOOTER FINAL: Set targetRPM=%.0f%n", targetRPM);
 
         if (rpm <= 0) {
             // Stop both motors
