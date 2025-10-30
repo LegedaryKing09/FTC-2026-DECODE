@@ -38,12 +38,12 @@ public class BasicAuton extends LinearOpMode {
     // Autonomous parameters
     public static double SHOOTER_START_RPM = 2750.0;
     public static double BACKWARD_DISTANCE_INCHES = 50.0;
-    public static double FORWARD_DISTANCE_INCHES = 3.0;
-    public static double REPOSITIONING_DISTANCE = 3.0;
+    public static double FORWARD_DISTANCE_INCHES = 35;
+    public static double REPOSITIONING_DISTANCE = 20;
     public static double MOVEMENT_SPEED = 0.3; // Conservative speed for odometry
     public static long AUTO_SHOOT_TIMEOUT = 8000; // Maximum time to wait for auto-shoot sequence
     public static long SETTLE_TIME = 500; // Time to settle after movement before shooting
-    public static double TURN_ANGLE_DEGREES = 30.0; // Angle to turn for repositioning
+    public static double TURN_ANGLE_DEGREES = 20.0; // Angle to turn for repositioning
 
     @Override
     public void runOpMode() {

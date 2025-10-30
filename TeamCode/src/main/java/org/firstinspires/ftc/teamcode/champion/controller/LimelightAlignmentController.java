@@ -38,15 +38,15 @@ public class LimelightAlignmentController {
     @Config
     public static class PIDParams {
         // Zone 1: 0-5 degrees
-        public static double ZONE1_KP = 9.0;
+        public static double ZONE1_KP = 8.5;
         public static double ZONE1_KD = 0.0;
 
         // Zone 2: 5-10 degrees
-        public static double ZONE2_KP = 8;
+        public static double ZONE2_KP = 7.5;
         public static double ZONE2_KD = 0.0;
 
         // Zone 3: >10 degrees
-        public static double ZONE3_KP = 7;
+        public static double ZONE3_KP = 6;
         public static double ZONE3_KD = 0.0;
 
         // Shared parameters
