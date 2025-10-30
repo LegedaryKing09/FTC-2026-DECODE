@@ -201,8 +201,7 @@ public class BasicAuton extends LinearOpMode {
         telemetry.addLine("Starting auto-shoot sequence...");
         telemetry.update();
         executeAutoShootSequence(); // 15 seconds for 2 balls
-
-
+        
     }
     /**
      * Move forward a specified distance using odometry
