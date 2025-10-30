@@ -82,9 +82,6 @@ public class BasicAuton extends LinearOpMode {
                 rampController
         );
 
-        // Initialize ramp to starting position
-        rampController.setTo0Degrees();
-
         telemetry.addLine("=== BASIC AUTON READY ===");
         telemetry.addData("Shooter Start RPM", SHOOTER_START_RPM);
         telemetry.addData("Backward Distance", BACKWARD_DISTANCE_INCHES + " inches");
@@ -294,8 +291,6 @@ public class BasicAuton extends LinearOpMode {
         // Trigger the auto-shoot sequence (runs in separate thread)
         // This method handles alignment, shooter speed, ramp angle, and transfer automatically
         autoShootController.executeDistanceBasedAutoShoot();
-        transferController.transferFull();
-        intakeController.intakeFull();
 
         // Wait for auto-shoot to complete or timeout
         ElapsedTime timer = new ElapsedTime();
@@ -306,9 +301,6 @@ public class BasicAuton extends LinearOpMode {
             // Update shooter PID during the sequence
             // This is critical for maintaining target RPM
             shooterController.updatePID();
-            transferController.transferFull();
-            intakeController.intakeFull();
-
 
             // Display status
             telemetry.addLine("=== AUTO-SHOOT IN PROGRESS ===");
@@ -345,7 +337,6 @@ public class BasicAuton extends LinearOpMode {
 
         // Clean stop of all systems (the AutoShootController should have already done this)
         // But we do it again to be safe
-        shooterController.shooterStop();
         intakeController.intakeStop();
         transferController.transferStop();
         driveController.stopDrive();
