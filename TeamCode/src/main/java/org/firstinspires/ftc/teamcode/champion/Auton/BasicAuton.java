@@ -38,7 +38,9 @@ public class BasicAuton extends LinearOpMode {
     public static double SHOOTER_START_RPM = 2750.0;
     public static double BACKWARD_DISTANCE_INCHES = 50.0;
     public static double MOVEMENT_SPEED = 0.3; // Conservative speed for odometry
-    public static long AUTO_SHOOT_TIMEOUT = 8000; // Maximum time to wait for auto-shoot sequence
+
+    public static double INTAKE_SPEED = 0.15; // Conservative speed for odometry
+    public static long AUTO_SHOOT_TIMEOUT = 15000; // Maximum time to wait for auto-shoot sequence
     public static long SETTLE_TIME = 500; // Time to settle after movement before shooting
 
     @Override
@@ -90,35 +92,117 @@ public class BasicAuton extends LinearOpMode {
 
         if (!opModeIsActive()) return;
 
-        // Start shooter spinning early
+        // 1. Start shooter spinning early
         telemetry.addLine("Starting shooter...");
         telemetry.update();
         shooterController.setShooterRPM(SHOOTER_START_RPM);
 
-        // Execute backward movement
+        // 2. Execute backward movement
         telemetry.addLine("Moving backward...");
         telemetry.update();
-        moveBackwardWithOdometry(BACKWARD_DISTANCE_INCHES);
+        moveBackwardWithOdometry(30.0);
+
+        // 3. Settle after movement
+        telemetry.addLine("Settling...");
+        telemetry.update();
+        sleep(SETTLE_TIME);
+
+        // 4. Wait for shooter to reach target RPM before shooting
+        telemetry.addLine("Waiting for shooter to spin up...");
+        telemetry.update();
+        ElapsedTime spinUpTimer1 = new ElapsedTime();
+        while (opModeIsActive() && spinUpTimer1.seconds() < 5.0) {
+            shooterController.updatePID();
+
+            telemetry.addData("Current RPM", String.format("%.0f", shooterController.getShooterRPM()));
+            telemetry.addData("Target RPM", String.format("%.0f", shooterController.getTargetRPM()));
+            telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✅ YES" : "⏳ Spinning up...");
+            telemetry.update();
+
+            if (shooterController.isAtTargetRPM()) {
+                telemetry.addLine("✅ Shooter ready!");
+                telemetry.update();
+                sleep(500); // Extra settling time
+                break;
+            }
+            sleep(50);
+        }
+
+        // Execute auto-shoot sequence with longer timeout for 2 balls
+        telemetry.addLine("Starting auto-shoot sequence...");
+        telemetry.update();
+        executeAutoShootSequence(); // 15 seconds for 2 balls
 
         // Settle after movement
         telemetry.addLine("Settling...");
         telemetry.update();
         sleep(SETTLE_TIME);
 
-        // Execute auto-shoot sequence
+        // Turn left 45 degrees
+        telemetry.addLine("Turning left 45 degrees...");
+        telemetry.update();
+        turnToHeading(39.0); // Positive angle = counterclockwise (left)
+        sleep(300); // Small settle time after turn
+
+        // Move forward to pick up 2 balls
+        telemetry.addLine("Moving forward 21.5 inches...");
+        telemetry.update();
+        intakeController.intakeFull(); // Start intake while moving
+        moveForwardForIntake(21.5);
+        sleep(SETTLE_TIME); // Settle after movement
+
+
+        sleep(1000);
+        intakeController.intakeStop();
+
+        // Execute backward movement
+        telemetry.addLine("Moving backward...");
+        telemetry.update();
+        moveBackwardWithOdometry(10.0);
+
+        // Turn right 50 degrees
+        telemetry.addLine("=== STARTING NEW SEQUENCE ===");
+        telemetry.addLine("Turning left 50 degrees...");
+        telemetry.update();
+        turnToHeading(14.0); // Positive angle = counterclockwise (left)
+        sleep(300); // Small settle time after turn
+
+        telemetry.addLine("Starting shooter...");
+        telemetry.update();
+        shooterController.setShooterRPM(SHOOTER_START_RPM);
+
+        // Settle after movement
+        telemetry.addLine("Settling...");
+        telemetry.update();
+        sleep(SETTLE_TIME);
+
+        // Wait for shooter to reach target RPM before shooting
+        telemetry.addLine("Waiting for shooter to spin up...");
+        telemetry.update();
+        ElapsedTime spinUpTimer2 = new ElapsedTime();
+        while (opModeIsActive() && spinUpTimer2.seconds() < 5.0) {
+            shooterController.updatePID();
+
+            telemetry.addData("Current RPM", String.format("%.0f", shooterController.getShooterRPM()));
+            telemetry.addData("Target RPM", String.format("%.0f", shooterController.getTargetRPM()));
+            telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✅ YES" : "⏳ Spinning up...");
+            telemetry.update();
+
+            if (shooterController.isAtTargetRPM()) {
+                telemetry.addLine("✅ Shooter ready!");
+                telemetry.update();
+                sleep(500); // Extra settling time
+                break;
+            }
+            sleep(50);
+        }
+
+        // Execute auto-shoot sequence with longer timeout for 2 balls
         telemetry.addLine("Starting auto-shoot sequence...");
         telemetry.update();
-        executeAutoShootSequence();
-        intakeController.intakeFull();
-        turnToHeading(30);
-        moveForwardWithOdometry(3);
-        moveBackwardWithOdometry(3);
-        turnToHeading(0);
-        executeAutoShootSequence();
-        // Final status
-        telemetry.addLine("=== AUTONOMOUS COMPLETE ===");
-        telemetry.addData("Shots Completed", autoShootController.getShotsCompleted());
-        telemetry.update();
+        executeAutoShootSequence(); // 15 seconds for 2 balls
+
+
     }
     /**
      * Move forward a specified distance using odometry
@@ -164,6 +248,50 @@ public class BasicAuton extends LinearOpMode {
         driveController.stopDrive();
 
         telemetry.addLine("✅ Forward movement complete");
+        telemetry.update();
+        sleep(200);
+    }
+
+    @SuppressLint("DefaultLocale")
+    private void moveForwardForIntake(double distanceInches) {
+        // Record starting position
+        driveController.updateOdometry();
+        double startX = driveController.getX();
+        double targetX = startX + distanceInches; // Positive X is forward
+
+        telemetry.addData("Starting X", String.format("%.2f in", startX));
+        telemetry.addData("Target X", String.format("%.2f in", targetX));
+        telemetry.update();
+
+        // Set drive mode to velocity for precise control
+        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
+
+        // Move forward at constant speed
+        driveController.tankDriveVelocityNormalized(INTAKE_SPEED, INTAKE_SPEED);
+
+        // Monitor progress
+        while (opModeIsActive()) {
+            driveController.updateOdometry();
+            double currentX = driveController.getX();
+            double distanceMoved = Math.abs(currentX - startX);
+
+            telemetry.addData("Current X", String.format("%.2f in", currentX));
+            telemetry.addData("Distance Moved", String.format("%.2f in", distanceMoved));
+            telemetry.addData("Target Distance", String.format("%.2f in", distanceInches));
+            telemetry.update();
+
+            // Check if we've reached the target distance
+            if (distanceMoved >= Math.abs(distanceInches)) {
+                break;
+            }
+
+            sleep(20);
+        }
+
+        // Stop movement
+        driveController.stopDrive();
+
+        telemetry.addLine("✅ Forward intake movement complete");
         telemetry.update();
         sleep(200);
     }
@@ -222,14 +350,19 @@ public class BasicAuton extends LinearOpMode {
         // Trigger the auto-shoot sequence (runs in separate thread)
         autoShootController.executeDistanceBasedAutoShoot();
 
+        transferController.transferFull();
+        intakeController.intakeFull();
+
         // Wait for auto-shoot to complete or timeout
         ElapsedTime timer = new ElapsedTime();
 
         while (opModeIsActive() && autoShootController.isAutoShooting() &&
                 timer.milliseconds() < AUTO_SHOOT_TIMEOUT) {
 
-            // Update shooter PID during the sequence
+            // Update shooter PID during the sequence, keep the transfer and intake running continuously
             shooterController.updatePID();
+            transferController.transferFull();
+            intakeController.intakeFull();
 
             // Display status
             telemetry.addLine("=== AUTO-SHOOT IN PROGRESS ===");
@@ -249,6 +382,19 @@ public class BasicAuton extends LinearOpMode {
             sleep(50);
         }
 
+        // Keep transfer running for extra time after auto-shoot thinks it's done
+        ElapsedTime extraTime = new ElapsedTime();
+        while (opModeIsActive() && extraTime.seconds() < 4.0) {
+            shooterController.updatePID(); // Keep shooter spinning
+            transferController.transferFull(); // Keep transfer running
+            intakeController.intakeFull(); // Keep intake running
+
+            telemetry.addData("Extra Time", String.format("%.1f s", extraTime.seconds()));
+            telemetry.addData("Current RPM", String.format("%.0f", shooterController.getShooterRPM()));
+            telemetry.update();
+            sleep(50);
+        }
+
         // Check if timeout occurred
         if (timer.milliseconds() >= AUTO_SHOOT_TIMEOUT) {
             telemetry.addLine("⚠️ Auto-shoot timeout - continuing...");
@@ -261,6 +407,8 @@ public class BasicAuton extends LinearOpMode {
         intakeController.intakeStop();
         transferController.transferStop();
         driveController.stopDrive();
+
+        sleep(500);
     }
     @SuppressLint("DefaultLocale")
     private void goToPositionWithPursuit(double x, double y) {
@@ -335,3 +483,4 @@ public class BasicAuton extends LinearOpMode {
         }
     }
 }
+
