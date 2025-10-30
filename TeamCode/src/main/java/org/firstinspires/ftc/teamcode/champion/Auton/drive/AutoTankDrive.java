@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive;
 
+
 import androidx.annotation.NonNull;
+
 
 import com.acmerobotics.dashboard.canvas.Canvas;
 import com.acmerobotics.dashboard.config.Config;
@@ -27,19 +29,14 @@ import com.acmerobotics.roadrunner.TimeTurn;
 import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
 import com.acmerobotics.roadrunner.TrajectoryBuilderParams;
 import com.acmerobotics.roadrunner.TurnConstraints;
-import com.acmerobotics.roadrunner.Twist2dDual;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Vector2dDual;
 import com.acmerobotics.roadrunner.VelConstraint;
 import com.acmerobotics.roadrunner.ftc.DownsampledWriter;
-import com.acmerobotics.roadrunner.ftc.Encoder;
 import com.acmerobotics.roadrunner.ftc.FlightRecorder;
 import com.acmerobotics.roadrunner.ftc.LazyHardwareMapImu;
 import com.acmerobotics.roadrunner.ftc.LazyImu;
 import com.acmerobotics.roadrunner.ftc.LynxFirmware;
-import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
-import com.acmerobotics.roadrunner.ftc.PositionVelocityPair;
-import com.acmerobotics.roadrunner.ftc.RawEncoder;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
@@ -56,12 +53,10 @@ import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.DriveCommandMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.PoseMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankCommandMessage;
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankLocalizerInputsMessage;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+
 
 @Config
 public final class AutoTankDrive {
@@ -72,25 +67,33 @@ public final class AutoTankDrive {
         public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
                 RevHubOrientationOnRobot.UsbFacingDirection.UP;
 
+
+        //odometry read 30.6 encoder read 35.8
         // drive wheel parameters for motor control
         public double wheelRadius = 1.89; //robot drives too far, decrease
         public double gearRatio = 1;
-        public double ticksPerRev = 537.7;
-        public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev; //0.122649532434058
+        public double ticksPerRev = 418; //new_ticksPerRev = current_ticksPerRev × (encoder_reading / actual_distance)
+        public double inPerTick = 0.02843; //(wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
+
 
         //track width for ramsete, path following not odometry
-        public double physicalTrackWidthInches = 6.8; // old_trackWidth * (θ_cmd / θ_meas)
+        public double physicalTrackWidthInches = 6.0; // old_trackWidth * (θ_cmd / θ_meas)
+
 
         // feedforward parameters (in tick units)
-        public double kS = 0.8; // jerking before starting, increase ; creeping when it should stop, decrease
-        public double kV = 0.012; // moving slow, increase ; overshoot distance or turning too fast, decrease
-        public double kA = 0.002; // lagging when accelerating, increase ; shaking when staring or stopping, decrease
+        public double kS = 0.6; // jerking before starting, increase ; creeping when it should stop, decrease
+        public double kV = 0.0180; // moving slow, increase ; overshoot distance or turning too fast, decrease
+        public double kA = 0.0027; // lagging when accelerating, increase ; shaking when staring or stopping, decrease
+
+
 
 
         // path profile parameters
-        public double maxWheelVel = 2000 * inPerTick; // overshoot, lower ; finish late or slow, higher 110.85299064868116
+        public double maxWheelVel = 1112; // overshoot, lower ; finish late or slow, higher 110.85299064868116
         public double minProfileAccel = -20;
         public double maxProfileAccel = 20; // aggressive or slipping, lower ; slow to start, increase
+
+
 
 
         // turn profile parameters
@@ -98,19 +101,25 @@ public final class AutoTankDrive {
         public double maxAngAccel = (2 * maxProfileAccel) / physicalTrackWidthInches; // 50.70499858313351
 
 
+
+
         // Zeta : how smooth the correction is, Bbar: how fast and strong the correction is
-        public double ramseteZeta = 0.7; // wobble or oscillate while correcting, increase ; lag, slow to catch up, decrease
-        public double ramseteBBar = 2.0; // vibrating or jerking near corners, lower ; doesn't reach the target, increase
+        public double ramseteZeta = 0.6; // wobble or oscillate while correcting, increase ; lag, slow to catch up, decrease
+        public double ramseteBBar = 0.5; // vibrating or jerking near corners, lower ; doesn't reach the target, increase
+
 
         public double turnGain = 0.01; // stop before full turn, increase, oscillate, decrease
         public double turnVelGain = 0.001; // drifts slowly at the end, increase ; jerks at the end, decrease
 
-        //pinpoint odometry parameters for localization
-        public double odoWheelRadius = 0.411;  //  newWheelRadius =  * target angle / odo angle
-        public double odoTicksPerRev = 1180;   // newTicksRev =  * target distance / odo distance
+
+        // If it reads 30.7 but should read 26:
+        // correction = 26 / 30.7 = 0.847
+        public double odoWheelRadius = 0.286;
+        public double odoTicksPerRev = 1180 * 0.8919;   // newTicksRev =  * target distance / odo distance
         public double odoInPerTick = (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev;
         public double pinpointXOffset = 6.0;
         public double pinpointYOffset = 3.0;
+
 
         // Pinpoint encoder directions (change if odometry reads backwards)
         public GoBildaPinpointDriver.EncoderDirection xEncoderDirection =
@@ -118,11 +127,15 @@ public final class AutoTankDrive {
         public GoBildaPinpointDriver.EncoderDirection yEncoderDirection =
                 GoBildaPinpointDriver.EncoderDirection.FORWARD;
 
+
     }
+
 
     public static Params PARAMS = new Params();
 
+
     public final TankKinematics kinematics = new TankKinematics(PARAMS.physicalTrackWidthInches);
+
 
     public final TurnConstraints defaultTurnConstraints = new TurnConstraints(
             PARAMS.maxAngVel, -PARAMS.maxAngAccel, PARAMS.maxAngAccel);
@@ -134,8 +147,10 @@ public final class AutoTankDrive {
     public final AccelConstraint defaultAccelConstraint =
             new ProfileAccelConstraint(PARAMS.minProfileAccel, PARAMS.maxProfileAccel);
 
+
     public final DcMotorEx leftFront, rightFront, rightBack, leftBack;
     public final List<DcMotorEx> leftMotors, rightMotors;
+
 
     public final LazyImu lazyImu;
     public final VoltageSensor voltageSensor;
@@ -143,20 +158,25 @@ public final class AutoTankDrive {
     public final Localizer localizer; //main localizer interface
     private final LinkedList<Pose2d> poseHistory = new LinkedList<>();
 
+
     private final DownsampledWriter estimatedPoseWriter = new DownsampledWriter("ESTIMATED_POSE", 50_000_000);
     private final DownsampledWriter targetPoseWriter = new DownsampledWriter("TARGET_POSE", 50_000_000);
     private final DownsampledWriter driveCommandWriter = new DownsampledWriter("DRIVE_COMMAND", 50_000_000);
     private final DownsampledWriter tankCommandWriter = new DownsampledWriter("TANK_COMMAND", 50_000_000);
 
+
     public class PinpointLocalizer implements Localizer {
         private Pose2d pose;
+
 
         public PinpointLocalizer(Pose2d initialPose) {
             this.pose = initialPose;
 
+
             // Configure Pinpoint with odometry parameters
             double mmPerTick = PARAMS.odoInPerTick * 25.4;
             pinpoint.setEncoderResolution(1 / mmPerTick, DistanceUnit.MM);
+
 
             // Set pod offsets
             pinpoint.setOffsets(
@@ -165,12 +185,15 @@ public final class AutoTankDrive {
                     DistanceUnit.MM
             );
 
+
             // Set encoder directions
             pinpoint.setEncoderDirections(PARAMS.xEncoderDirection, PARAMS.yEncoderDirection);
+
 
             // Reset Pinpoint
             pinpoint.resetPosAndIMU();
         }
+
 
         @Override
         public void setPose(Pose2d pose) {
@@ -185,14 +208,17 @@ public final class AutoTankDrive {
             pinpoint.setPosition(pose2d);
         }
 
+
         @Override
         public Pose2d getPose() {
             return pose;
         }
 
+
         @Override
         public PoseVelocity2d update() {
             pinpoint.update();
+
 
             if (pinpoint.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY) {
                 // Update pose from Pinpoint
@@ -201,6 +227,7 @@ public final class AutoTankDrive {
                         pinpoint.getPosY(DistanceUnit.INCH),
                         pinpoint.getHeading(UnnormalizedAngleUnit.RADIANS)
                 );
+
 
                 // Return velocity
                 return new PoseVelocity2d(
@@ -212,8 +239,10 @@ public final class AutoTankDrive {
                 );
             }
 
+
             return new PoseVelocity2d(new Vector2d(0, 0), 0);
         }
+
 
         public boolean isReady() {
             pinpoint.update();
@@ -221,12 +250,15 @@ public final class AutoTankDrive {
         }
     }
 
+
     public AutoTankDrive(HardwareMap hardwareMap, Pose2d pose) {
         LynxFirmware.throwIfModulesAreOutdated(hardwareMap);
+
 
         for (LynxModule module : hardwareMap.getAll(LynxModule.class)) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
+
 
         // Initialize motors
         leftFront = hardwareMap.get(DcMotorEx.class, "lf");
@@ -234,13 +266,16 @@ public final class AutoTankDrive {
         rightFront = hardwareMap.get(DcMotorEx.class, "rf");
         rightBack = hardwareMap.get(DcMotorEx.class, "rb");
 
+
         leftMotors = Arrays.asList(leftFront, leftBack);
         rightMotors = Arrays.asList(rightFront, rightBack);
+
 
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
         leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
+
 
         for (DcMotorEx m : leftMotors) {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -249,18 +284,23 @@ public final class AutoTankDrive {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
 
+
         // Initialize IMU
         lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
                 PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
 
+
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
+
 
         // Initialize Pinpoint
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "odo");
         localizer = new PinpointLocalizer(pose);
 
+
         FlightRecorder.write("TANK_PARAMS", PARAMS);
     }
+
 
     public void initializePinpoint(LinearOpMode opMode, Pose2d initialPose) {
         // Wait for Pinpoint to be ready
@@ -269,6 +309,7 @@ public final class AutoTankDrive {
             opMode.telemetry.update();
             opMode.sleep(100);
         }
+
 
         if (!opMode.isStopRequested()) {
             localizer.setPose(initialPose);
@@ -281,14 +322,17 @@ public final class AutoTankDrive {
         }
     }
 
+
     public void setDrivePowers(PoseVelocity2d powers) {
         TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(
                 PoseVelocity2dDual.constant(powers, 1));
+
 
         double maxPowerMag = 1;
         for (DualNum<Time> power : wheelVels.all()) {
             maxPowerMag = Math.max(maxPowerMag, power.value());
         }
+
 
         for (DcMotorEx m : leftMotors) {
             m.setPower(wheelVels.left.get(0) / maxPowerMag);
@@ -298,13 +342,16 @@ public final class AutoTankDrive {
         }
     }
 
+
     public final class FollowTrajectoryAction implements Action {
         public final TimeTrajectory timeTrajectory;
         private double beginTs = -1;
         private final double[] xPoints, yPoints;
 
+
         public FollowTrajectoryAction(TimeTrajectory t) {
             timeTrajectory = t;
+
 
             List<Double> disps = com.acmerobotics.roadrunner.Math.range(
                     0, t.path.length(),
@@ -318,6 +365,7 @@ public final class AutoTankDrive {
             }
         }
 
+
         @Override
         public boolean run(@NonNull TelemetryPacket p) {
             double t;
@@ -327,6 +375,7 @@ public final class AutoTankDrive {
             } else {
                 t = Actions.now() - beginTs;
             }
+
 
             if (t >= timeTrajectory.duration) {
                 for (DcMotorEx m : leftMotors) {
@@ -338,11 +387,14 @@ public final class AutoTankDrive {
                 return false;
             }
 
+
             DualNum<Time> x = timeTrajectory.profile.get(t);
             Pose2dDual<Arclength> txWorldTarget = timeTrajectory.path.get(x.value(), 3);
             targetPoseWriter.write(new PoseMessage(txWorldTarget.value()));
 
+
             updatePoseEstimate();
+
 
             PoseVelocity2dDual<Time> command = new RamseteController(
                     PARAMS.physicalTrackWidthInches,
@@ -351,8 +403,10 @@ public final class AutoTankDrive {
                     .compute(x, txWorldTarget, localizer.getPose());
             driveCommandWriter.write(new DriveCommandMessage(command));
 
+
             TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
             double voltage = voltageSensor.getVoltage();
+
 
             // Use DRIVE wheel parameters for feedforward
             final MotorFeedforward feedforward = new MotorFeedforward(
@@ -361,9 +415,11 @@ public final class AutoTankDrive {
                     PARAMS.kA / PARAMS.inPerTick
             );
 
+
             double leftPower = feedforward.compute(wheelVels.left) / voltage;
             double rightPower = feedforward.compute(wheelVels.right) / voltage;
             tankCommandWriter.write(new TankCommandMessage(voltage, leftPower, rightPower));
+
 
             for (DcMotorEx m : leftMotors) {
                 m.setPower(leftPower);
@@ -372,30 +428,38 @@ public final class AutoTankDrive {
                 m.setPower(rightPower);
             }
 
+
             p.put("x", localizer.getPose().position.x);
             p.put("y", localizer.getPose().position.y);
             p.put("heading (deg)", Math.toDegrees(localizer.getPose().heading.toDouble()));
+
 
             Pose2d error = txWorldTarget.value().minusExp(localizer.getPose());
             p.put("xError", error.position.x);
             p.put("yError", error.position.y);
             p.put("headingError (deg)", Math.toDegrees(error.heading.toDouble()));
 
+
             Canvas c = p.fieldOverlay();
             drawPoseHistory(c);
+
 
             c.setStroke("#4CAF50");
             Drawing.drawRobot(c, txWorldTarget.value());
 
+
             c.setStroke("#3F51B5");
             Drawing.drawRobot(c, localizer.getPose());
+
 
             c.setStroke("#4CAF50FF");
             c.setStrokeWidth(1);
             c.strokePolyline(xPoints, yPoints);
 
+
             return true;
         }
+
 
         @Override
         public void preview(Canvas c) {
@@ -405,13 +469,16 @@ public final class AutoTankDrive {
         }
     }
 
+
     public final class TurnAction implements Action {
         private final TimeTurn turn;
         private double beginTs = -1;
 
+
         public TurnAction(TimeTurn turn) {
             this.turn = turn;
         }
+
 
         @Override
         public boolean run(@NonNull TelemetryPacket p) {
@@ -423,6 +490,7 @@ public final class AutoTankDrive {
                 t = Actions.now() - beginTs;
             }
 
+
             if (t >= turn.duration) {
                 for (DcMotorEx m : leftMotors) {
                     m.setPower(0);
@@ -433,10 +501,13 @@ public final class AutoTankDrive {
                 return false;
             }
 
+
             Pose2dDual<Time> txWorldTarget = turn.get(t);
             targetPoseWriter.write(new PoseMessage(txWorldTarget.value()));
 
+
             PoseVelocity2d robotVelRobot = updatePoseEstimate();
+
 
             PoseVelocity2dDual<Time> command = new PoseVelocity2dDual<>(
                     Vector2dDual.constant(new Vector2d(0, 0), 3),
@@ -447,8 +518,10 @@ public final class AutoTankDrive {
             );
             driveCommandWriter.write(new DriveCommandMessage(command));
 
+
             TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
             double voltage = voltageSensor.getVoltage();
+
 
             final MotorFeedforward feedforward = new MotorFeedforward(
                     PARAMS.kS,
@@ -456,9 +529,11 @@ public final class AutoTankDrive {
                     PARAMS.kA / PARAMS.inPerTick
             );
 
+
             double leftPower = feedforward.compute(wheelVels.left) / voltage;
             double rightPower = feedforward.compute(wheelVels.right) / voltage;
             tankCommandWriter.write(new TankCommandMessage(voltage, leftPower, rightPower));
+
 
             for (DcMotorEx m : leftMotors) {
                 m.setPower(leftPower);
@@ -467,20 +542,26 @@ public final class AutoTankDrive {
                 m.setPower(rightPower);
             }
 
+
             Canvas c = p.fieldOverlay();
             drawPoseHistory(c);
+
 
             c.setStroke("#4CAF50");
             Drawing.drawRobot(c, txWorldTarget.value());
 
+
             c.setStroke("#3F51B5");
             Drawing.drawRobot(c, localizer.getPose());
+
 
             c.setStroke("#7C4DFFFF");
             c.fillCircle(turn.beginPose.position.x, turn.beginPose.position.y, 2);
 
+
             return true;
         }
+
 
         @Override
         public void preview(Canvas c) {
@@ -489,21 +570,26 @@ public final class AutoTankDrive {
         }
     }
 
+
     public PoseVelocity2d updatePoseEstimate() {
         PoseVelocity2d vel = localizer.update();
         poseHistory.add(localizer.getPose());
+
 
         while (poseHistory.size() > 100) {
             poseHistory.removeFirst();
         }
 
+
         estimatedPoseWriter.write(new PoseMessage(localizer.getPose()));
         return vel;
     }
 
+
     private void drawPoseHistory(Canvas c) {
         double[] xPoints = new double[poseHistory.size()];
         double[] yPoints = new double[poseHistory.size()];
+
 
         int i = 0;
         for (Pose2d t : poseHistory) {
@@ -512,10 +598,12 @@ public final class AutoTankDrive {
             i++;
         }
 
+
         c.setStrokeWidth(1);
         c.setStroke("#3F51B5");
         c.strokePolyline(xPoints, yPoints);
     }
+
 
     public TrajectoryActionBuilder actionBuilder(Pose2d beginPose) {
         return new TrajectoryActionBuilder(
