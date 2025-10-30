@@ -294,8 +294,6 @@ public class BasicAuton extends LinearOpMode {
         // Trigger the auto-shoot sequence (runs in separate thread)
         // This method handles alignment, shooter speed, ramp angle, and transfer automatically
         autoShootController.executeDistanceBasedAutoShoot();
-        transferController.transferFull();
-        intakeController.intakeFull();
 
         // Wait for auto-shoot to complete or timeout
         ElapsedTime timer = new ElapsedTime();
@@ -306,9 +304,6 @@ public class BasicAuton extends LinearOpMode {
             // Update shooter PID during the sequence
             // This is critical for maintaining target RPM
             shooterController.updatePID();
-            transferController.transferFull();
-            intakeController.intakeFull();
-
 
             // Display status
             telemetry.addLine("=== AUTO-SHOOT IN PROGRESS ===");
