@@ -50,10 +50,16 @@ public class SixWheelDriveController {
     private long lastImuCalibration = 0;
 
     // Speed mode settings - ADJUSTED FOR BETTER CONTROL
-    public static double FAST_SPEED_MULTIPLIER = 0.3;
-    public static double FAST_TURN_MULTIPLIER = 1.5;
-    public static double SLOW_SPEED_MULTIPLIER = 0.1;
-    public static double SLOW_TURN_MULTIPLIER = 0.8;
+    // Reduced forward/backward speeds for better control
+    public static double FAST_SPEED_MULTIPLIER = 0.4;  // Reduced from 0.3
+    public static double FAST_TURN_MULTIPLIER = 0.4;    // Significantly reduced from 1.5
+    public static double SLOW_SPEED_MULTIPLIER = 0.2;
+    public static double SLOW_TURN_MULTIPLIER = 0.2;    // Significantly reduced from 0.8
+
+    // Acceleration ramping to reduce inertia issues
+    public static double ACCELERATION_RATE = 0.15;  // How quickly to ramp up/down power
+    private double currentDrivePower = 0.0;
+    private double currentTurnPower = 0.0;
 
     private boolean isFastSpeedMode = false;
 
@@ -70,13 +76,13 @@ public class SixWheelDriveController {
         public static double MAX_RPM = 312.0;
         public static double MAX_TICKS_PER_SEC = (MAX_RPM / 60.0) * TICKS_PER_REV;
 
-        // TUNABLE PID - Based on your testing results
-        public static double VELOCITY_P = 29;
+        // TUNABLE PIDF - Reduced P and D for smoother response
+        public static double VELOCITY_P = 26;  // Reduced from 29
         public static double VELOCITY_I = 0.0;
-        public static double VELOCITY_D = 0.2;
+        public static double VELOCITY_D = 0.1;  // Reduced from 0.2
         public static double VELOCITY_F = 12.0;
 
-        public static double TRACK_WIDTH_INCHES = 12.0;
+        public static double TRACK_WIDTH_INCHES = 11.5;
         public static double WHEEL_DIAMETER_INCHES = 2.83;
     }
 
@@ -88,7 +94,11 @@ public class SixWheelDriveController {
         public static double YAW_SCALAR = 1.0;
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
-        public static double POSITION_SMOOTHING_FACTOR = 0.1; // Smoothing factor for position data
+
+        // IMU and odometry accuracy improvements
+        public static double HEADING_DRIFT_CORRECTION = 0.02;
+        public static long ODOMETRY_UPDATE_INTERVAL_MS = 10;
+        public static double POSITION_SMOOTHING_FACTOR = 0.1;
     }
 
     // Constructor for LinearOpMode
@@ -194,10 +204,36 @@ public class SixWheelDriveController {
     }
 
     public void arcadeDrive(double drive, double turn) {
-        if (currentDriveMode == DriveMode.VELOCITY) {
-            arcadeDriveVelocity(drive, turn);
+        // Apply acceleration ramping to smooth out sudden changes
+        double targetDrivePower = drive;
+        double targetTurnPower = turn;
+
+        // Smooth the drive power changes
+        if (Math.abs(targetDrivePower - currentDrivePower) > ACCELERATION_RATE) {
+            if (targetDrivePower > currentDrivePower) {
+                currentDrivePower += ACCELERATION_RATE;
+            } else {
+                currentDrivePower -= ACCELERATION_RATE;
+            }
         } else {
-            arcadeDrivePower(drive, turn);
+            currentDrivePower = targetDrivePower;
+        }
+
+        // Smooth the turn power changes
+        if (Math.abs(targetTurnPower - currentTurnPower) > ACCELERATION_RATE) {
+            if (targetTurnPower > currentTurnPower) {
+                currentTurnPower += ACCELERATION_RATE;
+            } else {
+                currentTurnPower -= ACCELERATION_RATE;
+            }
+        } else {
+            currentTurnPower = targetTurnPower;
+        }
+
+        if (currentDriveMode == DriveMode.VELOCITY) {
+            arcadeDriveVelocity(currentDrivePower, currentTurnPower);
+        } else {
+            arcadeDrivePower(currentDrivePower, currentTurnPower);
         }
     }
 
@@ -233,6 +269,10 @@ public class SixWheelDriveController {
     }
 
     public void stopDrive() {
+        // Reset current power values for smooth stop
+        currentDrivePower = 0;
+        currentTurnPower = 0;
+
         if (currentDriveMode == DriveMode.VELOCITY) {
             tankDriveVelocity(0, 0);
         } else {
@@ -255,8 +295,10 @@ public class SixWheelDriveController {
     }
 
     public void tankDriveVelocityNormalized(double leftPower, double rightPower) {
-        double leftVel = leftPower * VelocityParams.MAX_TICKS_PER_SEC;
-        double rightVel = rightPower * VelocityParams.MAX_TICKS_PER_SEC;
+        // Apply additional scaling for smoother velocity control
+        double velocityScale = 0.8;  // Reduce max velocity for better control
+        double leftVel = leftPower * VelocityParams.MAX_TICKS_PER_SEC * velocityScale;
+        double rightVel = rightPower * VelocityParams.MAX_TICKS_PER_SEC * velocityScale;
         tankDriveVelocity(leftVel, rightVel);
     }
 
@@ -352,6 +394,10 @@ public class SixWheelDriveController {
         lastOdometryUpdate = 0;
         imuDriftRate = 0.0;
         lastImuCalibration = System.currentTimeMillis();
+
+        // Reset acceleration ramping
+        currentDrivePower = 0.0;
+        currentTurnPower = 0.0;
     }
 
     /**

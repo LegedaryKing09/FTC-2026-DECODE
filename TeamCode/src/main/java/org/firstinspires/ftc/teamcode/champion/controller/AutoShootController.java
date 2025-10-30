@@ -35,14 +35,14 @@ public class AutoShootController {
 
     // ========== SHOOTING SEQUENCE PARAMETERS ==========
     public static int APRILTAG_ID = 20;
-    public static double ALIGNMENT_THRESHOLD = 1.5;  // Increased from 1.0 to match user's error
-    public static long ALIGNMENT_TIMEOUT = 2000;
-    public static long RPM_TIMEOUT = 3000;
+    public static double ALIGNMENT_THRESHOLD = 1.0;
+    public static long ALIGNMENT_TIMEOUT = 1000;
+    public static long RPM_TIMEOUT = 1500;
     public static long SHOOT_DURATION = 1000;
-    public static long STABILITY_DELAY = 200;
-    public static double RPM_TOLERANCE = 100;
-    public static int STABILITY_CHECK_DURATION = 200;
-    public static long RAMP_ADJUSTMENT_DELAY = 500;  // Time to wait for ramp to adjust
+    public static long STABILITY_DELAY = 100;
+    public static double RPM_TOLERANCE = 150;
+    public static int STABILITY_CHECK_DURATION = 100;
+    public static long RAMP_ADJUSTMENT_DELAY = 200;  // Time to wait for ramp to adjust
 
     private final LinearOpMode opMode;
     private final SixWheelDriveController driveController;
@@ -195,7 +195,7 @@ public class AutoShootController {
                         if (!verifyStability()) {
                             opMode.telemetry.addLine("⚠️ Robot not stable - retrying alignment");
                             opMode.telemetry.update();
-                            sleep(1000);
+                            sleep(100);
                             return;
                         }
                     }
