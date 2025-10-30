@@ -24,7 +24,7 @@ public class AutoShootController {
 
     // Close distance settings
     public static double RPM_CLOSE = 2800;
-    public static double RAMP_ANGLE_CLOSE = 122;  // Convert to degrees (0.71 position = ~170.4 degrees)
+    public static double RAMP_ANGLE_CLOSE = 121;  // Convert to degrees (0.71 position = ~170.4 degrees)
 
     // Far distance settings
     public static double RPM_FAR = 3150;

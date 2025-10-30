@@ -37,13 +37,14 @@ public class BasicAuton extends LinearOpMode {
 
     // Autonomous parameters
     public static double SHOOTER_START_RPM = 2750.0;
+    public static double INTAKE_SPEED = 0.2;
     public static double BACKWARD_DISTANCE_INCHES = 50.0;
     public static double FORWARD_DISTANCE_INCHES = 35;
     public static double REPOSITIONING_DISTANCE = 20;
     public static double MOVEMENT_SPEED = 0.3; // Conservative speed for odometry
     public static long AUTO_SHOOT_TIMEOUT = 8000; // Maximum time to wait for auto-shoot sequence
     public static long SETTLE_TIME = 500; // Time to settle after movement before shooting
-    public static double TURN_ANGLE_DEGREES = 20.0; // Angle to turn for repositioning
+    public static double TURN_ANGLE_DEGREES = 21.0; // Angle to turn for repositioning
 
     @Override
     public void runOpMode() {
@@ -124,7 +125,7 @@ public class BasicAuton extends LinearOpMode {
 
         // Reposition for second shot
         turnToHeading(TURN_ANGLE_DEGREES);
-        moveForwardWithOdometry(FORWARD_DISTANCE_INCHES);
+        ForwardForIntake(FORWARD_DISTANCE_INCHES);
         moveBackwardWithOdometry(REPOSITIONING_DISTANCE);
         turnToHeading(0);
 
@@ -189,6 +190,53 @@ public class BasicAuton extends LinearOpMode {
         telemetry.update();
         sleep(200);
     }
+
+    @SuppressLint("DefaultLocale")
+    private void ForwardForIntake (double distanceInches) {
+        // Record starting position
+        driveController.updateOdometry();
+        double startX = driveController.getX();
+        double targetX = startX + distanceInches; // Positive X is forward
+
+        telemetry.addData("Starting X", String.format(Locale.US, "%.2f in", startX));
+        telemetry.addData("Target X", String.format(Locale.US, "%.2f in", targetX));
+        telemetry.update();
+
+        // Set drive mode to velocity for precise control
+        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
+
+        // Move forward at constant speed
+        driveController.tankDriveVelocityNormalized(INTAKE_SPEED, INTAKE_SPEED);
+
+        // Monitor progress
+        while (opModeIsActive()) {
+            driveController.updateOdometry();
+            double currentX = driveController.getX();
+            double distanceMoved = Math.abs(currentX - startX);
+
+            telemetry.addData("Current X", String.format(Locale.US, "%.2f in", currentX));
+            telemetry.addData("Distance Moved", String.format(Locale.US, "%.2f in", distanceMoved));
+            telemetry.addData("Target Distance", String.format(Locale.US, "%.2f in", distanceInches));
+            telemetry.update();
+
+            // Check if we've reached the target distance
+            if (distanceMoved >= Math.abs(distanceInches)) {
+                break;
+            }
+
+            sleep(20);
+        }
+
+        // Stop movement
+        driveController.stopDrive();
+
+        telemetry.addLine("✅ Forward movement complete");
+        telemetry.update();
+        sleep(200);
+    }
+
+
+
 
     /**
      * Move backward a specified distance using odometry
