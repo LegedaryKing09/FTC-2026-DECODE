@@ -40,8 +40,10 @@ public class BasicAuton extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = 120.0;    // Fixed ramp angle for entire autonomous
     public static double INTAKE_SPEED = 0.2;  // Slightly faster intake
     public static double BACKWARD_DISTANCE_INCHES = 50.0;
-    public static double FORWARD_DISTANCE_INCHES = 35;
+    public static double FORWARD_DISTANCE_INCHES = 37;
     public static double REPOSITIONING_DISTANCE = 20;
+    public static double SECOND_FORWARD_DISTANCE_INCHES = 34;
+    public static double SECOND_REPOSITIONING_DISTANCE = 17;
     public static double MOVEMENT_SPEED = 0.35;  // Slightly faster movement
 
     // REDUCED TIMEOUTS AND DELAYS FOR SPEED
@@ -49,6 +51,7 @@ public class BasicAuton extends LinearOpMode {
     public static long SHOOT_DURATION = 1500;    // Reduced from 1800ms but still enough for 2 balls
     public static long SETTLE_TIME = 200;        // Reduced from 500ms
     public static double TURN_ANGLE_DEGREES = 21.0;
+    public static double SECOND_TURN_ANGLE_DEGREES = 33.0;
     public static double ALIGNMENT_THRESHOLD = 2.0;  // Increased from 1.0 for faster alignment
     public static long SHOOTER_WARMUP_TIME = 800;    // Reduced from 1500ms
     public static double RPM_TOLERANCE = 250;        // Increased from 200 for faster acceptance
@@ -163,11 +166,31 @@ public class BasicAuton extends LinearOpMode {
         moveBackwardWithOdometryAndShooterUpdate(REPOSITIONING_DISTANCE);
         turnToHeadingFast(0);
 
+        sleep(100); // Minimal delay
+
+        // Execute SECOND SHOT - FAST VERSION
+        telemetry.addLine("Second shot (2 balls)...");
+        telemetry.update();
+        executeFastShootSequence(false);
+
+        // Minimal delay between shots
+        sleep(200);
+
+        // Start intake for third set
+        intakeController.intakeFull();
+
+        // FAST REPOSITIONING - all movements maintain shooter
+        turnToHeadingFast(SECOND_TURN_ANGLE_DEGREES);
+        ForwardForIntakeWithShooterUpdate(SECOND_FORWARD_DISTANCE_INCHES);
+        sleep(200); // Brief intake time
+        moveBackwardWithOdometryAndShooterUpdate(SECOND_REPOSITIONING_DISTANCE);
+        turnToHeadingFast(0);
+
         // Stop intake
         intakeController.intakeStop();
         sleep(100); // Minimal delay
 
-        // Execute SECOND SHOT - FAST VERSION
+        // Execute Third SHOT - FAST VERSION
         telemetry.addLine("Second shot (2 balls)...");
         telemetry.update();
         executeFastShootSequence(false);
