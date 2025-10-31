@@ -448,8 +448,8 @@ public class AutoShootController {
 
     // ========== GETTERS ==========
 
-    public boolean isAutoShooting() {
-        return isAutoShooting;
+    public boolean isNotAutoShooting() {
+        return !isAutoShooting;
     }
 
     public int getShotsCompleted() {
