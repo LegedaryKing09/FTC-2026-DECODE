@@ -3,8 +3,6 @@ package org.firstinspires.ftc.teamcode.champion.Auton;
 import android.annotation.SuppressLint;
 
 import com.acmerobotics.dashboard.config.Config;
-import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.acmerobotics.dashboard.FtcDashboard;
@@ -20,10 +18,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 
-import java.util.Locale;
-
 @Config
-@Autonomous(name = "Basic Auton - Optimized", group = "Competition")
+@Autonomous(name = "Basic Auton", group = "Competition")
 public class BasicAuton extends LinearOpMode {
 
     SixWheelDriveController driveController;
@@ -38,11 +34,10 @@ public class BasicAuton extends LinearOpMode {
     // Autonomous parameters - OPTIMIZED FOR SPEED
     public static double CONSTANT_SHOOTER_RPM = 2800.0;  // Fixed RPM for entire autonomous
     public static double CONSTANT_RAMP_ANGLE = 120.0;    // Fixed ramp angle for entire autonomous
-    public static double INTAKE_SPEED = 0.2;  // Slightly faster intake
     public static double BACKWARD_DISTANCE_INCHES = 50.0;
     public static double FORWARD_DISTANCE_INCHES = 35;
     public static double REPOSITIONING_DISTANCE = 20;
-    public static double MOVEMENT_SPEED = 0.35;  // Slightly faster movement
+    public static double MOVEMENT_SPEED = 0.4;  // Slightly faster movement
 
     // REDUCED TIMEOUTS AND DELAYS FOR SPEED
     public static long ALIGNMENT_TIMEOUT = 600;  // Reduced from 1000ms
@@ -56,7 +51,7 @@ public class BasicAuton extends LinearOpMode {
     // PID Update frequency
     public static int PID_UPDATE_INTERVAL_MS = 10;  // More frequent PID updates
 
-    private ElapsedTime pidUpdateTimer = new ElapsedTime();
+    private final ElapsedTime pidUpdateTimer = new ElapsedTime();
 
     @Override
     public void runOpMode() {
@@ -107,10 +102,6 @@ public class BasicAuton extends LinearOpMode {
         // Reset PID timer
         pidUpdateTimer.reset();
 
-        // ===== START SHOOTER AND SET RAMP IMMEDIATELY =====
-        telemetry.addLine("🚀 Starting shooter and ramp...");
-        telemetry.update();
-
         // Start shooter at constant RPM
         shooterController.setShooterRPM(CONSTANT_SHOOTER_RPM);
 
@@ -126,29 +117,17 @@ public class BasicAuton extends LinearOpMode {
                 pidUpdateTimer.reset();
             }
 
-            // Less frequent telemetry updates
-            if (warmupTimer.milliseconds() % 200 < 50) {
-                telemetry.addLine("⏳ Shooter Warming Up...");
-                telemetry.addData("Current RPM", String.format(Locale.US, "%.0f", shooterController.getShooterRPM()));
-                telemetry.addData("Target RPM", String.format(Locale.US, "%.0f", CONSTANT_SHOOTER_RPM));
-                telemetry.update();
-            }
-
             sleep(5); // Shorter sleep for more responsive loop
         }
 
         // Execute backward movement WITH PID UPDATES
-        telemetry.addLine("Moving backward...");
-        telemetry.update();
         moveBackwardWithOdometry(BACKWARD_DISTANCE_INCHES);
 
         // Minimal settle time
         sleep(SETTLE_TIME);
 
         // Execute FIRST SHOT - FAST VERSION
-        telemetry.addLine("First shot (2 balls)...");
-        telemetry.update();
-        executeFastShootSequence(true);
+        executeFastShootSequence();
 
         // Minimal delay between shots
         sleep(200);
@@ -168,13 +147,7 @@ public class BasicAuton extends LinearOpMode {
         sleep(100); // Minimal delay
 
         // Execute SECOND SHOT - FAST VERSION
-        telemetry.addLine("Second shot (2 balls)...");
-        telemetry.update();
-        executeFastShootSequence(false);
-
-        // Final status
-        telemetry.addLine("=== AUTONOMOUS COMPLETE ===");
-        telemetry.update();
+        executeFastShootSequence();
 
         // Stop shooter at end
         sleep(300);
@@ -185,7 +158,7 @@ public class BasicAuton extends LinearOpMode {
      * FAST shoot sequence - minimal delays, aggressive acceptance criteria
      */
     @SuppressLint("DefaultLocale")
-    private void executeFastShootSequence(boolean isFirstShot) {
+    private void executeFastShootSequence() {
 
         // STEP 1: VERY QUICK RPM CHECK (don't wait long)
         double currentRPM = shooterController.getShooterRPM();
@@ -249,15 +222,6 @@ public class BasicAuton extends LinearOpMode {
                 shooterController.updatePID();
                 pidUpdateTimer.reset();
             }
-
-            // Minimal telemetry during shot
-            if (shotTimer.milliseconds() % 300 < 50) {
-                telemetry.addData("Shooting", String.format(Locale.US, "%.0f%%",
-                        (shotTimer.milliseconds() / (double)SHOOT_DURATION) * 100));
-                telemetry.addData("RPM", String.format(Locale.US, "%.0f", shooterController.getShooterRPM()));
-                telemetry.update();
-            }
-
             sleep(5);
         }
 
@@ -309,10 +273,9 @@ public class BasicAuton extends LinearOpMode {
     private void ForwardForIntakeWithShooterUpdate(double distanceInches) {
         driveController.updateOdometry();
         double startX = driveController.getX();
-        double targetX = startX + distanceInches;
 
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
-        driveController.tankDriveVelocityNormalized(INTAKE_SPEED, INTAKE_SPEED);
+        driveController.tankDriveVelocityNormalized(MOVEMENT_SPEED, MOVEMENT_SPEED);
 
         while (opModeIsActive()) {
             // Aggressive PID updates
@@ -342,7 +305,6 @@ public class BasicAuton extends LinearOpMode {
     private void moveBackwardWithOdometryAndShooterUpdate(double distanceInches) {
         driveController.updateOdometry();
         double startX = driveController.getX();
-        double targetX = startX - distanceInches;
 
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
         driveController.tankDriveVelocityNormalized(-MOVEMENT_SPEED, -MOVEMENT_SPEED);
@@ -375,7 +337,6 @@ public class BasicAuton extends LinearOpMode {
     private void moveBackwardWithOdometry(double distanceInches) {
         driveController.updateOdometry();
         double startX = driveController.getX();
-        double targetX = startX - distanceInches;
 
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
         driveController.tankDriveVelocityNormalized(-MOVEMENT_SPEED, -MOVEMENT_SPEED);
