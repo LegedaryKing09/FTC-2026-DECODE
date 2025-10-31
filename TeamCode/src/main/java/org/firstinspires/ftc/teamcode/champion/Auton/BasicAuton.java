@@ -180,7 +180,7 @@ public class BasicAuton extends LinearOpMode {
             ElapsedTime rpmTimer = new ElapsedTime();
             while (opModeIsActive() &&
                     Math.abs(shooterController.getShooterRPM() - CONSTANT_SHOOTER_RPM) > 150 &&
-                    rpmTimer.milliseconds() < 2000) {
+                    rpmTimer.milliseconds() < 1000) {
                 shooterController.updatePID();
                 sleep(50);
             }
