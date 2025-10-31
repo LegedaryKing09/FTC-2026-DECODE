@@ -90,8 +90,11 @@ public class AutoShootController {
 
     /**
      * Execute complete auto-shoot sequence with velocity-based alignment and ramp control
+     * @param adjustRamp Whether to adjust ramp angle based on distance (set false for BasicAuton)
+     * @param adjustRPM Whether to adjust RPM based on distance (set false for BasicAuton)
+     * @param stopShooterAfter Whether to stop shooter after shooting (set false for BasicAuton)
      */
-    public void executeDistanceBasedAutoShoot() {
+    public void executeDistanceBasedAutoShoot(boolean adjustRamp, boolean adjustRPM, boolean stopShooterAfter) {
         if (isAutoShooting) {
             opMode.telemetry.addLine("⚠️ Auto-shoot already in progress!");
             return;
@@ -101,51 +104,94 @@ public class AutoShootController {
 
         new Thread(() -> {
             try {
-                // STEP 1: Find distance to target
-                currentStatus = "FINDING DISTANCE";
-                double distance = getDistanceToTarget(APRILTAG_ID);
+                // STEP 1: Find distance to target (only if we need it for calculations)
+                double distance = -1;
+                if (adjustRamp || adjustRPM) {
+                    currentStatus = "FINDING DISTANCE";
+                    distance = getDistanceToTarget(APRILTAG_ID);
 
-                if (distance < 0) {
-                    currentStatus = "TARGET NOT FOUND";
-                    opMode.telemetry.addLine("❌ Cannot find target AprilTag!");
-                    opMode.telemetry.update();
-                    sleep(2000);
-                    return;
+                    if (distance < 0) {
+                        currentStatus = "TARGET NOT FOUND";
+                        opMode.telemetry.addLine("❌ Cannot find target AprilTag!");
+                        opMode.telemetry.update();
+                        sleep(2000);
+                        return;
+                    }
+
+                    lastTargetDistance = distance;
                 }
 
-                lastTargetDistance = distance;
+                // STEP 2: Calculate/determine shooter and ramp settings
+                double targetRPM;
+                double targetRampAngle;
 
-                // STEP 2: Calculate required RPM and ramp angle
-                currentStatus = "CALCULATING SETTINGS";
-                double targetRPM = calculateRPMFromDistance(distance);
-                double targetRampAngle = calculateRampAngleFromDistance(distance);
+                if (adjustRPM && distance > 0) {
+                    // Calculate RPM from distance
+                    currentStatus = "CALCULATING RPM";
+                    targetRPM = calculateRPMFromDistance(distance);
+                } else {
+                    // Use current target RPM (already set by BasicAuton or previous call)
+                    currentStatus = "USING PRESET RPM";
+                    targetRPM = shooterController.getTargetRPM();
+                }
+
+                if (adjustRamp && distance > 0) {
+                    // Calculate ramp angle from distance
+                    currentStatus = "CALCULATING RAMP";
+                    targetRampAngle = calculateRampAngleFromDistance(distance);
+                } else {
+                    // Use current ramp angle (already set by BasicAuton or previous call)
+                    currentStatus = "USING PRESET RAMP";
+                    targetRampAngle = rampController != null ? rampController.getAngle() : RAMP_ANGLE_CLOSE;
+                }
+
                 lastCalculatedRPM = targetRPM;
                 lastRampAngle = targetRampAngle;
 
                 opMode.telemetry.addLine("=== AUTO-SHOOT SEQUENCE ===");
-                opMode.telemetry.addData("Distance", String.format(Locale.US, "%.1f inches", distance));
+                if (distance > 0) {
+                    opMode.telemetry.addData("Distance", String.format(Locale.US, "%.1f inches", distance));
+                }
                 opMode.telemetry.addData("Target RPM", String.format(Locale.US, "%.0f", targetRPM));
                 opMode.telemetry.addData("Target Ramp Angle", String.format(Locale.US, "%.1f°", targetRampAngle));
+                opMode.telemetry.addData("Adjust RPM", adjustRPM ? "YES" : "NO (PRESET)");
+                opMode.telemetry.addData("Adjust Ramp", adjustRamp ? "YES" : "NO (PRESET)");
                 opMode.telemetry.update();
-                sleep(500);
+                sleep(300);
 
-                // STEP 3: Adjust ramp angle
-                currentStatus = "ADJUSTING RAMP";
-                if (rampController != null) {
-                    rampController.setAngle(targetRampAngle);
+                // STEP 3: Adjust ramp angle (only if adjustRamp is true)
+                if (adjustRamp) {
+                    currentStatus = "ADJUSTING RAMP";
+                    if (rampController != null) {
+                        rampController.setAngle(targetRampAngle);
 
-                    opMode.telemetry.addLine("📐 Adjusting ramp angle...");
-                    opMode.telemetry.addData("Current Angle", String.format(Locale.US, "%.1f°", rampController.getAngle()));
-                    opMode.telemetry.addData("Target Angle", String.format(Locale.US, "%.1f°", targetRampAngle));
-                    opMode.telemetry.update();
+                        opMode.telemetry.addLine("🔧 Adjusting ramp angle...");
+                        opMode.telemetry.addData("Current Angle", String.format(Locale.US, "%.1f°", rampController.getAngle()));
+                        opMode.telemetry.addData("Target Angle", String.format(Locale.US, "%.1f°", targetRampAngle));
+                        opMode.telemetry.update();
 
-                    // Wait for ramp to reach position
-                    sleep(RAMP_ADJUSTMENT_DELAY);
+                        // Wait for ramp to reach position
+                        sleep(RAMP_ADJUSTMENT_DELAY);
+                    }
                 }
 
-                // STEP 4: Start shooter (do this BEFORE alignment to save time)
-                currentStatus = "SPINNING UP";
-                shooterController.setShooterRPM(targetRPM);
+                // STEP 4: Adjust shooter RPM (only if adjustRPM is true)
+                if (adjustRPM) {
+                    currentStatus = "ADJUSTING RPM";
+                    double currentTargetRPM = shooterController.getTargetRPM();
+                    if (Math.abs(currentTargetRPM - targetRPM) > 50) {
+                        shooterController.setShooterRPM(targetRPM);
+                        opMode.telemetry.addLine("🔄 Updating shooter RPM...");
+                        opMode.telemetry.addData("New Target", String.format(Locale.US, "%.0f RPM", targetRPM));
+                        opMode.telemetry.update();
+                    }
+                } else {
+                    // Just verify shooter is spinning at current target
+                    currentStatus = "VERIFYING SHOOTER";
+                    opMode.telemetry.addLine("✅ Using preset shooter RPM");
+                    opMode.telemetry.addData("Current Target", String.format(Locale.US, "%.0f RPM", targetRPM));
+                    opMode.telemetry.update();
+                }
 
                 // STEP 5: Align to target using VELOCITY-BASED CONTROL
                 currentStatus = "ALIGNING";
@@ -243,7 +289,9 @@ public class AutoShootController {
                     opMode.telemetry.clear();
                     opMode.telemetry.addLine("=== ✅ SHOT COMPLETE ===");
                     opMode.telemetry.addData("Shot #", shotsCompleted);
-                    opMode.telemetry.addData("Distance", String.format(Locale.US, "%.1f in", lastTargetDistance));
+                    if (distance > 0) {
+                        opMode.telemetry.addData("Distance", String.format(Locale.US, "%.1f in", lastTargetDistance));
+                    }
                     opMode.telemetry.addData("RPM Used", String.format(Locale.US, "%.0f", lastCalculatedRPM));
                     opMode.telemetry.addData("Ramp Angle", String.format(Locale.US, "%.1f°", lastRampAngle));
                     if (limelightController != null) {
@@ -258,6 +306,11 @@ public class AutoShootController {
                     opMode.telemetry.update();
                 }
 
+                // STEP 8: Stop shooter if requested (for TeleOp, not for BasicAuton)
+                if (stopShooterAfter) {
+                    shooterController.shooterStop();
+                }
+
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 currentStatus = "INTERRUPTED";
@@ -269,6 +322,14 @@ public class AutoShootController {
                 isAutoShooting = false;
             }
         }).start();
+    }
+
+    /**
+     * Execute complete auto-shoot sequence (default behavior - adjusts everything and stops shooter)
+     * Use this for TeleOp
+     */
+    public void executeDistanceBasedAutoShoot() {
+        executeDistanceBasedAutoShoot(true, true, true);
     }
 
     /**
