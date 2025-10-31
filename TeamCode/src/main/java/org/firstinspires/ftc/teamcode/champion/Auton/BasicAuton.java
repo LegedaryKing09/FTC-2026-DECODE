@@ -34,11 +34,10 @@ public class BasicAuton extends LinearOpMode {
     // Autonomous parameters - OPTIMIZED FOR SPEED
     public static double CONSTANT_SHOOTER_RPM = 2800.0;  // Fixed RPM for entire autonomous
     public static double CONSTANT_RAMP_ANGLE = 120.0;    // Fixed ramp angle for entire autonomous
-    public static double INTAKE_SPEED = 0.2;  // Slightly faster intake
     public static double BACKWARD_DISTANCE_INCHES = 50.0;
     public static double FORWARD_DISTANCE_INCHES = 35;
     public static double REPOSITIONING_DISTANCE = 20;
-    public static double MOVEMENT_SPEED = 0.35;  // Slightly faster movement
+    public static double MOVEMENT_SPEED = 0.4;  // Slightly faster movement
 
     // REDUCED TIMEOUTS AND DELAYS FOR SPEED
     public static long ALIGNMENT_TIMEOUT = 600;  // Reduced from 1000ms
@@ -276,7 +275,7 @@ public class BasicAuton extends LinearOpMode {
         double startX = driveController.getX();
 
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
-        driveController.tankDriveVelocityNormalized(INTAKE_SPEED, INTAKE_SPEED);
+        driveController.tankDriveVelocityNormalized(MOVEMENT_SPEED, MOVEMENT_SPEED);
 
         while (opModeIsActive()) {
             // Aggressive PID updates
