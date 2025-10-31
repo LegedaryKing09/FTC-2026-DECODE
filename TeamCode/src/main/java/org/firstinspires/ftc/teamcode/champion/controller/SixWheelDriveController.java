@@ -76,12 +76,11 @@ public class SixWheelDriveController {
         public static double MAX_RPM = 312.0;
         public static double MAX_TICKS_PER_SEC = (MAX_RPM / 60.0) * TICKS_PER_REV;
 
-        // TUNABLE PIDF - Reduced P and D for smoother response
+        // TUNABLE PID - Reduced P and D for smoother response
         public static double VELOCITY_P = 26;  // Reduced from 29
         public static double VELOCITY_I = 0.0;
         public static double VELOCITY_D = 0.1;  // Reduced from 0.2
         public static double VELOCITY_F = 12.0;
-
         public static double TRACK_WIDTH_INCHES = 11.5;
         public static double WHEEL_DIAMETER_INCHES = 2.83;
     }
@@ -95,9 +94,6 @@ public class SixWheelDriveController {
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
 
-        // IMU and odometry accuracy improvements
-        public static double HEADING_DRIFT_CORRECTION = 0.02;
-        public static long ODOMETRY_UPDATE_INTERVAL_MS = 10;
         public static double POSITION_SMOOTHING_FACTOR = 0.1;
     }
 
@@ -205,29 +201,27 @@ public class SixWheelDriveController {
 
     public void arcadeDrive(double drive, double turn) {
         // Apply acceleration ramping to smooth out sudden changes
-        double targetDrivePower = drive;
-        double targetTurnPower = turn;
 
         // Smooth the drive power changes
-        if (Math.abs(targetDrivePower - currentDrivePower) > ACCELERATION_RATE) {
-            if (targetDrivePower > currentDrivePower) {
+        if (Math.abs(drive - currentDrivePower) > ACCELERATION_RATE) {
+            if (drive > currentDrivePower) {
                 currentDrivePower += ACCELERATION_RATE;
             } else {
                 currentDrivePower -= ACCELERATION_RATE;
             }
         } else {
-            currentDrivePower = targetDrivePower;
+            currentDrivePower = drive;
         }
 
         // Smooth the turn power changes
-        if (Math.abs(targetTurnPower - currentTurnPower) > ACCELERATION_RATE) {
-            if (targetTurnPower > currentTurnPower) {
+        if (Math.abs(turn - currentTurnPower) > ACCELERATION_RATE) {
+            if (turn > currentTurnPower) {
                 currentTurnPower += ACCELERATION_RATE;
             } else {
                 currentTurnPower -= ACCELERATION_RATE;
             }
         } else {
-            currentTurnPower = targetTurnPower;
+            currentTurnPower = turn;
         }
 
         if (currentDriveMode == DriveMode.VELOCITY) {

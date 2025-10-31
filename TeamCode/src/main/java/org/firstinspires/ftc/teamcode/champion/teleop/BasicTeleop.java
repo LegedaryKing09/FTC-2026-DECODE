@@ -197,7 +197,7 @@ public class BasicTeleop extends LinearOpMode {
             last_dpadLeft = gamepad1.dpad_left;
 
             if (gamepad1.dpad_right && !last_dpadRight) {
-                if (!isManualAligning && !autoShootController.isAutoShooting()) {
+                if (!isManualAligning && autoShootController.isNotAutoShooting()) {
                     isManualAligning = true;
                     limelightController.startAlignment();
                 } else if (isManualAligning) {
