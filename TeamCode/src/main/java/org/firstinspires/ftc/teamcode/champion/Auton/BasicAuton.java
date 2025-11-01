@@ -47,7 +47,11 @@ public class BasicAuton extends LinearOpMode {
     public static long SHOOT_DURATION = 1500;    // Reduced from 1800ms but still enough for 2 balls
     public static long SETTLE_TIME = 200;        // Reduced from 500ms
     public static double TURN_ANGLE_DEGREES = 21.0;
-    public static double PRE_SHOOT_TURN_ANGLE = 45.0;  // Turn angle before first shot
+    public static double PRE_SHOOT_TURN_ANGLE = -45.0;  // Base turn angle before first shot
+    public static double PPG_TURN_ADJUSTMENT = 0.0;    // Additional turn for PPG (total -45°)
+    public static double PGP_TURN_ADJUSTMENT = 15.0;   // Additional turn for PGP (total -60°)
+    public static double GPP_TURN_ADJUSTMENT = 30.0;   // Additional turn for GPP (total -75°)
+    public static double TURN_BACK_ANGLE = 66.0;       // Base angle to turn back to (compensates for pre-shoot turn)
     public static double ALIGNMENT_THRESHOLD = 2.0;  // Increased from 1.0 for faster alignment
     public static long SHOOTER_WARMUP_TIME = 800;    // Reduced from 1500ms
     public static double RPM_TOLERANCE = 250;        // Increased from 200 for faster acceptance
@@ -60,8 +64,8 @@ public class BasicAuton extends LinearOpMode {
     }
 
     // Pattern-based additional distances after shooting
-    public static double PPG_ADDITIONAL_DISTANCE = 12.0;  // inches
-    public static double PGP_ADDITIONAL_DISTANCE = 0.0;   // inches
+    public static double PPG_ADDITIONAL_DISTANCE = 0.0;  // inches
+    public static double PGP_ADDITIONAL_DISTANCE = 12.0;   // inches
     public static double GPP_ADDITIONAL_DISTANCE = 24.0;  // inches
 
     private Pattern currentPattern = Pattern.PPG;  // default
@@ -150,33 +154,30 @@ public class BasicAuton extends LinearOpMode {
         // Minimal settle time
         sleep(SETTLE_TIME);
 
-        // NEW: Scan AprilTag to determine pattern
-        determinePatternFromAprilTag();
+        // Turn -45 degrees before shooting for AprilTag scanning position
+        turnToHeadingFast(PRE_SHOOT_TURN_ANGLE);
 
-        // NEW: Turn before shooting
-        turnToHeadingFast(PRE_SHOOT_TURN_ANGLE);  // Configurable turn angle before first shot
+        // Pause for Limelight scanning and determine pattern
+        determinePatternFromAprilTag();
+        sleep(300); // Pause for reliable Limelight scanning
 
         // Execute FIRST SHOT - FAST VERSION
-        executeFastShootSequence();
 
-        // NEW: After shooting, move additional distance based on pattern
-        moveAdditionalDistanceAfterShoot();
+
+        // FAST REPOSITIONING - all movements maintain shooter
+        double adjustedTurnBackAngle = TURN_BACK_ANGLE + getTurnBackAdjustmentForPattern(currentPattern);
+        turnToHeadingFast(adjustedTurnBackAngle);
+        double pickupDistance = getPickupDistanceForPattern(currentPattern);
+
+        double repositioningDistance = getRepositioningDistanceForPattern(currentPattern);
+
+        executeFastShootSequence();
 
         // Minimal delay between shots
         sleep(200);
 
         // Start intake for second set
         intakeController.intakeFull();
-
-        // FAST REPOSITIONING - all movements maintain shooter
-        turnToHeadingFast(TURN_ANGLE_DEGREES);
-        double pickupDistance = getPickupDistanceForPattern(currentPattern);
-        ForwardForIntakeWithShooterUpdate(pickupDistance);
-        sleep(200); // Brief intake time
-        double repositioningDistance = getRepositioningDistanceForPattern(currentPattern);
-        moveBackwardWithOdometryAndShooterUpdate(repositioningDistance);
-        turnToHeadingFast(0);
-
         // Stop intake
         intakeController.intakeStop();
         sleep(100); // Minimal delay
@@ -519,5 +520,29 @@ public class BasicAuton extends LinearOpMode {
         }
 
         return BASE_REPOSITIONING_DISTANCE + additionalDistance;
+    }
+
+    /**
+     * Get turn adjustment for pre-shooting turn based on pattern
+     */
+    private double getTurnAdjustmentForPattern(Pattern pattern) {
+        switch (pattern) {
+            case PPG:
+                return PPG_TURN_ADJUSTMENT;
+            case PGP:
+                return PGP_TURN_ADJUSTMENT;
+            case GPP:
+                return GPP_TURN_ADJUSTMENT;
+            default:
+                return 0.0;
+        }
+    }
+
+    /**
+     * Get turn back adjustment based on pattern (compensates for pre-shoot turn)
+     */
+    private double getTurnBackAdjustmentForPattern(Pattern pattern) {
+        // Return negative of the pre-shoot adjustment to compensate
+        return -getTurnAdjustmentForPattern(pattern);
     }
 }
