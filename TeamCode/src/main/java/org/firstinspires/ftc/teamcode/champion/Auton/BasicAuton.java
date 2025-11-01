@@ -35,8 +35,11 @@ public class BasicAuton extends LinearOpMode {
     public static double CONSTANT_SHOOTER_RPM = 2800.0;  // Fixed RPM for entire autonomous
     public static double CONSTANT_RAMP_ANGLE = 120.0;    // Fixed ramp angle for entire autonomous
     public static double BACKWARD_DISTANCE_INCHES = 50.0;
-    public static double FORWARD_DISTANCE_INCHES = 35;
-    public static double REPOSITIONING_DISTANCE = 20;
+
+    // Base distances for ball pickup and repositioning
+    public static double BASE_PICKUP_DISTANCE = 35.0;      // Base forward distance for ball pickup
+    public static double BASE_REPOSITIONING_DISTANCE = 20.0; // Base backward distance for repositioning
+
     public static double MOVEMENT_SPEED = 0.4;  // Slightly faster movement
 
     // REDUCED TIMEOUTS AND DELAYS FOR SPEED
@@ -44,6 +47,7 @@ public class BasicAuton extends LinearOpMode {
     public static long SHOOT_DURATION = 1500;    // Reduced from 1800ms but still enough for 2 balls
     public static long SETTLE_TIME = 200;        // Reduced from 500ms
     public static double TURN_ANGLE_DEGREES = 21.0;
+    public static double PRE_SHOOT_TURN_ANGLE = 45.0;  // Turn angle before first shot
     public static double ALIGNMENT_THRESHOLD = 2.0;  // Increased from 1.0 for faster alignment
     public static long SHOOTER_WARMUP_TIME = 800;    // Reduced from 1500ms
     public static double RPM_TOLERANCE = 250;        // Increased from 200 for faster acceptance
@@ -55,9 +59,9 @@ public class BasicAuton extends LinearOpMode {
         PPG, PGP, GPP;
     }
 
-    // Pattern-based movement distances after shooting
-    public static double PPG_ADDITIONAL_DISTANCE = 0.0;  // inches
-    public static double PGP_ADDITIONAL_DISTANCE = 12.0;  // inches (assuming same as GPP, need clarification)
+    // Pattern-based additional distances after shooting
+    public static double PPG_ADDITIONAL_DISTANCE = 12.0;  // inches
+    public static double PGP_ADDITIONAL_DISTANCE = 0.0;   // inches
     public static double GPP_ADDITIONAL_DISTANCE = 24.0;  // inches
 
     private Pattern currentPattern = Pattern.PPG;  // default
@@ -149,8 +153,8 @@ public class BasicAuton extends LinearOpMode {
         // NEW: Scan AprilTag to determine pattern
         determinePatternFromAprilTag();
 
-        // NEW: Turn 45 degrees before shooting
-        turnToHeadingFast(45.0);  // Turn 45 degrees
+        // NEW: Turn before shooting
+        turnToHeadingFast(PRE_SHOOT_TURN_ANGLE);  // Configurable turn angle before first shot
 
         // Execute FIRST SHOT - FAST VERSION
         executeFastShootSequence();
@@ -166,9 +170,11 @@ public class BasicAuton extends LinearOpMode {
 
         // FAST REPOSITIONING - all movements maintain shooter
         turnToHeadingFast(TURN_ANGLE_DEGREES);
-        ForwardForIntakeWithShooterUpdate(FORWARD_DISTANCE_INCHES);
+        double pickupDistance = getPickupDistanceForPattern(currentPattern);
+        ForwardForIntakeWithShooterUpdate(pickupDistance);
         sleep(200); // Brief intake time
-        moveBackwardWithOdometryAndShooterUpdate(REPOSITIONING_DISTANCE);
+        double repositioningDistance = getRepositioningDistanceForPattern(currentPattern);
+        moveBackwardWithOdometryAndShooterUpdate(repositioningDistance);
         turnToHeadingFast(0);
 
         // Stop intake
@@ -471,5 +477,47 @@ public class BasicAuton extends LinearOpMode {
 
             driveController.stopDrive();
         }
+    }
+
+    /**
+     * Get pickup distance based on pattern (add additional distance)
+     */
+    private double getPickupDistanceForPattern(Pattern pattern) {
+        double additionalDistance = 0;
+
+        switch (pattern) {
+            case PPG:
+                additionalDistance = PPG_ADDITIONAL_DISTANCE;
+                break;
+            case PGP:
+                additionalDistance = PGP_ADDITIONAL_DISTANCE;
+                break;
+            case GPP:
+                additionalDistance = GPP_ADDITIONAL_DISTANCE;
+                break;
+        }
+
+        return BASE_PICKUP_DISTANCE + additionalDistance;
+    }
+
+    /**
+     * Get repositioning distance based on pattern (add additional distance)
+     */
+    private double getRepositioningDistanceForPattern(Pattern pattern) {
+        double additionalDistance = 0;
+
+        switch (pattern) {
+            case PPG:
+                additionalDistance = PPG_ADDITIONAL_DISTANCE;
+                break;
+            case PGP:
+                additionalDistance = PGP_ADDITIONAL_DISTANCE;
+                break;
+            case GPP:
+                additionalDistance = GPP_ADDITIONAL_DISTANCE;
+                break;
+        }
+
+        return BASE_REPOSITIONING_DISTANCE + additionalDistance;
     }
 }
