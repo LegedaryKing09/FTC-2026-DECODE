@@ -51,6 +51,26 @@ public class BasicAuton extends LinearOpMode {
     // PID Update frequency
     public static int PID_UPDATE_INTERVAL_MS = 10;  // More frequent PID updates
 
+    public enum Pattern {
+        PPG, PGP, GPP;
+    }
+
+    // Pattern-based movement distances after shooting
+    public static double PPG_ADDITIONAL_DISTANCE = 0.0;  // inches
+    public static double PGP_ADDITIONAL_DISTANCE = 12.0;  // inches (assuming same as GPP, need clarification)
+    public static double GPP_ADDITIONAL_DISTANCE = 24.0;  // inches
+
+    private Pattern currentPattern = Pattern.PPG;  // default
+
+    // AprilTag ID to Pattern mapping
+    private static final java.util.Map<Integer, Pattern> APRILTAG_PATTERN_MAP = new java.util.HashMap<>();
+    static {
+        APRILTAG_PATTERN_MAP.put(21, Pattern.PPG);
+        APRILTAG_PATTERN_MAP.put(22, Pattern.PGP);
+        APRILTAG_PATTERN_MAP.put(23, Pattern.GPP);
+        // Add more mappings as needed
+    }
+
     private final ElapsedTime pidUpdateTimer = new ElapsedTime();
 
     @Override
@@ -126,8 +146,17 @@ public class BasicAuton extends LinearOpMode {
         // Minimal settle time
         sleep(SETTLE_TIME);
 
+        // NEW: Scan AprilTag to determine pattern
+        determinePatternFromAprilTag();
+
+        // NEW: Turn 45 degrees before shooting
+        turnToHeadingFast(45.0);  // Turn 45 degrees
+
         // Execute FIRST SHOT - FAST VERSION
         executeFastShootSequence();
+
+        // NEW: After shooting, move additional distance based on pattern
+        moveAdditionalDistanceAfterShoot();
 
         // Minimal delay between shots
         sleep(200);
@@ -213,7 +242,7 @@ public class BasicAuton extends LinearOpMode {
         // STEP 3: SHOOT WITHOUT HESITATION
         transferController.transferFull();
         intakeController.intakeFull();
-
+        
         // Shooting loop with continuous PID updates
         ElapsedTime shotTimer = new ElapsedTime();
         while (opModeIsActive() && shotTimer.milliseconds() < SHOOT_DURATION) {
@@ -360,5 +389,87 @@ public class BasicAuton extends LinearOpMode {
         }
 
         driveController.stopDrive();
+    }
+
+    /**
+     * Determine the pattern based on visible AprilTag
+     */
+    private void determinePatternFromAprilTag() {
+        if (limelightController == null) {
+            telemetry.addData("Pattern Detection", "Limelight not available - using default PPG");
+            telemetry.update();
+            return;
+        }
+
+        try {
+            int aprilTagId = ((AutoShootController) autoShootController).getVisibleAprilTagId();
+            Pattern detectedPattern = APRILTAG_PATTERN_MAP.get(aprilTagId);
+
+            if (detectedPattern != null) {
+                currentPattern = detectedPattern;
+                telemetry.addData("Detected Pattern", currentPattern + " (AprilTag " + aprilTagId + ")");
+            } else {
+                telemetry.addData("Pattern Detection", "Unknown AprilTag " + aprilTagId + " - using default PPG");
+                currentPattern = Pattern.PPG;
+            }
+            telemetry.update();
+            sleep(100); // Brief display time
+
+        } catch (Exception e) {
+            telemetry.addData("Pattern Detection Error", e.getMessage());
+            telemetry.addData("Using default pattern", "PPG");
+            telemetry.update();
+            currentPattern = Pattern.PPG;
+        }
+    }
+
+    /**
+     * Move additional distance after shooting based on detected pattern
+     */
+    private void moveAdditionalDistanceAfterShoot() {
+        double additionalDistance = 0;
+
+        switch (currentPattern) {
+            case PPG:
+                additionalDistance = PPG_ADDITIONAL_DISTANCE;
+                break;
+            case PGP:
+                additionalDistance = PGP_ADDITIONAL_DISTANCE;
+                break;
+            case GPP:
+                additionalDistance = GPP_ADDITIONAL_DISTANCE;
+                break;
+        }
+
+        telemetry.addData("Moving additional distance", additionalDistance + " inches for pattern " + currentPattern);
+        telemetry.update();
+
+        if (additionalDistance > 0) {
+            driveController.updateOdometry();
+            double startX = driveController.getX();
+
+            driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
+            driveController.tankDriveVelocityNormalized(MOVEMENT_SPEED, MOVEMENT_SPEED);
+
+            while (opModeIsActive()) {
+                // Keep updating PID during movement
+                if (pidUpdateTimer.milliseconds() >= PID_UPDATE_INTERVAL_MS) {
+                    shooterController.updatePID();
+                    pidUpdateTimer.reset();
+                }
+
+                driveController.updateOdometry();
+                double currentX = driveController.getX();
+                double distanceMoved = Math.abs(currentX - startX);
+
+                if (distanceMoved >= Math.abs(additionalDistance)) {
+                    break;
+                }
+
+                sleep(10);
+            }
+
+            driveController.stopDrive();
+        }
     }
 }

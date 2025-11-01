@@ -485,6 +485,27 @@ public class AutoShootController {
     }
 
     /**
+     * Get the ID of the currently visible AprilTag
+     */
+    public int getVisibleAprilTagId() {
+        if (limelight == null) return -1;
+
+        try {
+            LLResult result = limelight.getLatestResult();
+            if (result != null && result.isValid()) {
+                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+                if (!fiducials.isEmpty()) {
+                    return (int) fiducials.get(0).getFiducialId();
+                }
+            }
+        } catch (Exception e) {
+            // Ignore exceptions
+        }
+
+        return -1;
+    }
+
+    /**
      * Add telemetry information
      */
     public void addTelemetry(Telemetry telemetry) {
