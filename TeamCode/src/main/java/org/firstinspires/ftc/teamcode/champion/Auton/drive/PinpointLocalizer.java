@@ -1,50 +1,45 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Rotation2d;
 import com.acmerobotics.roadrunner.Vector2d;
+import com.acmerobotics.roadrunner.ftc.FlightRecorder;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
+import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
 import java.util.Objects;
 
 @Config
-public final class PinpointLocalizer implements org.firstinspires.ftc.teamcode.champion.Auton.drive.Localizer {
-    public static class Params {
-        public double parYTicks = 0.0; // y position of the parallel encoder (in tick units)
-        public double perpXTicks = 0.0; // x position of the perpendicular encoder (in tick units)
-    }
-
-    public static Params PARAMS = new Params();
+public final class PinpointLocalizer implements Localizer {
 
     public final GoBildaPinpointDriver driver;
-    public final GoBildaPinpointDriver.EncoderDirection initialParDirection, initialPerpDirection;
-
-    private Pose2d txWorldPinpoint;
-    private Pose2d txPinpointRobot = new Pose2d(0, 0, 0);
-
-    public PinpointLocalizer(HardwareMap hardwareMap, double inPerTick, Pose2d initialPose) {
+    public static boolean X_ENCODER_REVERSED = true;
+    public static boolean Y_ENCODER_REVERSED = false;
+    private Pose2d txWorldPinpoint;//world coordinate system
+    private Pose2d txPinpointRobot = new Pose2d(0, 0, 0);//robot coordinate system
+    private long lastUpdateTime = System.nanoTime();
+    public PinpointLocalizer(HardwareMap hardwareMap, double odoInPerTick, double yOffsetIn, double xOffsetIn, Pose2d initialPose) {
         // TODO: make sure your config has a Pinpoint device with this name
         //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
-        driver = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
+        driver = hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
-        double mmPerTick = inPerTick * 25.4;
+        double mmPerTick = odoInPerTick * 25.4;
         driver.setEncoderResolution(1 / mmPerTick, DistanceUnit.MM);
-        driver.setOffsets(mmPerTick * PARAMS.parYTicks, mmPerTick * PARAMS.perpXTicks, DistanceUnit.MM);
+        driver.setOffsets(yOffsetIn, xOffsetIn, DistanceUnit.INCH);
 
         // TODO: reverse encoder directions if needed
-        initialParDirection = GoBildaPinpointDriver.EncoderDirection.FORWARD;
-        initialPerpDirection = GoBildaPinpointDriver.EncoderDirection.FORWARD;
+        GoBildaPinpointDriver.EncoderDirection initialParDirection = X_ENCODER_REVERSED ?
+                GoBildaPinpointDriver.EncoderDirection.FORWARD :
+                GoBildaPinpointDriver.EncoderDirection.REVERSED;
+        GoBildaPinpointDriver.EncoderDirection initialPerpDirection = Y_ENCODER_REVERSED ?
+                GoBildaPinpointDriver.EncoderDirection.FORWARD :
+                GoBildaPinpointDriver.EncoderDirection.REVERSED;
 
         driver.setEncoderDirections(initialParDirection, initialPerpDirection);
 
@@ -60,24 +55,7 @@ public final class PinpointLocalizer implements org.firstinspires.ftc.teamcode.c
 
     @Override
     public Pose2d getPose() {
-        driver.update();
         return txWorldPinpoint.times(txPinpointRobot);
-    }
-    @Nullable
-    public Pose2D getPoseEstimate() {
-        return driver.getPosition();
-    }
-
-    public void setPoseEstimate(@NonNull Pose2D pose2d) {
-        driver.setPosition(pose2d);
-    }
-
-    public PoseVelocity2d getPoseVelocity() {
-        driver.update();
-        return new PoseVelocity2d(
-                new Vector2d(driver.getVelX(DistanceUnit.INCH), driver.getVelY(DistanceUnit.INCH)),
-                driver.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS)
-        );
     }
 
     @Override
@@ -88,13 +66,24 @@ public final class PinpointLocalizer implements org.firstinspires.ftc.teamcode.c
             Vector2d worldVelocity = new Vector2d(driver.getVelX(DistanceUnit.INCH), driver.getVelY(DistanceUnit.INCH));
             Vector2d robotVelocity = Rotation2d.fromDouble(-txPinpointRobot.heading.log()).times(worldVelocity);
 
+            // Debug logs for Pinpoint localizer
+            FlightRecorder.write("PinpointLocalizer_RawPosX", driver.getPosX(DistanceUnit.INCH));
+            FlightRecorder.write("PinpointLocalizer_RawPosY", driver.getPosY(DistanceUnit.INCH));
+            FlightRecorder.write("PinpointLocalizer_RawHeading", Math.toDegrees(driver.getHeading(UnnormalizedAngleUnit.RADIANS)));
+            FlightRecorder.write("PinpointLocalizer_WorldVelX", worldVelocity.x);
+            FlightRecorder.write("PinpointLocalizer_WorldVelY", worldVelocity.y);
+            FlightRecorder.write("PinpointLocalizer_RobotVelX", robotVelocity.x);
+            FlightRecorder.write("PinpointLocalizer_RobotVelY", robotVelocity.y);
+            FlightRecorder.write("PinpointLocalizer_X_ENCODER_REVERSED", X_ENCODER_REVERSED);
+            FlightRecorder.write("PinpointLocalizer_Y_ENCODER_REVERSED", Y_ENCODER_REVERSED);
+
+            FlightRecorder.write("PinpointLocalizer_DeviceStatus", driver.getDeviceStatus().toString());
+            // Additional debug for localization accuracy during overshoot
+            FlightRecorder.write("PinpointLocalizer_UpdateRate", 1.0 / (System.nanoTime() - lastUpdateTime));
+            lastUpdateTime = System.nanoTime();
             return new PoseVelocity2d(robotVelocity, driver.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS));
         }
+        FlightRecorder.write("PinpointLocalizer_DeviceStatus", driver.getDeviceStatus().toString());
         return new PoseVelocity2d(new Vector2d(0, 0), 0);
-    }
-
-    public boolean isReady() {
-        driver.update();
-        return driver.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY;
     }
 }
