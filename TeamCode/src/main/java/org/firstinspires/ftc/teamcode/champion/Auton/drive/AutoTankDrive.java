@@ -1,8 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive;
 
-
 import androidx.annotation.NonNull;
-
 
 import com.acmerobotics.dashboard.canvas.Canvas;
 import com.acmerobotics.dashboard.config.Config;
@@ -29,23 +27,31 @@ import com.acmerobotics.roadrunner.TimeTurn;
 import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
 import com.acmerobotics.roadrunner.TrajectoryBuilderParams;
 import com.acmerobotics.roadrunner.TurnConstraints;
+import com.acmerobotics.roadrunner.Twist2dDual;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Vector2dDual;
 import com.acmerobotics.roadrunner.VelConstraint;
 import com.acmerobotics.roadrunner.ftc.DownsampledWriter;
+import com.acmerobotics.roadrunner.ftc.Encoder;
 import com.acmerobotics.roadrunner.ftc.FlightRecorder;
 import com.acmerobotics.roadrunner.ftc.LazyHardwareMapImu;
 import com.acmerobotics.roadrunner.ftc.LazyImu;
 import com.acmerobotics.roadrunner.ftc.LynxFirmware;
+import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
+import com.acmerobotics.roadrunner.ftc.PositionVelocityPair;
+import com.acmerobotics.roadrunner.ftc.RawEncoder;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
+
+import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
@@ -53,90 +59,80 @@ import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.DriveCommandMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.PoseMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankCommandMessage;
+import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankLocalizerInputsMessage;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
-
 @Config
 public final class AutoTankDrive {
+    /**
+     * Configuration parameters for the AutoTankDrive system.
+     * These parameters define physical properties, motion profiles, and control gains.
+     */
     public static class Params {
-        // IMU orientation
+        // IMU orientation on the robot
         public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
                 RevHubOrientationOnRobot.LogoFacingDirection.LEFT;
         public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
                 RevHubOrientationOnRobot.UsbFacingDirection.UP;
 
+        // Drive wheel physical parameters
+        public double wheelRadius = 1.89; // Radius of the drive wheels in inches
+        public double gearRatio = 1.0; // Gear ratio between motor and wheels
+        public double ticksPerRev = 537.7; // Encoder ticks per motor revolution
+        public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev; // Inches per encoder tick
 
-        //odometry read 30.6 encoder read 35.8
-        // drive wheel parameters for motor control
-        public double wheelRadius = 1.89; //robot drives too far, decrease
-        public double gearRatio = 1;
-        public double ticksPerRev = 418; //new_ticksPerRev = current_ticksPerRev × (encoder_reading / actual_distance)
-        public double inPerTick = 0.02843; //(wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
+        public double odoWheelRadius = 0.62992; // Radius of odometry wheels in inches
+        public double odoTicksPerRev = 2000; // Encoder ticks per odometry wheel revolution
+        public double odoInPerTick = (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev; // Inches per odometry encoder tick
 
+        // Track width for kinematics (distance between wheels in inches)
+        public double physicalTrackWidthInches = 11.0;
 
-        //track width for ramsete, path following not odometry
-        public double physicalTrackWidthInches = 6.0; // old_trackWidth * (θ_cmd / θ_meas)
+        // Path profile parameters (velocity and acceleration limits)
+        public double maxWheelVelTick = 6500; // Maximum wheel velocity in encoder ticks per second
+        public double maxWheelVel = maxWheelVelTick * odoInPerTick; // Maximum wheel velocity in inches per second
+        public double minProfileAccel = -2200; // Minimum acceleration in inches per second squared
+        public double maxProfileAccel = 50; // Maximum acceleration in inches per second squared
 
+        // Feedforward control gains for motor voltage compensation
+        public double kS = 0.001; // Static friction gain (volts)
+        public double kV = 1 / maxWheelVel; // Velocity gain (volts per inch/second)
+        public double kA = 1.0; // Acceleration gain (volts per inch/second squared)
 
-        // feedforward parameters (in tick units)
-        public double kS = 0.6; // jerking before starting, increase ; creeping when it should stop, decrease
-        public double kV = 0.0180; // moving slow, increase ; overshoot distance or turning too fast, decrease
-        public double kA = 0.0027; // lagging when accelerating, increase ; shaking when staring or stopping, decrease
+        // Turn profile parameters (angular velocity and acceleration limits)
+        public double maxAngVel = (2 * maxWheelVel) / physicalTrackWidthInches; // Maximum angular velocity in radians per second
+        public double maxAngAccel = (2 * maxProfileAccel) / physicalTrackWidthInches; // Maximum angular acceleration in radians per second squared
 
+        // Ramsete controller parameters for smooth path following
+        /**
+         * Damping coefficient for Ramsete controller.
+         * Typical range: 0.7-0.9. Higher values provide smoother corrections but may be slower.
+         */
+        public double ramseteZeta = 0.7;
+        /**
+         * Aggressiveness parameter for Ramsete controller.
+         * Higher values make the robot reach the target faster but may cause oscillations near turns.
+         */
+        public double ramseteBBar = 0.2;
 
+        // Turn controller gains (proportional and velocity feedback)
+        public double turnGain = 0.0; // Proportional gain for turn error correction
+        public double turnVelGain = 0.0; // Velocity feedback gain for turn smoothing
 
-
-        // path profile parameters
-        public double maxWheelVel = 1112; // overshoot, lower ; finish late or slow, higher 110.85299064868116
-        public double minProfileAccel = -20;
-        public double maxProfileAccel = 20; // aggressive or slipping, lower ; slow to start, increase
-
-
-
-
-        // turn profile parameters
-        public double maxAngVel = (2 * maxWheelVel) / physicalTrackWidthInches; // 20.0303030303030303
-        public double maxAngAccel = (2 * maxProfileAccel) / physicalTrackWidthInches; // 50.70499858313351
-
-
-
-
-        // Zeta : how smooth the correction is, Bbar: how fast and strong the correction is
-        public double ramseteZeta = 0.6; // wobble or oscillate while correcting, increase ; lag, slow to catch up, decrease
-        public double ramseteBBar = 0.5; // vibrating or jerking near corners, lower ; doesn't reach the target, increase
-
-
-        public double turnGain = 0.01; // stop before full turn, increase, oscillate, decrease
-        public double turnVelGain = 0.001; // drifts slowly at the end, increase ; jerks at the end, decrease
-
-
-        // If it reads 30.7 but should read 26:
-        // correction = 26 / 30.7 = 0.847
-        public double odoWheelRadius = 0.286;
-        public double odoTicksPerRev = 1180 * 0.8919;   // newTicksRev =  * target distance / odo distance
-        public double odoInPerTick = (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev;
-        public double pinpointXOffset = 6.0;
-        public double pinpointYOffset = 3.0;
-
-
-        // Pinpoint encoder directions (change if odometry reads backwards)
-        public GoBildaPinpointDriver.EncoderDirection xEncoderDirection =
-                GoBildaPinpointDriver.EncoderDirection.REVERSED;
-        public GoBildaPinpointDriver.EncoderDirection yEncoderDirection =
-                GoBildaPinpointDriver.EncoderDirection.FORWARD;
-
-
+        // Pinpoint odometry parameters for localization
+       public double pinpointXOffset = 6.0; // X offset of Pinpoint sensor from robot center in inches
+        public double pinpointYOffset = 3.0; // Y offset of Pinpoint sensor from robot center in inches
+        public double parYTicks = pinpointYOffset * odoInPerTick; // Y position of parallel encoder in tick units
+        public double perpXTicks = pinpointXOffset * odoInPerTick; // X position of perpendicular encoder in tick units
     }
-
 
     public static Params PARAMS = new Params();
 
-
     public final TankKinematics kinematics = new TankKinematics(PARAMS.physicalTrackWidthInches);
-
-
     public final TurnConstraints defaultTurnConstraints = new TurnConstraints(
             PARAMS.maxAngVel, -PARAMS.maxAngAccel, PARAMS.maxAngAccel);
     public final VelConstraint defaultVelConstraint =
@@ -147,473 +143,472 @@ public final class AutoTankDrive {
     public final AccelConstraint defaultAccelConstraint =
             new ProfileAccelConstraint(PARAMS.minProfileAccel, PARAMS.maxProfileAccel);
 
+    public final DcMotorEx leftFront;
+    public final DcMotorEx rightFront;
+    public final DcMotorEx rightBack;
+    public final DcMotorEx leftBack;
 
-    public final DcMotorEx leftFront, rightFront, rightBack, leftBack;
-    public final List<DcMotorEx> leftMotors, rightMotors;
-
-
-    public final LazyImu lazyImu;
+    public final List<DcMotorEx> leftMotors;
+    public final List<DcMotorEx> rightMotors;
     public final VoltageSensor voltageSensor;
-    public final GoBildaPinpointDriver pinpoint;
-    public final Localizer localizer; //main localizer interface
     private final LinkedList<Pose2d> poseHistory = new LinkedList<>();
-
+    public final Telemetry telemetry;
 
     private final DownsampledWriter estimatedPoseWriter = new DownsampledWriter("ESTIMATED_POSE", 50_000_000);
     private final DownsampledWriter targetPoseWriter = new DownsampledWriter("TARGET_POSE", 50_000_000);
     private final DownsampledWriter driveCommandWriter = new DownsampledWriter("DRIVE_COMMAND", 50_000_000);
     private final DownsampledWriter tankCommandWriter = new DownsampledWriter("TANK_COMMAND", 50_000_000);
 
+    // Telemetry data fields - updated during trajectory following and turns
+    public double ramseteZeta = 0.0;
+    public double ramseteBBar = 0.0;
+    public double xError = 0.0;
+    public double yError = 0.0;
+    public double headingErrorDeg = 0.0;
+    public double commandLinVel = 0.0;
+    public double commandAngVelDeg = 0.0;
+    public double actualLinVel = 0.0;
+    public double actualAngVelDeg = 0.0;
+    public double leftPower = 0.0;
+    public double rightPower = 0.0;
+    public double elapsedTime = 0.0;
+    public double batteryVoltage = 0.0;
+    public double currentX = 0.0;
+    public double currentY = 0.0;
+    public double currentHeadingDeg = 0.0;
+    public double targetX = 0.0;
+    public double targetY = 0.0;
+    public double targetHeadingDeg = 0.0;
+    public double leftWheelVel = 0.0;
+    public double rightWheelVel = 0.0;
+    public PinpointLocalizer pinpointLocalizer;
 
-    public class PinpointLocalizer implements Localizer {
-        private Pose2d pose;
+    public AutoTankDrive(HardwareMap hardwareMap, Pose2d pose, Telemetry telemetry) {
+        this.telemetry = telemetry;
 
-
-        public PinpointLocalizer(Pose2d initialPose) {
-            this.pose = initialPose;
-
-
-            // Configure Pinpoint with odometry parameters
-            double mmPerTick = PARAMS.odoInPerTick * 25.4;
-            pinpoint.setEncoderResolution(1 / mmPerTick, DistanceUnit.MM);
-
-
-            // Set pod offsets
-            pinpoint.setOffsets(
-                    PARAMS.pinpointXOffset * 25.4,  // Convert to mm
-                    PARAMS.pinpointYOffset * 25.4,  // Convert to mm
-                    DistanceUnit.MM
-            );
-
-
-            // Set encoder directions
-            pinpoint.setEncoderDirections(PARAMS.xEncoderDirection, PARAMS.yEncoderDirection);
-
-
-            // Reset Pinpoint
-            pinpoint.resetPosAndIMU();
-        }
-
-
-        @Override
-        public void setPose(Pose2d pose) {
-            this.pose = pose;
-            Pose2D pose2d = new Pose2D(
-                    DistanceUnit.INCH,
-                    pose.position.x,
-                    pose.position.y,
-                    AngleUnit.RADIANS,
-                    pose.heading.toDouble()
-            );
-            pinpoint.setPosition(pose2d);
-        }
-
-
-        @Override
-        public Pose2d getPose() {
-            return pose;
-        }
-
-
-        @Override
-        public PoseVelocity2d update() {
-            pinpoint.update();
-
-
-            if (pinpoint.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY) {
-                // Update pose from Pinpoint
-                pose = new Pose2d(
-                        pinpoint.getPosX(DistanceUnit.INCH),
-                        pinpoint.getPosY(DistanceUnit.INCH),
-                        pinpoint.getHeading(UnnormalizedAngleUnit.RADIANS)
-                );
-
-
-                // Return velocity
-                return new PoseVelocity2d(
-                        new Vector2d(
-                                pinpoint.getVelX(DistanceUnit.INCH),
-                                pinpoint.getVelY(DistanceUnit.INCH)
-                        ),
-                        pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS)
-                );
-            }
-
-
-            return new PoseVelocity2d(new Vector2d(0, 0), 0);
-        }
-
-
-        public boolean isReady() {
-            pinpoint.update();
-            return pinpoint.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY;
-        }
-    }
-
-
-    public AutoTankDrive(HardwareMap hardwareMap, Pose2d pose) {
+        // Ensure Lynx modules are up to date
         LynxFirmware.throwIfModulesAreOutdated(hardwareMap);
 
-
+        // Enable bulk caching for efficient sensor reads
         for (LynxModule module : hardwareMap.getAll(LynxModule.class)) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
 
+        // Initialize odometry localizer
+        pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.odoInPerTick, PARAMS.pinpointYOffset, PARAMS.pinpointXOffset, pose);
 
-        // Initialize motors
+        // Initialize drive motors
         leftFront = hardwareMap.get(DcMotorEx.class, "lf");
         leftBack = hardwareMap.get(DcMotorEx.class, "lb");
         rightFront = hardwareMap.get(DcMotorEx.class, "rf");
         rightBack = hardwareMap.get(DcMotorEx.class, "rb");
 
-
+        // Group motors for batch operations
         leftMotors = Arrays.asList(leftFront, leftBack);
         rightMotors = Arrays.asList(rightFront, rightBack);
 
-
+        // Configure motor directions (right side reversed for tank drive)
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
         leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
 
-
-        for (DcMotorEx m : leftMotors) {
-            m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        // Configure motor braking behavior
+        for (DcMotorEx motor : leftMotors) {
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
-        for (DcMotorEx m : rightMotors) {
-            m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        for (DcMotorEx motor : rightMotors) {
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
 
-
-        // Initialize IMU
-        lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
-                PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
-
-
+        // Initialize voltage sensor for feedforward compensation
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
 
-
-        // Initialize Pinpoint
-        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "odo");
-        localizer = new PinpointLocalizer(pose);
-
-
+        // Log parameters to Flight Recorder
         FlightRecorder.write("TANK_PARAMS", PARAMS);
     }
 
-
-    public void initializePinpoint(LinearOpMode opMode, Pose2d initialPose) {
-        // Wait for Pinpoint to be ready
-        while (!((PinpointLocalizer) localizer).isReady() && !opMode.isStopRequested()) {
-            opMode.telemetry.addLine("Waiting for Pinpoint to initialize...");
-            opMode.telemetry.update();
-            opMode.sleep(100);
-        }
-
-
-        if (!opMode.isStopRequested()) {
-            localizer.setPose(initialPose);
-            opMode.telemetry.addLine("Pinpoint initialized!");
-            opMode.telemetry.addData("Start Pose", "x=%.2f, y=%.2f, h=%.1f°",
-                    initialPose.position.x,
-                    initialPose.position.y,
-                    Math.toDegrees(initialPose.heading.toDouble()));
-            opMode.telemetry.update();
-        }
-    }
-
-
     public void setDrivePowers(PoseVelocity2d powers) {
-        TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(
+        // Calculate wheel velocities from robot velocities using inverse kinematics
+        TankKinematics.WheelVelocities<Time> wheelVels = new TankKinematics(2).inverse(
                 PoseVelocity2dDual.constant(powers, 1));
 
-
-        double maxPowerMag = 1;
+        // Find the maximum power magnitude to normalize velocities if needed
+        double maxPowerMag = 1.0;
         for (DualNum<Time> power : wheelVels.all()) {
             maxPowerMag = Math.max(maxPowerMag, power.value());
         }
 
-
-        for (DcMotorEx m : leftMotors) {
-            m.setPower(wheelVels.left.get(0) / maxPowerMag);
+        // Apply normalized powers to left motors
+        double leftNormalizedPower = wheelVels.left.get(0) / maxPowerMag;
+        for (DcMotorEx motor : leftMotors) {
+            motor.setPower(leftNormalizedPower);
         }
-        for (DcMotorEx m : rightMotors) {
-            m.setPower(wheelVels.right.get(0) / maxPowerMag);
+
+        // Apply normalized powers to right motors
+        double rightNormalizedPower = wheelVels.right.get(0) / maxPowerMag;
+        for (DcMotorEx motor : rightMotors) {
+            motor.setPower(rightNormalizedPower);
         }
     }
-
 
     public final class FollowTrajectoryAction implements Action {
         public final TimeTrajectory timeTrajectory;
         private double beginTs = -1;
-        private final double[] xPoints, yPoints;
 
+        private final double[] xPoints, yPoints;
 
         public FollowTrajectoryAction(TimeTrajectory t) {
             timeTrajectory = t;
 
-
-            List<Double> disps = com.acmerobotics.roadrunner.Math.range(
+            // Sample path points for visualization (at least 2 points, up to path length / 2)
+            List<Double> displacements = com.acmerobotics.roadrunner.Math.range(
                     0, t.path.length(),
                     Math.max(2, (int) Math.ceil(t.path.length() / 2)));
-            xPoints = new double[disps.size()];
-            yPoints = new double[disps.size()];
-            for (int i = 0; i < disps.size(); i++) {
-                Pose2d p = t.path.get(disps.get(i), 1).value();
-                xPoints[i] = p.position.x;
-                yPoints[i] = p.position.y;
+            xPoints = new double[displacements.size()];
+            yPoints = new double[displacements.size()];
+            for (int i = 0; i < displacements.size(); i++) {
+                Pose2d point = t.path.get(displacements.get(i), 1).value();
+                xPoints[i] = point.position.x;
+                yPoints[i] = point.position.y;
             }
         }
 
-
         @Override
         public boolean run(@NonNull TelemetryPacket p) {
-            double t;
+            // Calculate elapsed time since action started
+            double elapsedTime;
             if (beginTs < 0) {
                 beginTs = Actions.now();
-                t = 0;
+                elapsedTime = 0;
             } else {
-                t = Actions.now() - beginTs;
+                elapsedTime = Actions.now() - beginTs;
             }
 
-
-            if (t >= timeTrajectory.duration) {
-                for (DcMotorEx m : leftMotors) {
-                    m.setPower(0);
-                }
-                for (DcMotorEx m : rightMotors) {
-                    m.setPower(0);
-                }
+            // Check if trajectory is complete
+            if (elapsedTime >= timeTrajectory.duration) {
+                stopMotors();
                 return false;
             }
 
+            // Get current position on trajectory
+            DualNum<Time> currentPosition = timeTrajectory.profile.get(elapsedTime);
+            Pose2dDual<Arclength> targetPose = timeTrajectory.path.get(currentPosition.value(), 3);
+            targetPoseWriter.write(new PoseMessage(targetPose.value()));
 
-            DualNum<Time> x = timeTrajectory.profile.get(t);
-            Pose2dDual<Arclength> txWorldTarget = timeTrajectory.path.get(x.value(), 3);
-            targetPoseWriter.write(new PoseMessage(txWorldTarget.value()));
-
-
+            // Update robot pose estimate
             updatePoseEstimate();
 
+            // Compute velocity commands using Ramsete controller
+            PoseVelocity2dDual<Time> velocityCommand = new RamseteController(
+                    kinematics.trackWidth, PARAMS.ramseteZeta, PARAMS.ramseteBBar)
+                    .compute(currentPosition, targetPose, pinpointLocalizer.getPose());
+            driveCommandWriter.write(new DriveCommandMessage(velocityCommand));
 
-            PoseVelocity2dDual<Time> command = new RamseteController(
-                    PARAMS.physicalTrackWidthInches,
-                    PARAMS.ramseteZeta,
-                    PARAMS.ramseteBBar)
-                    .compute(x, txWorldTarget, localizer.getPose());
-            driveCommandWriter.write(new DriveCommandMessage(command));
+            // Compute powers using tank inverse kinematics
+            double linearVel = velocityCommand.linearVel.value().norm();
+            double angVel = velocityCommand.angVel.value();
+            double trackWidth = PARAMS.physicalTrackWidthInches;
+            double maxVel = PARAMS.maxWheelVel;
+            leftPower = (linearVel - (trackWidth * angVel) / 2) / maxVel;
+            rightPower = (linearVel + (trackWidth * angVel) / 2) / maxVel;
+            double batteryVoltage = voltageSensor.getVoltage();
+            tankCommandWriter.write(new TankCommandMessage(batteryVoltage, leftPower, rightPower));
 
+            // Convert to wheel velocities for telemetry
+            TankKinematics.WheelVelocities<Time> wheelVelocities = kinematics.inverse(velocityCommand);
+            leftWheelVel = wheelVelocities.left.get(0);
+            rightWheelVel = wheelVelocities.right.get(0);
 
-            TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
-            double voltage = voltageSensor.getVoltage();
+            // Apply motor powers
+            setMotorPowers(leftPower, rightPower);
 
+            // Update telemetry data
+            updateTelemetryData(elapsedTime, targetPose, velocityCommand, wheelVelocities, batteryVoltage, p);
 
-            // Use DRIVE wheel parameters for feedforward
-            final MotorFeedforward feedforward = new MotorFeedforward(
-                    PARAMS.kS,
-                    PARAMS.kV / PARAMS.inPerTick,
-                    PARAMS.kA / PARAMS.inPerTick
-            );
-
-
-            double leftPower = feedforward.compute(wheelVels.left) / voltage;
-            double rightPower = feedforward.compute(wheelVels.right) / voltage;
-            tankCommandWriter.write(new TankCommandMessage(voltage, leftPower, rightPower));
-
-
-            for (DcMotorEx m : leftMotors) {
-                m.setPower(leftPower);
-            }
-            for (DcMotorEx m : rightMotors) {
-                m.setPower(rightPower);
-            }
-
-
-            p.put("x", localizer.getPose().position.x);
-            p.put("y", localizer.getPose().position.y);
-            p.put("heading (deg)", Math.toDegrees(localizer.getPose().heading.toDouble()));
-
-
-            Pose2d error = txWorldTarget.value().minusExp(localizer.getPose());
-            p.put("xError", error.position.x);
-            p.put("yError", error.position.y);
-            p.put("headingError (deg)", Math.toDegrees(error.heading.toDouble()));
-
-
-            Canvas c = p.fieldOverlay();
-            drawPoseHistory(c);
-
-
-            c.setStroke("#4CAF50");
-            Drawing.drawRobot(c, txWorldTarget.value());
-
-
-            c.setStroke("#3F51B5");
-            Drawing.drawRobot(c, localizer.getPose());
-
-
-            c.setStroke("#4CAF50FF");
-            c.setStrokeWidth(1);
-            c.strokePolyline(xPoints, yPoints);
-
+            // Draw robot visualizations
+            drawVisualizations(p, targetPose);
 
             return true;
         }
 
+        private void stopMotors() {
+            for (DcMotorEx motor : leftMotors) {
+                motor.setPower(0);
+            }
+            for (DcMotorEx motor : rightMotors) {
+                motor.setPower(0);
+            }
+        }
+        private void setMotorPowers(double leftPower, double rightPower) {
+            for (DcMotorEx motor : leftMotors) {
+                motor.setPower(leftPower);
+            }
+            for (DcMotorEx motor : rightMotors) {
+                motor.setPower(rightPower);
+            }
+        }
+        private void updateTelemetryData(double elapsedTime, Pose2dDual<Arclength> targetPose,
+                                        PoseVelocity2dDual<Time> velocityCommand,
+                                        TankKinematics.WheelVelocities<Time> wheelVelocities,
+                                        double batteryVoltage, TelemetryPacket p) {
+            // Current robot state
+            currentX = pinpointLocalizer.getPose().position.x;
+            currentY = pinpointLocalizer.getPose().position.y;
+            currentHeadingDeg = Math.toDegrees(pinpointLocalizer.getPose().heading.toDouble());
+
+            // Target state
+            targetX = targetPose.value().position.x;
+            targetY = targetPose.value().position.y;
+            targetHeadingDeg = Math.toDegrees(targetPose.value().heading.toDouble());
+
+            // Command velocities
+            commandLinVel = velocityCommand.linearVel.value().norm();
+            commandAngVelDeg = Math.toDegrees(velocityCommand.angVel.value());
+
+            // Controller parameters
+            ramseteZeta = PARAMS.ramseteZeta;
+            ramseteBBar = PARAMS.ramseteBBar;
+
+            // Telemetry fields
+//            this.elapsedTime = elapsedTime;
+//            this.batteryVoltage = batteryVoltage;
+
+            // Calculate tracking errors
+            Pose2d poseError = targetPose.value().minusExp(pinpointLocalizer.getPose());
+            xError = poseError.position.x;
+            yError = poseError.position.y;
+            headingErrorDeg = Math.toDegrees(poseError.heading.toDouble());
+
+            // Add telemetry data to packet
+            p.put("x", currentX);
+            p.put("y", currentY);
+            p.put("heading (deg)", currentHeadingDeg);
+            p.put("targetX", targetX);
+            p.put("targetY", targetY);
+            p.put("targetHeading", targetHeadingDeg);
+            p.put("commandLinVel", commandLinVel);
+            p.put("commandAngVel", commandAngVelDeg);
+            p.put("leftWheelVel", leftWheelVel);
+            p.put("rightWheelVel", rightWheelVel);
+            p.put("leftPower", leftPower);
+            p.put("rightPower", rightPower);
+            p.put("elapsedTime", elapsedTime);
+            p.put("batteryVoltage", batteryVoltage);
+            p.put("ramseteZeta", ramseteZeta);
+            p.put("ramseteBBar", ramseteBBar);
+            p.put("xError", xError);
+            p.put("yError", yError);
+            p.put("headingError (deg)", headingErrorDeg);
+            p.put("maxProfileAccel", PARAMS.maxProfileAccel);
+            p.put("minProfileAccel", PARAMS.minProfileAccel);
+            p.put("maxWheelVel", PARAMS.maxWheelVel);
+            p.put("kV", PARAMS.kV);
+            p.put("kA", PARAMS.kA);
+            p.put("kS", PARAMS.kS);
+
+            // Update actual velocities for debugging
+            PoseVelocity2d actualVelocity = pinpointLocalizer.update();
+            actualLinVel = actualVelocity.linearVel.norm();
+            actualAngVelDeg = Math.toDegrees(actualVelocity.angVel);
+            p.put("actualLinVel", actualLinVel);
+            p.put("actualAngVel", actualAngVelDeg);
+
+            // Log debug data
+            FlightRecorder.write("TrajectoryFollow_ErrorX", poseError.position.x);
+            FlightRecorder.write("TrajectoryFollow_ErrorY", poseError.position.y);
+            FlightRecorder.write("TrajectoryFollow_ErrorHeading", headingErrorDeg);
+            FlightRecorder.write("TrajectoryFollow_LeftPower", leftPower);
+            FlightRecorder.write("TrajectoryFollow_RightPower", rightPower);
+            FlightRecorder.write("TrajectoryFollow_ActualLinVel", actualLinVel);
+            FlightRecorder.write("TrajectoryFollow_ActualAngVel", actualAngVelDeg);
+            FlightRecorder.write("TrajectoryFollow_Voltage", batteryVoltage);
+            FlightRecorder.write("TrajectoryFollow_ProfileAccelMin", PARAMS.minProfileAccel);
+            FlightRecorder.write("TrajectoryFollow_PhysicalTrackWidth", PARAMS.physicalTrackWidthInches);
+        }
+
+        private void drawVisualizations(TelemetryPacket p, Pose2dDual<Arclength> targetPose) {
+            Canvas canvas = p.fieldOverlay();
+
+            // Draw pose history
+            drawPoseHistory(canvas);
+
+            // Draw target robot pose in green
+            canvas.setStroke("#4CAF50");
+            Drawing.drawRobot(canvas, targetPose.value());
+
+            // Draw current robot pose in blue
+            canvas.setStroke("#3F51B5");
+            Drawing.drawRobot(canvas, pinpointLocalizer.getPose());
+
+            // Draw trajectory path in green
+            canvas.setStroke("#4CAF50FF");
+            canvas.setStrokeWidth(1);
+            canvas.strokePolyline(xPoints, yPoints);
+        }
 
         @Override
         public void preview(Canvas c) {
-            c.setStroke("#4CAF507A");
+            c.setStroke("#4CAF507A"); // Semi-transparent green
             c.setStrokeWidth(1);
             c.strokePolyline(xPoints, yPoints);
         }
     }
-
-
     public final class TurnAction implements Action {
         private final TimeTurn turn;
-        private double beginTs = -1;
 
+        private double beginTs = -1;
 
         public TurnAction(TimeTurn turn) {
             this.turn = turn;
         }
 
-
         @Override
         public boolean run(@NonNull TelemetryPacket p) {
-            double t;
+            // Calculate elapsed time since action started
+            double elapsedTime;
             if (beginTs < 0) {
                 beginTs = Actions.now();
-                t = 0;
+                elapsedTime = 0;
             } else {
-                t = Actions.now() - beginTs;
+                elapsedTime = Actions.now() - beginTs;
             }
 
-
-            if (t >= turn.duration) {
-                for (DcMotorEx m : leftMotors) {
-                    m.setPower(0);
-                }
-                for (DcMotorEx m : rightMotors) {
-                    m.setPower(0);
-                }
+            // Check if turn is complete
+            if (elapsedTime >= turn.duration) {
+                stopMotors();
                 return false;
             }
 
+            // Get target pose for current time
+            Pose2dDual<Time> targetPose = turn.get(elapsedTime);
+            targetPoseWriter.write(new PoseMessage(targetPose.value()));
 
-            Pose2dDual<Time> txWorldTarget = turn.get(t);
-            targetPoseWriter.write(new PoseMessage(txWorldTarget.value()));
+            // Update pose estimate and get current velocity
+            PoseVelocity2d currentVelocity = updatePoseEstimate();
 
-
-            PoseVelocity2d robotVelRobot = updatePoseEstimate();
-
-
-            PoseVelocity2dDual<Time> command = new PoseVelocity2dDual<>(
-                    Vector2dDual.constant(new Vector2d(0, 0), 3),
-                    txWorldTarget.heading.velocity().plus(
-                            PARAMS.turnGain * localizer.getPose().heading.minus(txWorldTarget.heading.value()) +
-                                    PARAMS.turnVelGain * (robotVelRobot.angVel - txWorldTarget.heading.velocity().value())
+            // Compute turn command with proportional and velocity feedback control
+            PoseVelocity2dDual<Time> velocityCommand = new PoseVelocity2dDual<>(
+                    Vector2dDual.constant(new Vector2d(0, 0), 3), // No linear velocity for turn
+                    targetPose.heading.velocity().plus(
+                            PARAMS.turnGain * pinpointLocalizer.getPose().heading.minus(targetPose.heading.value()) +
+                                    PARAMS.turnVelGain * (currentVelocity.angVel - targetPose.heading.velocity().value())
                     )
             );
-            driveCommandWriter.write(new DriveCommandMessage(command));
+            driveCommandWriter.write(new DriveCommandMessage(velocityCommand));
 
+            // Convert to wheel velocities and calculate feedforward powers
+            TankKinematics.WheelVelocities<Time> wheelVelocities = kinematics.inverse(velocityCommand);
+            double batteryVoltage = voltageSensor.getVoltage();
+            MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS,
+                    PARAMS.kV / PARAMS.odoInPerTick, PARAMS.kA / PARAMS.odoInPerTick);
+            double leftPower = feedforward.compute(wheelVelocities.left) / batteryVoltage;
+            double rightPower = feedforward.compute(wheelVelocities.right) / batteryVoltage;
+            tankCommandWriter.write(new TankCommandMessage(batteryVoltage, leftPower, rightPower));
 
-            TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(command);
-            double voltage = voltageSensor.getVoltage();
+            // Apply motor powers
+            setMotorPowers(leftPower, rightPower);
 
+            // Draw visualizations
+            drawTurnVisualizations(p, targetPose);
 
-            final MotorFeedforward feedforward = new MotorFeedforward(
-                    PARAMS.kS,
-                    PARAMS.kV / PARAMS.inPerTick,
-                    PARAMS.kA / PARAMS.inPerTick
-            );
-
-
-            double leftPower = feedforward.compute(wheelVels.left) / voltage;
-            double rightPower = feedforward.compute(wheelVels.right) / voltage;
-            tankCommandWriter.write(new TankCommandMessage(voltage, leftPower, rightPower));
-
-
-            for (DcMotorEx m : leftMotors) {
-                m.setPower(leftPower);
-            }
-            for (DcMotorEx m : rightMotors) {
-                m.setPower(rightPower);
-            }
-
-
-            Canvas c = p.fieldOverlay();
-            drawPoseHistory(c);
-
-
-            c.setStroke("#4CAF50");
-            Drawing.drawRobot(c, txWorldTarget.value());
-
-
-            c.setStroke("#3F51B5");
-            Drawing.drawRobot(c, localizer.getPose());
-
-
-            c.setStroke("#7C4DFFFF");
-            c.fillCircle(turn.beginPose.position.x, turn.beginPose.position.y, 2);
-
+            // Update telemetry
+            PoseVelocity2d updatedVelocity = pinpointLocalizer.update();
+            p.put("localizerLinVel", updatedVelocity.linearVel);
+            p.put("localizerAngVel", Math.toDegrees(updatedVelocity.angVel));
+            poseHistory.add(pinpointLocalizer.getPose());
 
             return true;
         }
 
+        private void stopMotors() {
+            for (DcMotorEx motor : leftMotors) {
+                motor.setPower(0);
+            }
+            for (DcMotorEx motor : rightMotors) {
+                motor.setPower(0);
+            }
+        }
+
+        private void setMotorPowers(double leftPower, double rightPower) {
+            for (DcMotorEx motor : leftMotors) {
+                motor.setPower(leftPower);
+            }
+            for (DcMotorEx motor : rightMotors) {
+                motor.setPower(rightPower);
+            }
+        }
+
+        private void drawTurnVisualizations(TelemetryPacket p, Pose2dDual<Time> targetPose) {
+            Canvas canvas = p.fieldOverlay();
+
+            // Draw pose history
+            drawPoseHistory(canvas);
+
+            // Draw target robot pose in green
+            canvas.setStroke("#4CAF50");
+            Drawing.drawRobot(canvas, targetPose.value());
+
+            // Draw current robot pose in blue
+            canvas.setStroke("#3F51B5");
+            Drawing.drawRobot(canvas, pinpointLocalizer.getPose());
+
+            // Draw turn origin point in purple
+            canvas.setStroke("#7C4DFFFF");
+            canvas.fillCircle(turn.beginPose.position.x, turn.beginPose.position.y, 2);
+        }
 
         @Override
         public void preview(Canvas c) {
-            c.setStroke("#7C4DFF7A");
+            c.setStroke("#7C4DFF7A"); // Semi-transparent purple
             c.fillCircle(turn.beginPose.position.x, turn.beginPose.position.y, 2);
         }
     }
 
+    public GoBildaPinpointDriver.DeviceStatus getDeviceStatus() {
+        return pinpointLocalizer.driver.getDeviceStatus();
+    }
 
     public PoseVelocity2d updatePoseEstimate() {
-        PoseVelocity2d vel = localizer.update();
-        poseHistory.add(localizer.getPose());
+        PoseVelocity2d velocity = pinpointLocalizer.update();
+        poseHistory.add(pinpointLocalizer.getPose());
 
-
+        // Keep pose history size manageable
         while (poseHistory.size() > 100) {
             poseHistory.removeFirst();
         }
 
+        // Log pose estimate for debugging
+        estimatedPoseWriter.write(new PoseMessage(pinpointLocalizer.getPose()));
 
-        estimatedPoseWriter.write(new PoseMessage(localizer.getPose()));
-        return vel;
+        return velocity;
     }
 
-
-    private void drawPoseHistory(Canvas c) {
+    private void drawPoseHistory(Canvas canvas) {
         double[] xPoints = new double[poseHistory.size()];
         double[] yPoints = new double[poseHistory.size()];
 
-
         int i = 0;
-        for (Pose2d t : poseHistory) {
-            xPoints[i] = t.position.x;
-            yPoints[i] = t.position.y;
+        for (Pose2d pose : poseHistory) {
+            xPoints[i] = pose.position.x;
+            yPoints[i] = pose.position.y;
             i++;
         }
 
-
-        c.setStrokeWidth(1);
-        c.setStroke("#3F51B5");
-        c.strokePolyline(xPoints, yPoints);
+        canvas.setStrokeWidth(1);
+        canvas.setStroke("#3F51B5"); // Blue color
+        canvas.strokePolyline(xPoints, yPoints);
     }
-
 
     public TrajectoryActionBuilder actionBuilder(Pose2d beginPose) {
         return new TrajectoryActionBuilder(
                 TurnAction::new,
                 FollowTrajectoryAction::new,
                 new TrajectoryBuilderParams(
-                        1e-6,
-                        new ProfileParams(0.25, 0.1, 1e-2)
+                        1e-6, // Very small epsilon for numerical stability
+                        new ProfileParams(0.25, 0.1, 1e-2) // Profile parameters
                 ),
-                beginPose, 0.0,
+                beginPose, 0.0, // Start pose and time
                 defaultTurnConstraints,
                 defaultVelConstraint, defaultAccelConstraint
         );

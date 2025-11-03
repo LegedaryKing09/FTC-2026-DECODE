@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.tuning;
 
+import static org.firstinspires.ftc.teamcode.champion.Auton.drive.PinpointLocalizer.X_ENCODER_REVERSED;
+
 import androidx.annotation.NonNull;
 
 import com.acmerobotics.dashboard.FtcDashboard;
@@ -67,8 +69,12 @@ public final class TuningOpModes {
 
     private static PinpointView makePinpointView(PinpointLocalizer pl) {
         return new PinpointView() {
-            GoBildaPinpointDriver.EncoderDirection parDirection = pl.initialParDirection;
-            GoBildaPinpointDriver.EncoderDirection perpDirection = pl.initialPerpDirection;
+            GoBildaPinpointDriver.EncoderDirection parDirection = pl.X_ENCODER_REVERSED ?
+                    GoBildaPinpointDriver.EncoderDirection.REVERSED :
+                    GoBildaPinpointDriver.EncoderDirection.FORWARD;
+            GoBildaPinpointDriver.EncoderDirection perpDirection = pl.Y_ENCODER_REVERSED ?
+                    GoBildaPinpointDriver.EncoderDirection.REVERSED :
+                    GoBildaPinpointDriver.EncoderDirection.FORWARD;
 
             @Override
             public void update() {
