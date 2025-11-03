@@ -17,9 +17,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 
 import java.util.Locale;
 @Config
-@Autonomous(name = "Basic Auton - Ultra Fast", group = "Competition")
+@Autonomous(name = "Basic Auton", group = "Competition")
 public class BasicAuton extends LinearOpMode {
-
     // Controllers
     SixWheelDriveController driveController;
     TransferController transferController;
@@ -28,23 +27,18 @@ public class BasicAuton extends LinearOpMode {
     LimelightAlignmentController limelightController;
     AutoShootController autoShootController;
     RampController rampController;
-
-    // SPEED OPTIMIZED PARAMETERS
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
-    public static double CONSTANT_RAMP_ANGLE = 120.0;
     public static double BACKWARD_DISTANCE = 50.0;
     public static double BASE_FORWARD_DISTANCE = 35.0;
     public static double BASE_REPOSITION_DISTANCE = 20.0;
     public static double MOVEMENT_SPEED = 0.6;
     public static double INTAKE_SPEED = 0.3;
     public static double TURN_POWER = 0.3;
-
-    // ULTRA-FAST TIMING
-    public static long SHOOT_DURATION = 1400;  // Minimum viable shoot time
-    public static long SHOOTER_WARMUP = 600;   // Reduced warmup
-    public static long ALIGNMENT_TIMEOUT = 500; // Quick alignment
-    public static double ALIGNMENT_THRESHOLD = 1.5; // Less precise but faster
-    public static double HEADING_THRESHOLD_DEG = 2; // Less precise turns
+    public static long SHOOT_DURATION = 1400;
+    public static long SHOOTER_WARMUP = 600;
+    public static long ALIGNMENT_TIMEOUT = 750;
+    public static double ALIGNMENT_THRESHOLD = 1.5;
+    public static double HEADING_THRESHOLD_DEG = 2;
 
     // Pattern parameters
     public static double SCAN_ANGLE = -45.0;
@@ -53,9 +47,8 @@ public class BasicAuton extends LinearOpMode {
     public static double[] FETCH_ANGLES = {51.0, 36.0, 21.0};  // PPG, PGP, GPP
     public static double[] EXTRA_DISTANCES = {24.0, 12.0, 0.0}; // PPG, PGP, GPP
 
-    private ElapsedTime pidTimer = new ElapsedTime();
-    private ElapsedTime globalTimer = new ElapsedTime();
-    private int patternIndex = 0; // 0=PPG, 1=PGP, 2=GPP
+    private final ElapsedTime pidTimer = new ElapsedTime();
+    private final ElapsedTime globalTimer = new ElapsedTime();
     private boolean shooterReady = false;
 
     @Override
@@ -69,7 +62,7 @@ public class BasicAuton extends LinearOpMode {
         globalTimer.reset();
         pidTimer.reset();
 
-        // Start shooter and ramp IMMEDIATELY
+        // Start shooter and ramp
         shooterController.setShooterRPM(CONSTANT_SHOOTER_RPM);
 
         // Execute autonomous sequence
@@ -101,7 +94,7 @@ public class BasicAuton extends LinearOpMode {
             autoShootController = null;
         }
 
-        telemetry.addLine("=== ULTRA-FAST AUTON READY ===");
+        telemetry.addLine("=== AUTON READY ===");
         telemetry.update();
     }
 
@@ -124,7 +117,8 @@ public class BasicAuton extends LinearOpMode {
 
         // PHASE 2: Turn and scan for pattern (do both simultaneously)
         turnToHeading(SCAN_ANGLE);
-        patternIndex = detectPattern(); // Quick pattern detection
+        // 0=PPG, 1=PGP, 2=GPP
+        int patternIndex = detectPattern(); // Quick pattern detection
 
         // PHASE 3: Fetch balls
         double fetchAngle = FETCH_ANGLES[patternIndex];
@@ -271,16 +265,10 @@ public class BasicAuton extends LinearOpMode {
             if (warmup.milliseconds() > 400) {
                 double rpm = shooterController.getShooterRPM();
                 if (Math.abs(rpm - CONSTANT_SHOOTER_RPM) < 150) {
-                    shooterReady = true;
                     break;
                 }
             }
-
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                break;
-            }
+            sleep(10);
         }
         shooterReady = true; // Mark ready regardless
     }
