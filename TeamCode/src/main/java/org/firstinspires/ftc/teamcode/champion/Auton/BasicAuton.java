@@ -35,9 +35,9 @@ public class BasicAuton extends LinearOpMode {
     public static double BACKWARD_DISTANCE = 50.0;
     public static double BASE_FORWARD_DISTANCE = 35.0;
     public static double BASE_REPOSITION_DISTANCE = 20.0;
-    public static double MOVEMENT_SPEED = 0.4;
+    public static double MOVEMENT_SPEED = 0.6;
     public static double INTAKE_SPEED = 0.3;
-    public static double TURN_POWER = 0.1;
+    public static double TURN_POWER = 0.3;
 
     // ULTRA-FAST TIMING
     public static long SHOOT_DURATION = 1400;  // Minimum viable shoot time
@@ -71,7 +71,6 @@ public class BasicAuton extends LinearOpMode {
 
         // Start shooter and ramp IMMEDIATELY
         shooterController.setShooterRPM(CONSTANT_SHOOTER_RPM);
-        rampController.setAngle(CONSTANT_RAMP_ANGLE);
 
         // Execute autonomous sequence
         executeAutonomousSequence();
@@ -197,7 +196,7 @@ public class BasicAuton extends LinearOpMode {
     private void quickShoot() {
         // Quick RPM check (max 200ms wait)
         ElapsedTime rpmWait = new ElapsedTime();
-        while (opModeIsActive() && !shooterReady && rpmWait.milliseconds() < 200) {
+        while (opModeIsActive() && !shooterReady && rpmWait.milliseconds() < 300) {
             updateShooterPID();
             shooterReady = Math.abs(shooterController.getShooterRPM() - CONSTANT_SHOOTER_RPM) < 150;
             sleep(10);
@@ -241,22 +240,23 @@ public class BasicAuton extends LinearOpMode {
 
     /**
      * Fast pattern detection - single attempt
+     * Updated mapping: ID21→GPP, ID22→PGP, ID23→PPG
      */
     private int detectPattern() {
-        if (autoShootController == null) return 2; // Default to PPG
+        if (autoShootController == null) return 0; // Default to PPG
 
         try {
             sleep(1000); // Brief stabilization
             int tagId = autoShootController.getVisibleAprilTagId();
 
-            // Direct mapping: 21->PPG(0), 22->PGP(1), 23->GPP(2)
-            if (tagId >= 21 && tagId <= 23) {
-                return tagId - 21;
-            }
+            // Direct mapping: 21->GPP(2), 22->PGP(1), 23->PPG(0)
+            if (tagId == 21) return 2; // GPP
+            if (tagId == 22) return 1; // PGP
+            if (tagId == 23) return 0; // PPG
         } catch (Exception e) {
             // Use default
         }
-        return 2; // Default PPG
+        return 0; // Default PPG
     }
 
     /**
@@ -270,7 +270,7 @@ public class BasicAuton extends LinearOpMode {
             // Check if we're close enough
             if (warmup.milliseconds() > 400) {
                 double rpm = shooterController.getShooterRPM();
-                if (Math.abs(rpm - CONSTANT_SHOOTER_RPM) < 200) {
+                if (Math.abs(rpm - CONSTANT_SHOOTER_RPM) < 150) {
                     shooterReady = true;
                     break;
                 }
