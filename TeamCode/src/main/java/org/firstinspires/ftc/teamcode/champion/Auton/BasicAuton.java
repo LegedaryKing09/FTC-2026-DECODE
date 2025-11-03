@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.champion.Auton;
 
-import android.annotation.SuppressLint;
-
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -12,16 +10,17 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
-import org.firstinspires.ftc.teamcode.champion.controller.PurePursuitController;
 import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 
+import java.util.Locale;
 @Config
-@Autonomous(name = "Basic Auton", group = "Competition")
+@Autonomous(name = "Basic Auton - Ultra Fast", group = "Competition")
 public class BasicAuton extends LinearOpMode {
 
+    // Controllers
     SixWheelDriveController driveController;
     TransferController transferController;
     ShooterController shooterController;
@@ -29,336 +28,279 @@ public class BasicAuton extends LinearOpMode {
     LimelightAlignmentController limelightController;
     AutoShootController autoShootController;
     RampController rampController;
-    PurePursuitController pursuitController;
 
-    // Autonomous parameters - OPTIMIZED FOR SPEED
-    public static double CONSTANT_SHOOTER_RPM = 2800.0;  // Fixed RPM for entire autonomous
-    public static double CONSTANT_RAMP_ANGLE = 120.0;    // Fixed ramp angle for entire autonomous
-    public static double BACKWARD_DISTANCE_INCHES = 50.0;
-    public static double FORWARD_DISTANCE_INCHES = 35;
-    public static double REPOSITIONING_DISTANCE = 20;
-    public static double MOVEMENT_SPEED = 0.4;  // Slightly faster movement
+    // SPEED OPTIMIZED PARAMETERS
+    public static double CONSTANT_SHOOTER_RPM = 2800.0;
+    public static double CONSTANT_RAMP_ANGLE = 120.0;
+    public static double BACKWARD_DISTANCE = 50.0;
+    public static double BASE_FORWARD_DISTANCE = 35.0;
+    public static double BASE_REPOSITION_DISTANCE = 20.0;
+    public static double MOVEMENT_SPEED = 0.4;
+    public static double INTAKE_SPEED = 0.3;
+    public static double TURN_POWER = 0.1;
 
-    // REDUCED TIMEOUTS AND DELAYS FOR SPEED
-    public static long ALIGNMENT_TIMEOUT = 600;  // Reduced from 1000ms
-    public static long SHOOT_DURATION = 1500;    // Reduced from 1800ms but still enough for 2 balls
-    public static long SETTLE_TIME = 200;        // Reduced from 500ms
-    public static double TURN_ANGLE_DEGREES = 21.0;
-    public static double ALIGNMENT_THRESHOLD = 2.0;  // Increased from 1.0 for faster alignment
-    public static long SHOOTER_WARMUP_TIME = 800;    // Reduced from 1500ms
-    public static double RPM_TOLERANCE = 250;        // Increased from 200 for faster acceptance
+    // ULTRA-FAST TIMING
+    public static long SHOOT_DURATION = 1400;  // Minimum viable shoot time
+    public static long SHOOTER_WARMUP = 600;   // Reduced warmup
+    public static long ALIGNMENT_TIMEOUT = 500; // Quick alignment
+    public static double ALIGNMENT_THRESHOLD = 1.5; // Less precise but faster
+    public static double HEADING_THRESHOLD_DEG = 2; // Less precise turns
 
-    // PID Update frequency
-    public static int PID_UPDATE_INTERVAL_MS = 10;  // More frequent PID updates
+    // Pattern parameters
+    public static double SCAN_ANGLE = -45.0;
 
-    private final ElapsedTime pidUpdateTimer = new ElapsedTime();
+    // Pattern-specific parameters (all-in-one)
+    public static double[] FETCH_ANGLES = {51.0, 36.0, 21.0};  // PPG, PGP, GPP
+    public static double[] EXTRA_DISTANCES = {24.0, 12.0, 0.0}; // PPG, PGP, GPP
+
+    private ElapsedTime pidTimer = new ElapsedTime();
+    private ElapsedTime globalTimer = new ElapsedTime();
+    private int patternIndex = 0; // 0=PPG, 1=PGP, 2=GPP
+    private boolean shooterReady = false;
 
     @Override
     public void runOpMode() {
+        // Fast initialization
+        initializeRobot();
 
+        waitForStart();
+        if (!opModeIsActive()) return;
+
+        globalTimer.reset();
+        pidTimer.reset();
+
+        // Start shooter and ramp IMMEDIATELY
+        shooterController.setShooterRPM(CONSTANT_SHOOTER_RPM);
+        rampController.setAngle(CONSTANT_RAMP_ANGLE);
+
+        // Execute autonomous sequence
+        executeAutonomousSequence();
+
+        // Cleanup
+        shooterController.shooterStop();
+        telemetry.addData("Total Time", String.format(Locale.US, "%.1fs", globalTimer.seconds()));
+        telemetry.update();
+    }
+
+    private void initializeRobot() {
         driveController = new SixWheelDriveController(this);
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
         rampController = new RampController(this);
-        pursuitController = new PurePursuitController();
-        pursuitController.setParameters(4.0, 0.6, 11.0);
 
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
-        telemetry.addData("Status", "Initializing...");
-        telemetry.update();
 
-        LimelightAlignmentController tempLimelight = null;
+        // Try to initialize Limelight (don't fail if not available)
         try {
-            tempLimelight = new LimelightAlignmentController(this, driveController);
-            tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
-            telemetry.addData("Limelight", "✅ Initialized");
+            limelightController = new LimelightAlignmentController(this, driveController);
+            limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
+            autoShootController = new AutoShootController(this, driveController, shooterController,
+                    intakeController, transferController, limelightController, rampController);
         } catch (Exception e) {
-            telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
+            limelightController = null;
+            autoShootController = null;
         }
-        limelightController = tempLimelight;
 
-        // Initialize auto shoot controller (for telemetry only)
-        autoShootController = new AutoShootController(
-                this,
-                driveController,
-                shooterController,
-                intakeController,
-                transferController,
-                limelightController,
-                rampController
-        );
-
-        telemetry.addLine("=== OPTIMIZED AUTON READY ===");
-        telemetry.addData("Constant Shooter RPM", CONSTANT_SHOOTER_RPM);
-        telemetry.addData("Constant Ramp Angle", CONSTANT_RAMP_ANGLE);
-        telemetry.addData("Shoot Duration", SHOOT_DURATION + " ms");
+        telemetry.addLine("=== ULTRA-FAST AUTON READY ===");
         telemetry.update();
+    }
 
-        waitForStart();
+    private void executeAutonomousSequence() {
+        // PHASE 1: Warmup while moving backward
+        Thread warmupThread = new Thread(this::warmupShooter);
+        warmupThread.start();
 
-        if (!opModeIsActive()) return;
+        moveRobot(-BACKWARD_DISTANCE, MOVEMENT_SPEED);
 
-        // Reset PID timer
-        pidUpdateTimer.reset();
-
-        // Start shooter at constant RPM
-        shooterController.setShooterRPM(CONSTANT_SHOOTER_RPM);
-
-        // Set ramp to constant angle
-        rampController.setAngle(CONSTANT_RAMP_ANGLE);
-
-        // ===== SHORTER WARMUP WITH CONTINUOUS PID =====
-        ElapsedTime warmupTimer = new ElapsedTime();
-        while (opModeIsActive() && warmupTimer.milliseconds() < SHOOTER_WARMUP_TIME) {
-            // Aggressive PID updates during warmup
-            if (pidUpdateTimer.milliseconds() >= PID_UPDATE_INTERVAL_MS) {
-                shooterController.updatePID();
-                pidUpdateTimer.reset();
-            }
-
-            sleep(5); // Shorter sleep for more responsive loop
+        // Wait for warmup to complete (if not already)
+        try {
+            warmupThread.join(100); // Max 100ms wait
+        } catch (InterruptedException e) {
+            // Continue anyway
         }
 
-        // Execute backward movement WITH PID UPDATES
-        moveBackwardWithOdometry(BACKWARD_DISTANCE_INCHES);
+        // Shoot preloaded balls
+        quickShoot();
 
-        // Minimal settle time
-        sleep(SETTLE_TIME);
+        // PHASE 2: Turn and scan for pattern (do both simultaneously)
+        turnToHeading(SCAN_ANGLE);
+        patternIndex = detectPattern(); // Quick pattern detection
 
-        // Execute FIRST SHOT - FAST VERSION
-        executeFastShootSequence();
+        // PHASE 3: Fetch balls
+        double fetchAngle = FETCH_ANGLES[patternIndex];
+        double fetchDistance = BASE_FORWARD_DISTANCE + EXTRA_DISTANCES[patternIndex];
 
-        // Minimal delay between shots
-        sleep(200);
+        turnToHeading(fetchAngle);
 
-        // Start intake for second set
+        // Move forward with intake running
         intakeController.intakeFull();
-
-        // FAST REPOSITIONING - all movements maintain shooter
-        turnToHeadingFast(TURN_ANGLE_DEGREES);
-        ForwardForIntakeWithShooterUpdate(FORWARD_DISTANCE_INCHES);
+        moveRobot(fetchDistance, INTAKE_SPEED);
         sleep(200); // Brief intake time
-        moveBackwardWithOdometryAndShooterUpdate(REPOSITIONING_DISTANCE);
-        turnToHeadingFast(0);
-
-        // Stop intake
         intakeController.intakeStop();
-        sleep(100); // Minimal delay
 
-        // Execute SECOND SHOT - FAST VERSION
-        executeFastShootSequence();
+        // PHASE 4: Quick reposition and shoot
+        double repositionDistance = BASE_REPOSITION_DISTANCE + EXTRA_DISTANCES[patternIndex];
+        moveRobot(-repositionDistance, MOVEMENT_SPEED);
 
-        // Stop shooter at end
-        sleep(300);
-        shooterController.shooterStop();
+        turnToHeading(0); // Return to original heading
+        quickShoot();
     }
 
     /**
-     * FAST shoot sequence - minimal delays, aggressive acceptance criteria
+     * Unified movement method - handles forward and backward with PID updates
      */
-    @SuppressLint("DefaultLocale")
-    private void executeFastShootSequence() {
+    private void moveRobot(double distanceInches, double speed) {
+        driveController.updateOdometry();
+        double startX = driveController.getX();
+        double direction = Math.signum(distanceInches);
 
-        // STEP 1: VERY QUICK RPM CHECK (don't wait long)
-        double currentRPM = shooterController.getShooterRPM();
-        if (Math.abs(currentRPM - CONSTANT_SHOOTER_RPM) > RPM_TOLERANCE) {
-            // Only wait maximum 300ms for RPM
-            ElapsedTime rpmTimer = new ElapsedTime();
-            while (opModeIsActive() &&
-                    Math.abs(shooterController.getShooterRPM() - CONSTANT_SHOOTER_RPM) > RPM_TOLERANCE &&
-                    rpmTimer.milliseconds() < 300) {
-                shooterController.updatePID();
-                sleep(10);
+        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
+        driveController.tankDriveVelocityNormalized(direction * speed, direction * speed);
+
+        while (opModeIsActive()) {
+            updateShooterPID();
+            driveController.updateOdometry();
+
+            if (Math.abs(driveController.getX() - startX) >= Math.abs(distanceInches)) {
+                break;
             }
+            sleep(5);
+        }
+        driveController.stopDrive();
+    }
+
+    /**
+     * Unified turn method with PID updates
+     */
+    private void turnToHeading(double targetDegrees) {
+        double targetRad = Math.toRadians(targetDegrees);
+        double thresholdRad = Math.toRadians(HEADING_THRESHOLD_DEG);
+
+        while (opModeIsActive()) {
+            updateShooterPID();
+            driveController.updateOdometry();
+
+            double error = normalizeAngle(targetRad - driveController.getHeading());
+            if (Math.abs(error) < thresholdRad) break;
+
+            double power = Math.signum(error) * TURN_POWER;
+            driveController.tankDrive(-power, power);
+            sleep(5);
+        }
+        driveController.stopDrive();
+    }
+
+    /**
+     * Ultra-fast shooting sequence - no waiting for perfect conditions
+     */
+    private void quickShoot() {
+        // Quick RPM check (max 200ms wait)
+        ElapsedTime rpmWait = new ElapsedTime();
+        while (opModeIsActive() && !shooterReady && rpmWait.milliseconds() < 200) {
+            updateShooterPID();
+            shooterReady = Math.abs(shooterController.getShooterRPM() - CONSTANT_SHOOTER_RPM) < 150;
+            sleep(10);
         }
 
-        // STEP 2: FAST ALIGNMENT (if Limelight available)
+        // Quick alignment if Limelight available (max 500ms)
         if (limelightController != null) {
             try {
                 driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
                 limelightController.startAlignment();
 
-                ElapsedTime alignTimer = new ElapsedTime();
-
-                // Quick alignment loop - don't be perfectionist
-                while (opModeIsActive() && alignTimer.milliseconds() < ALIGNMENT_TIMEOUT) {
-                    // Keep updating shooter during alignment
-                    if (pidUpdateTimer.milliseconds() >= PID_UPDATE_INTERVAL_MS) {
-                        shooterController.updatePID();
-                        pidUpdateTimer.reset();
-                    }
-
+                ElapsedTime alignTime = new ElapsedTime();
+                while (opModeIsActive() && alignTime.milliseconds() < ALIGNMENT_TIMEOUT) {
+                    updateShooterPID();
                     limelightController.align(AutoShootController.APRILTAG_ID);
 
-                    // Accept "good enough" alignment faster
-                    if (limelightController.getTargetError() <= ALIGNMENT_THRESHOLD) {
-                        break;
-                    }
-
+                    if (limelightController.getTargetError() <= ALIGNMENT_THRESHOLD) break;
                     sleep(10);
                 }
 
                 limelightController.stopAlignment();
                 driveController.stopDrive();
-
-                // Minimal stabilization
-                sleep(50);
-
             } catch (Exception e) {
-                // Ignore alignment errors, shoot anyway
+                // Continue without alignment
             }
         }
 
-        // STEP 3: SHOOT WITHOUT HESITATION
+        // Shoot immediately
         transferController.transferFull();
         intakeController.intakeFull();
 
-        // Shooting loop with continuous PID updates
-        ElapsedTime shotTimer = new ElapsedTime();
-        while (opModeIsActive() && shotTimer.milliseconds() < SHOOT_DURATION) {
-            // Aggressive PID updates during shot
-            if (pidUpdateTimer.milliseconds() >= PID_UPDATE_INTERVAL_MS) {
-                shooterController.updatePID();
-                pidUpdateTimer.reset();
-            }
+        ElapsedTime shootTime = new ElapsedTime();
+        while (opModeIsActive() && shootTime.milliseconds() < SHOOT_DURATION) {
+            updateShooterPID();
             sleep(5);
         }
 
-        // Stop intake and transfer
         transferController.transferStop();
         intakeController.intakeStop();
     }
 
     /**
-     * Fast turn with continuous shooter updates
+     * Fast pattern detection - single attempt
      */
-    @SuppressLint("DefaultLocale")
-    private void turnToHeadingFast(double targetHeadingDeg) {
-        double targetHeadingRad = Math.toRadians(targetHeadingDeg);
-        final double HEADING_THRESHOLD = Math.toRadians(3.0); // Less precise but faster
-        final double TURN_POWER = 0.4; // Faster turns
+    private int detectPattern() {
+        if (autoShootController == null) return 2; // Default to PPG
 
-        while (opModeIsActive()) {
-            // Continuous PID updates
-            if (pidUpdateTimer.milliseconds() >= PID_UPDATE_INTERVAL_MS) {
-                shooterController.updatePID();
-                pidUpdateTimer.reset();
+        try {
+            sleep(1000); // Brief stabilization
+            int tagId = autoShootController.getVisibleAprilTagId();
+
+            // Direct mapping: 21->PPG(0), 22->PGP(1), 23->GPP(2)
+            if (tagId >= 21 && tagId <= 23) {
+                return tagId - 21;
+            }
+        } catch (Exception e) {
+            // Use default
+        }
+        return 2; // Default PPG
+    }
+
+    /**
+     * Background shooter warmup
+     */
+    private void warmupShooter() {
+        ElapsedTime warmup = new ElapsedTime();
+        while (warmup.milliseconds() < SHOOTER_WARMUP) {
+            updateShooterPID();
+
+            // Check if we're close enough
+            if (warmup.milliseconds() > 400) {
+                double rpm = shooterController.getShooterRPM();
+                if (Math.abs(rpm - CONSTANT_SHOOTER_RPM) < 200) {
+                    shooterReady = true;
+                    break;
+                }
             }
 
-            driveController.updateOdometry();
-            double currentHeading = driveController.getHeading();
-            double headingError = targetHeadingRad - currentHeading;
-
-            // Normalize error
-            while (headingError > Math.PI) headingError -= 2 * Math.PI;
-            while (headingError < -Math.PI) headingError += 2 * Math.PI;
-
-            if (Math.abs(headingError) < HEADING_THRESHOLD) {
-                driveController.stopDrive();
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
                 break;
             }
+        }
+        shooterReady = true; // Mark ready regardless
+    }
 
-            double turnPower = Math.signum(headingError) * TURN_POWER;
-            driveController.tankDrive(-turnPower, turnPower);
-
-            sleep(10);
+    /**
+     * Centralized PID update - called from all loops
+     */
+    private void updateShooterPID() {
+        if (pidTimer.milliseconds() >= 10) {
+            shooterController.updatePID();
+            pidTimer.reset();
         }
     }
 
     /**
-     * Forward movement with aggressive PID updates
+     * Normalize angle to [-π, π]
      */
-    @SuppressLint("DefaultLocale")
-    private void ForwardForIntakeWithShooterUpdate(double distanceInches) {
-        driveController.updateOdometry();
-        double startX = driveController.getX();
-
-        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
-        driveController.tankDriveVelocityNormalized(MOVEMENT_SPEED, MOVEMENT_SPEED);
-
-        while (opModeIsActive()) {
-            // Aggressive PID updates
-            if (pidUpdateTimer.milliseconds() >= PID_UPDATE_INTERVAL_MS) {
-                shooterController.updatePID();
-                pidUpdateTimer.reset();
-            }
-
-            driveController.updateOdometry();
-            double currentX = driveController.getX();
-            double distanceMoved = Math.abs(currentX - startX);
-
-            if (distanceMoved >= Math.abs(distanceInches)) {
-                break;
-            }
-
-            sleep(10);
-        }
-
-        driveController.stopDrive();
-    }
-
-    /**
-     * Backward movement with aggressive PID updates
-     */
-    @SuppressLint("DefaultLocale")
-    private void moveBackwardWithOdometryAndShooterUpdate(double distanceInches) {
-        driveController.updateOdometry();
-        double startX = driveController.getX();
-
-        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
-        driveController.tankDriveVelocityNormalized(-MOVEMENT_SPEED, -MOVEMENT_SPEED);
-
-        while (opModeIsActive()) {
-            // Aggressive PID updates
-            if (pidUpdateTimer.milliseconds() >= PID_UPDATE_INTERVAL_MS) {
-                shooterController.updatePID();
-                pidUpdateTimer.reset();
-            }
-
-            driveController.updateOdometry();
-            double currentX = driveController.getX();
-            double distanceMoved = Math.abs(startX - currentX);
-
-            if (distanceMoved >= Math.abs(distanceInches)) {
-                break;
-            }
-
-            sleep(10);
-        }
-
-        driveController.stopDrive();
-    }
-
-    /**
-     * Initial backward movement with PID updates
-     */
-    @SuppressLint("DefaultLocale")
-    private void moveBackwardWithOdometry(double distanceInches) {
-        driveController.updateOdometry();
-        double startX = driveController.getX();
-
-        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
-        driveController.tankDriveVelocityNormalized(-MOVEMENT_SPEED, -MOVEMENT_SPEED);
-
-        while (opModeIsActive()) {
-            // Keep updating PID
-            if (pidUpdateTimer.milliseconds() >= PID_UPDATE_INTERVAL_MS) {
-                shooterController.updatePID();
-                pidUpdateTimer.reset();
-            }
-
-            driveController.updateOdometry();
-            double currentX = driveController.getX();
-            double distanceMoved = Math.abs(startX - currentX);
-
-            if (distanceMoved >= Math.abs(distanceInches)) {
-                break;
-            }
-
-            sleep(10);
-        }
-
-        driveController.stopDrive();
+    private double normalizeAngle(double angle) {
+        while (angle > Math.PI) angle -= 2 * Math.PI;
+        while (angle < -Math.PI) angle += 2 * Math.PI;
+        return angle;
     }
 }
