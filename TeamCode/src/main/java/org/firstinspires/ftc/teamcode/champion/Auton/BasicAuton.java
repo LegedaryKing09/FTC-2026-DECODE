@@ -16,8 +16,9 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 
 import java.util.Locale;
+
 @Config
-@Autonomous(name = "Basic Auton", group = "Competition")
+@Autonomous(name = "Basic Auton Fixed", group = "Competition")
 public class BasicAuton extends LinearOpMode {
     // Controllers
     SixWheelDriveController driveController;
@@ -27,13 +28,15 @@ public class BasicAuton extends LinearOpMode {
     LimelightAlignmentController limelightController;
     AutoShootController autoShootController;
     RampController rampController;
+
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
+    public static double CONSTANT_RAMP_ANGLE = 121.0;
     public static double BACKWARD_DISTANCE = 50.0;
     public static double BASE_FORWARD_DISTANCE = 35.0;
     public static double BASE_REPOSITION_DISTANCE = 20.0;
     public static double MOVEMENT_SPEED = 0.4;
-    public static double INTAKE_SPEED = 0.25;
-    public static double TURN_POWER = 0.2;
+    public static double INTAKE_SPEED = 0.2;
+    public static double TURN_POWER = 0.25;
     public static long SHOOT_DURATION = 1400;
     public static long SHOOTER_WARMUP = 800;
     public static long ALIGNMENT_TIMEOUT = 750;
@@ -44,12 +47,20 @@ public class BasicAuton extends LinearOpMode {
     public static double SCAN_ANGLE = -40.0;
 
     // Pattern-specific parameters (all-in-one)
-    public static double[] FETCH_ANGLES = {51.0, 36.0, 24.0};  // PPG, PGP, GPP
+    public static double[] FETCH_ANGLES = {51.0, 36.0, 26.0};  // PPG, PGP, GPP
     public static double[] EXTRA_DISTANCES = {24.0, 12.0, 0.0}; // PPG, PGP, GPP
+
+    // PID update frequency (milliseconds)
+    public static long PID_UPDATE_INTERVAL = 5; // Update every 5ms for consistent control
 
     private final ElapsedTime pidTimer = new ElapsedTime();
     private final ElapsedTime globalTimer = new ElapsedTime();
+    private final ElapsedTime lastPidUpdate = new ElapsedTime();
     private boolean shooterReady = false;
+
+    // Thread for continuous PID updates
+    private Thread pidUpdateThread;
+    private volatile boolean pidThreadRunning = false;
 
     @Override
     public void runOpMode() {
@@ -65,10 +76,14 @@ public class BasicAuton extends LinearOpMode {
         // Start shooter and ramp
         shooterController.setShooterRPM(CONSTANT_SHOOTER_RPM);
 
+        // Start continuous PID update thread
+        startPidUpdateThread();
+
         // Execute autonomous sequence
         executeAutonomousSequence();
 
         // Cleanup
+        stopPidUpdateThread();
         shooterController.shooterStop();
         telemetry.addData("Total Time", String.format(Locale.US, "%.1fs", globalTimer.seconds()));
         telemetry.update();
@@ -80,6 +95,8 @@ public class BasicAuton extends LinearOpMode {
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
         rampController = new RampController(this);
+
+        rampController.setAngle(CONSTANT_RAMP_ANGLE);
 
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
@@ -96,6 +113,42 @@ public class BasicAuton extends LinearOpMode {
 
         telemetry.addLine("=== AUTON READY ===");
         telemetry.update();
+    }
+
+    /**
+     * Start a background thread for continuous PID updates
+     * This ensures the shooter maintains RPM even during other operations
+     */
+    private void startPidUpdateThread() {
+        pidThreadRunning = true;
+        pidUpdateThread = new Thread(() -> {
+            while (pidThreadRunning && opModeIsActive()) {
+                try {
+                    shooterController.updatePID();
+                    Thread.sleep(PID_UPDATE_INTERVAL);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+        pidUpdateThread.setPriority(Thread.MAX_PRIORITY); // High priority for consistent updates
+        pidUpdateThread.start();
+    }
+
+    /**
+     * Stop the PID update thread
+     */
+    private void stopPidUpdateThread() {
+        pidThreadRunning = false;
+        if (pidUpdateThread != null) {
+            try {
+                pidUpdateThread.interrupt();
+                pidUpdateThread.join(100);
+            } catch (InterruptedException e) {
+                // Ignore
+            }
+        }
     }
 
     private void executeAutonomousSequence() {
@@ -115,10 +168,11 @@ public class BasicAuton extends LinearOpMode {
         // Shoot preloaded balls
         quickShoot();
 
-        // PHASE 2: Turn and scan for pattern (do both simultaneously)
+        // PHASE 2: Turn and scan for pattern
         turnToHeading(SCAN_ANGLE);
-        // 0=PPG, 1=PGP, 2=GPP
-        int patternIndex = detectPattern(); // Quick pattern detection
+
+        // Pattern detection with continuous PID updates
+        int patternIndex = detectPattern();
 
         // PHASE 3: Fetch balls
         double fetchAngle = FETCH_ANGLES[patternIndex];
@@ -129,7 +183,9 @@ public class BasicAuton extends LinearOpMode {
         // Move forward with intake running
         intakeController.intakeFull();
         moveRobot(fetchDistance, INTAKE_SPEED);
-        sleep(200); // Brief intake time
+
+        // Brief intake time with PID-aware sleep
+        sleepWithPid(400);
         intakeController.intakeStop();
 
         // PHASE 4: Quick reposition and shoot
@@ -141,19 +197,41 @@ public class BasicAuton extends LinearOpMode {
     }
 
     /**
-     * Unified movement method - handles forward and backward with PID updates
+     * Sleep while ensuring PID updates continue (used when PID thread is not active)
+     * This is a backup method - the background thread should handle most updates
+     */
+    private void sleepWithPid(long milliseconds) {
+        ElapsedTime sleepTimer = new ElapsedTime();
+        while (opModeIsActive() && sleepTimer.milliseconds() < milliseconds) {
+            // PID updates are handled by background thread
+            // Just sleep in small increments to remain responsive
+            sleep(10);
+        }
+    }
+
+    /**
+     * Unified movement method - PID updates handled by background thread
      */
     private void moveRobot(double distanceInches, double speed) {
         driveController.updateOdometry();
         double startX = driveController.getX();
         double direction = Math.signum(distanceInches);
 
+        ElapsedTime moveTimer = new ElapsedTime();
+
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
         driveController.tankDriveVelocityNormalized(direction * speed, direction * speed);
 
         while (opModeIsActive()) {
-            updateShooterPID();
             driveController.updateOdometry();
+
+            // Telemetry updates (less frequent to reduce overhead)
+            if (moveTimer.milliseconds() % 100 < 10) {
+                telemetry.addData("Shooter RPM", shooterController.getShooterRPM());
+                telemetry.addData("Target RPM", CONSTANT_SHOOTER_RPM);
+                telemetry.addData("RPM Error", shooterController.getRPMError());
+                telemetry.update();
+            }
 
             if (Math.abs(driveController.getX() - startX) >= Math.abs(distanceInches)) {
                 break;
@@ -164,14 +242,15 @@ public class BasicAuton extends LinearOpMode {
     }
 
     /**
-     * Unified turn method with PID updates
+     * Unified turn method - PID updates handled by background thread
      */
     private void turnToHeading(double targetDegrees) {
         double targetRad = Math.toRadians(targetDegrees);
         double thresholdRad = Math.toRadians(HEADING_THRESHOLD_DEG);
 
+        ElapsedTime turnTimer = new ElapsedTime();
+
         while (opModeIsActive()) {
-            updateShooterPID();
             driveController.updateOdometry();
 
             double error = normalizeAngle(targetRad - driveController.getHeading());
@@ -179,24 +258,36 @@ public class BasicAuton extends LinearOpMode {
 
             double power = Math.signum(error) * TURN_POWER;
             driveController.tankDrive(-power, power);
+
+            // Telemetry during turn
+            if (turnTimer.milliseconds() % 100 < 10) {
+                telemetry.addData("Turn Error", Math.toDegrees(error));
+                telemetry.addData("Shooter RPM", shooterController.getShooterRPM());
+                telemetry.update();
+            }
+
             sleep(5);
         }
         driveController.stopDrive();
     }
 
     /**
-     * Ultra-fast shooting sequence - no waiting for perfect conditions
+     * Ultra-fast shooting sequence
      */
     private void quickShoot() {
-        // Quick RPM check (max 200ms wait)
+        // Quick RPM check (max 600ms wait)
         ElapsedTime rpmWait = new ElapsedTime();
-        while (opModeIsActive() && !shooterReady && rpmWait.milliseconds() < 600) {
-            updateShooterPID();
+        while (opModeIsActive() && !shooterReady && rpmWait.milliseconds() < 400) {
             shooterReady = Math.abs(shooterController.getShooterRPM() - CONSTANT_SHOOTER_RPM) < 100;
+
+            if (rpmWait.milliseconds() % 100 < 10) {
+                telemetry.addData("Waiting for RPM", shooterController.getShooterRPM());
+                telemetry.update();
+            }
             sleep(10);
         }
 
-        // Quick alignment if Limelight available (max 500ms)
+        // Quick alignment if Limelight available
         if (limelightController != null) {
             try {
                 driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
@@ -204,7 +295,6 @@ public class BasicAuton extends LinearOpMode {
 
                 ElapsedTime alignTime = new ElapsedTime();
                 while (opModeIsActive() && alignTime.milliseconds() < ALIGNMENT_TIMEOUT) {
-                    updateShooterPID();
                     limelightController.align(AutoShootController.APRILTAG_ID);
 
                     if (limelightController.getTargetError() <= ALIGNMENT_THRESHOLD) break;
@@ -224,7 +314,11 @@ public class BasicAuton extends LinearOpMode {
 
         ElapsedTime shootTime = new ElapsedTime();
         while (opModeIsActive() && shootTime.milliseconds() < SHOOT_DURATION) {
-            updateShooterPID();
+            // PID updates handled by background thread
+            if (shootTime.milliseconds() % 100 < 10) {
+                telemetry.addData("Shooting RPM", shooterController.getShooterRPM());
+                telemetry.update();
+            }
             sleep(5);
         }
 
@@ -233,14 +327,23 @@ public class BasicAuton extends LinearOpMode {
     }
 
     /**
-     * Fast pattern detection - single attempt
+     * Fast pattern detection
      * Updated mapping: ID21→GPP, ID22→PGP, ID23→PPG
      */
     private int detectPattern() {
         if (autoShootController == null) return 0; // Default to PPG
 
         try {
-            sleep(500); // Brief stabilization
+            ElapsedTime waitTimer = new ElapsedTime();
+            while (opModeIsActive() && waitTimer.milliseconds() < 500) {
+                // PID updates handled by background thread
+                if (waitTimer.milliseconds() % 100 < 10) {
+                    telemetry.addData("Detecting pattern...", "");
+                    telemetry.addData("Shooter RPM", shooterController.getShooterRPM());
+                    telemetry.update();
+                }
+                sleep(10);
+            }
             int tagId = autoShootController.getVisibleAprilTagId();
 
             // Direct mapping: 21->GPP(2), 22->PGP(1), 23->PPG(0)
@@ -259,7 +362,7 @@ public class BasicAuton extends LinearOpMode {
     private void warmupShooter() {
         ElapsedTime warmup = new ElapsedTime();
         while (warmup.milliseconds() < SHOOTER_WARMUP) {
-            updateShooterPID();
+            // PID updates handled by background thread
 
             // Check if we're close enough
             if (warmup.milliseconds() > 500) {
@@ -274,13 +377,12 @@ public class BasicAuton extends LinearOpMode {
     }
 
     /**
-     * Centralized PID update - called from all loops
+     * Centralized PID update - called from background thread
+     * Kept for compatibility but primarily handled by thread
      */
     private void updateShooterPID() {
-        if (pidTimer.milliseconds() >= 10) {
-            shooterController.updatePID();
-            pidTimer.reset();
-        }
+        shooterController.updatePID();
+        pidTimer.reset();
     }
 
     /**
