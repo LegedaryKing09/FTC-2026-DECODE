@@ -1,11 +1,14 @@
 package org.firstinspires.ftc.teamcode.champion.Auton;
 
+import android.media.midi.MidiOutputPort;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.util.MovingStatistics;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
@@ -31,31 +34,39 @@ public class BasicAuton extends LinearOpMode {
 
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static double CONSTANT_RAMP_ANGLE = 121.0;
-    public static double BACKWARD_DISTANCE = 50.0;
-    public static double BASE_FORWARD_DISTANCE = 35.0;
-    public static double BASE_REPOSITION_DISTANCE = 20.0;
+
     public static double MOVEMENT_SPEED = 0.4;
     public static double INTAKE_SPEED = 0.2;
     public static double TURN_POWER = 0.25;
+
     public static long SHOOT_DURATION = 1400;
     public static long SHOOTER_WARMUP = 800;
     public static long ALIGNMENT_TIMEOUT = 750;
+
     public static double ALIGNMENT_THRESHOLD = 1.5;
     public static double HEADING_THRESHOLD_DEG = 2;
 
-    // Pattern parameters
-    public static double SCAN_ANGLE = -40.0;
+    // ============ PATH PARAMETERS ============
+    public static double INITIAL_BACKWARD = 50.0;
+    public static double PATTERN_SCAN_ANGLE = -40.0;  // Turn right  to face AprilTag directly
+    public static double[] PATTERN_POSITION_DISTANCE = {
+            -32.5,
+            -11.0,
+            2.0
+    };
+    public static double LEFT_TURN_ANGLE = 82.0;      // Turn left to align with balls
+    public static double INTAKE_FORWARD = 40.0;       // Forward while intaking
+    public static double INTAKE_BACKWARD = 20.0;       // Backward after intake
 
-    // Pattern-specific parameters (all-in-one)
-    public static double[] FETCH_ANGLES = {51.0, 36.0, 26.0};  // PPG, PGP, GPP
-    public static double[] EXTRA_DISTANCES = {24.0, 12.0, 0.0}; // PPG, PGP, GPP
+    public static double PPG_EXTRA_FORWARD = 20.0;    // extra forward before turning to shoot
+    public static double PGP_EXTRA_FORWARD = 8.0;
+    // Return to shooting position
+    public static double SHOOT_HEADING = 0.0;         // Return to 0° for shooting
 
-    // PID update frequency (milliseconds)
     public static long PID_UPDATE_INTERVAL = 5; // Update every 5ms for consistent control
 
     private final ElapsedTime pidTimer = new ElapsedTime();
     private final ElapsedTime globalTimer = new ElapsedTime();
-    private final ElapsedTime lastPidUpdate = new ElapsedTime();
     private boolean shooterReady = false;
 
     // Thread for continuous PID updates
@@ -152,11 +163,11 @@ public class BasicAuton extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
-        // PHASE 1: Warmup while moving backward
         Thread warmupThread = new Thread(this::warmupShooter);
         warmupThread.start();
 
-        moveRobot(-BACKWARD_DISTANCE, MOVEMENT_SPEED);
+        //move backward 50 inches
+        moveRobot(-INITIAL_BACKWARD, MOVEMENT_SPEED);
 
         // Wait for warmup to complete (if not already)
         try {
@@ -164,36 +175,58 @@ public class BasicAuton extends LinearOpMode {
         } catch (InterruptedException e) {
             // Continue anyway
         }
-
         // Shoot preloaded balls
         quickShoot();
 
-        // PHASE 2: Turn and scan for pattern
-        turnToHeading(SCAN_ANGLE);
+        // Turn and scan for pattern
+        turnToHeading(PATTERN_SCAN_ANGLE);
 
         // Pattern detection with continuous PID updates
         int patternIndex = detectPattern();
+        String patternName = (patternIndex == 0) ? "PPG" : (patternIndex == 1) ? "PGP" : "GPP";
 
-        // PHASE 3: Fetch balls
-        double fetchAngle = FETCH_ANGLES[patternIndex];
-        double fetchDistance = BASE_FORWARD_DISTANCE + EXTRA_DISTANCES[patternIndex];
+        //move to appropriate line position based on pattern
+        double positionDistance = PATTERN_POSITION_DISTANCE[patternIndex];
+        moveRobot(positionDistance, MOVEMENT_SPEED);
 
-        turnToHeading(fetchAngle);
+        //turn left 90 degrees to align with balls
+        turnToHeading(getCurrentHeading() + LEFT_TURN_ANGLE);
 
-        // Move forward with intake running
+        //Go forward while intaking
         intakeController.intakeFull();
-        moveRobot(fetchDistance, INTAKE_SPEED);
-
+        moveRobot(INTAKE_FORWARD, INTAKE_SPEED);
         // Brief intake time with PID-aware sleep
         sleepWithPid(400);
         intakeController.intakeStop();
 
-        // PHASE 4: Quick reposition and shoot
-        double repositionDistance = BASE_REPOSITION_DISTANCE + EXTRA_DISTANCES[patternIndex];
-        moveRobot(-repositionDistance, MOVEMENT_SPEED);
+        //Go backward
+        moveRobot(-INTAKE_BACKWARD, MOVEMENT_SPEED);
 
-        turnToHeading(0); // Return to original heading
+        if (patternIndex == 0) {  // PPG pattern
+            turnToHeading(PATTERN_SCAN_ANGLE);
+            // PPG: Go forward extra inches before turning to shoot
+            moveRobot(PPG_EXTRA_FORWARD, MOVEMENT_SPEED);
+        }
+
+        if (patternIndex == 1) {  // PGP pattern
+            turnToHeading(PATTERN_SCAN_ANGLE);
+            // PPG: Go forward extra inches before turning to shoot
+            moveRobot(PGP_EXTRA_FORWARD, MOVEMENT_SPEED);
+        }
+
+        // Turn to 0° heading for shooting
+        turnToHeading(SHOOT_HEADING);
+
+        // Shoot the balls we just intaked
         quickShoot();
+        
+    }
+
+
+
+    private double getCurrentHeading() {
+        driveController.updateOdometry();
+        return Math.toDegrees(driveController.getHeading());
     }
 
     /**
@@ -215,9 +248,11 @@ public class BasicAuton extends LinearOpMode {
     private void moveRobot(double distanceInches, double speed) {
         driveController.updateOdometry();
         double startX = driveController.getX();
+        double startY = driveController.getY();
         double direction = Math.signum(distanceInches);
 
         ElapsedTime moveTimer = new ElapsedTime();
+        ElapsedTime safetyTimer = new ElapsedTime();
 
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
         driveController.tankDriveVelocityNormalized(direction * speed, direction * speed);
@@ -225,15 +260,21 @@ public class BasicAuton extends LinearOpMode {
         while (opModeIsActive()) {
             driveController.updateOdometry();
 
-            // Telemetry updates (less frequent to reduce overhead)
-            if (moveTimer.milliseconds() % 100 < 10) {
-                telemetry.addData("Shooter RPM", shooterController.getShooterRPM());
-                telemetry.addData("Target RPM", CONSTANT_SHOOTER_RPM);
-                telemetry.addData("RPM Error", shooterController.getRPMError());
-                telemetry.update();
-            }
+            double deltaX = driveController.getX() - startX;
+            double deltaY = driveController.getY() - startY;
+            double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-            if (Math.abs(driveController.getX() - startX) >= Math.abs(distanceInches)) {
+            // Enhanced telemetry
+            telemetry.addData("Distance Traveled", String.format("%.2f", distanceTraveled));
+            telemetry.addData("Target Distance", String.format("%.2f", Math.abs(distanceInches)));
+            telemetry.addData("Delta X", String.format("%.2f", deltaX));
+            telemetry.addData("Delta Y", String.format("%.2f", deltaY));
+            telemetry.addData("Current Heading", String.format("%.1f°", Math.toDegrees(driveController.getHeading())));
+            telemetry.addData("Time Elapsed", String.format("%.1fs", moveTimer.seconds()));
+            telemetry.update();
+
+
+            if (distanceTraveled >= Math.abs(distanceInches)) {
                 break;
             }
             sleep(5);
