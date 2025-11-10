@@ -30,7 +30,7 @@ public class LimelightAlignmentController {
     @Config
     public static class AlignmentParams {
         public static double HEADING_TOLERANCE_DEGREES = 1.5;
-        public static long ALIGNMENT_TIMEOUT_MS = 5000;
+        public static long ALIGNMENT_TIMEOUT_MS = 1000;
         public static int ALIGNED_FRAMES_REQUIRED = 5;
         public static double SETTLING_TIME_MS = 100;
     }
