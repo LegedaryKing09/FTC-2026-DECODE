@@ -41,7 +41,7 @@ public class BasicAuton extends LinearOpMode {
 
     // ULTRA-FAST TIMING
     public static long SHOOT_DURATION = 1400;  // Minimum viable shoot time
-    public static long SHOOTER_WARMUP = 600;   // Reduced warmup
+    public static long SHOOTER_WARMUP = 1000;   // Reduced warmup
     public static long ALIGNMENT_TIMEOUT = 500; // Quick alignment
     public static double ALIGNMENT_THRESHOLD = 1.5; // Less precise but faster
     public static double HEADING_THRESHOLD_DEG = 2; // Less precise turns
@@ -51,7 +51,7 @@ public class BasicAuton extends LinearOpMode {
 
     // Pattern-specific parameters (all-in-one)
     public static double[] FETCH_ANGLES = {51.0, 36.0, 21.0};  // PPG, PGP, GPP
-    public static double[] EXTRA_DISTANCES = {24.0, 12.0, 0.0}; // PPG, PGP, GPP
+    public static double[] EXTRA_DISTANCES = {24.0, 12.0, 12.0}; // PPG, PGP, GPP
 
     private ElapsedTime pidTimer = new ElapsedTime();
     private ElapsedTime globalTimer = new ElapsedTime();

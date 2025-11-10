@@ -51,13 +51,13 @@ public class SixWheelDriveController {
 
     // Speed mode settings - ADJUSTED FOR BETTER CONTROL
     // Reduced forward/backward speeds for better control
-    public static double FAST_SPEED_MULTIPLIER = 0.4;  // Reduced from 0.3
+    public static double FAST_SPEED_MULTIPLIER = 0.8;  // Reduced from 0.3
     public static double FAST_TURN_MULTIPLIER = 0.4;    // Significantly reduced from 1.5
     public static double SLOW_SPEED_MULTIPLIER = 0.2;
     public static double SLOW_TURN_MULTIPLIER = 0.2;    // Significantly reduced from 0.8
 
     // Acceleration ramping to reduce inertia issues
-    public static double ACCELERATION_RATE = 0.15;  // How quickly to ramp up/down power
+    public static double ACCELERATION_RATE = 0.2;  // How quickly to ramp up/down power
     private double currentDrivePower = 0.0;
     private double currentTurnPower = 0.0;
 

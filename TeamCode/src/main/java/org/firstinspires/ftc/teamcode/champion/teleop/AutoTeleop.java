@@ -14,8 +14,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 
-@Config
-@TeleOp(name = "Enhanced TeleOp with Ramp", group = "Competition")
+@TeleOp(name = "Enhanced TeleOp V2", group = "Competition")
 public class AutoTeleop extends LinearOpMode {
 
     SixWheelDriveController driveController;
@@ -26,10 +25,15 @@ public class AutoTeleop extends LinearOpMode {
     AutoShootController autoShootController;
     RampController rampController;
 
-    public static double SHOOTING_POWER = 0.55;
+    // REMOVED @Config from SHOOTING_POWER to prevent dashboard override
     public static double RAMP_INCREMENT = 2.5;  // Manual ramp control increment
 
+    // Track last button pressed for debugging
+    private String lastButtonPressed = "NONE";
+    private double requestedRPM = 2800;
+
     boolean isManualAligning = false;
+    private long alignmentStartTime = 0;
     boolean last_dpadLeft = false;
     boolean last_dpadRight = false;
     boolean isUsingTelemetry = true;
@@ -87,6 +91,13 @@ public class AutoTeleop extends LinearOpMode {
 
         waitForStart();
 
+        // Set initial shooter RPM
+        requestedRPM = 2800;
+        shooterController.setShooterRPM(requestedRPM);
+        lastButtonPressed = "INIT";
+
+        driveController.setFastSpeed();
+
         while (opModeIsActive()) {
 
             shooterController.updatePID();
@@ -103,26 +114,34 @@ public class AutoTeleop extends LinearOpMode {
 
             driveController.arcadeDrive(drive, turn);
 
-            // A button: Set to FAST speed mode
+            // A button: Close distance setting
             if (gamepad1.a && !isPressingA) {
                 isPressingA = true;
-                driveController.setFastSpeed();
+                requestedRPM = 2800;
+                shooterController.setShooterRPM(requestedRPM);
+                rampController.setPosition(0.71);
+                lastButtonPressed = "A (2800 RPM)";
             } else if (!gamepad1.a && isPressingA) {
                 isPressingA = false;
             }
 
-            // B button: Set to SLOW speed mode
+            // B button: Far distance setting
             if (gamepad1.b && !isPressingB) {
                 isPressingB = true;
-                driveController.setSlowSpeed();
+                requestedRPM = 3100;
+                shooterController.setShooterRPM(requestedRPM);
+                rampController.setPosition(0.70);
+                lastButtonPressed = "B (3100 RPM)";
             } else if (!gamepad1.b && isPressingB) {
                 isPressingB = false;
             }
 
-            // Y button: Set shooter to custom power (calculated distance RPM)
+            // Y button: Medium distance setting
             if (gamepad1.y && !isPressingY) {
                 isPressingY = true;
-                shooterController.setShooterPower(SHOOTING_POWER);
+                requestedRPM = 2950;
+                shooterController.setShooterRPM(requestedRPM);
+                lastButtonPressed = "Y (2950 RPM)";
             } else if (!gamepad1.y && isPressingY) {
                 isPressingY = false;
             }
@@ -133,6 +152,8 @@ public class AutoTeleop extends LinearOpMode {
                 shooterController.shooterStop();
                 intakeController.intakeStop();
                 transferController.transferStop();
+                requestedRPM = 0;
+                lastButtonPressed = "X (STOP)";
                 // Reset intake toggle states
                 isIntakeRunning = false;
                 isIntakeEjecting = false;
@@ -140,18 +161,22 @@ public class AutoTeleop extends LinearOpMode {
                 isPressingX = false;
             }
 
-            // D-pad UP: Increase shooting power
-            if (gamepad1.dpad_up && SHOOTING_POWER < 1 && !isPressingDpadUp) {
+            // D-pad UP: Increase shooting RPM by 50
+            if (gamepad1.dpad_up && !isPressingDpadUp) {
                 isPressingDpadUp = true;
-                SHOOTING_POWER = SHOOTING_POWER + 0.01;
+                requestedRPM = Math.min(requestedRPM + 50, ShooterController.SHOOTER_FULL_RPM);
+                shooterController.setShooterRPM(requestedRPM);
+                lastButtonPressed = "DPAD_UP (+" + requestedRPM + ")";
             } else if (!gamepad1.dpad_up && isPressingDpadUp) {
                 isPressingDpadUp = false;
             }
 
-            // D-pad DOWN: Decrease shooting power
-            if (gamepad1.dpad_down && SHOOTING_POWER > 0 && !isPressingDpadDown) {
+            // D-pad DOWN: Decrease shooting RPM by 50
+            if (gamepad1.dpad_down && !isPressingDpadDown) {
                 isPressingDpadDown = true;
-                SHOOTING_POWER = SHOOTING_POWER - 0.01;
+                requestedRPM = Math.max(requestedRPM - 50, 0);
+                shooterController.setShooterRPM(requestedRPM);
+                lastButtonPressed = "DPAD_DOWN (-" + requestedRPM + ")";
             } else if (!gamepad1.dpad_down && isPressingDpadDown) {
                 isPressingDpadDown = false;
             }
@@ -249,6 +274,7 @@ public class AutoTeleop extends LinearOpMode {
 
             // D-pad LEFT: Distance-based auto-shoot with automatic ramp adjustment
             if (gamepad1.dpad_left && !last_dpadLeft && autoShootController.isNotAutoShooting()) {
+                lastButtonPressed = "DPAD_LEFT (AUTO)";
                 autoShootController.executeDistanceBasedAutoShoot();
             }
             last_dpadLeft = gamepad1.dpad_left;
@@ -258,12 +284,21 @@ public class AutoTeleop extends LinearOpMode {
                 if (!isManualAligning && autoShootController.isNotAutoShooting()) {
                     isManualAligning = true;
                     limelightController.startAlignment();
+                    alignmentStartTime = System.currentTimeMillis();
                 } else if (isManualAligning) {
                     isManualAligning = false;
                     limelightController.stopAlignment();
                     driveController.stopDrive();
                 }
             }
+
+// Auto-disable alignment after 2.5 seconds
+            if (isManualAligning && (System.currentTimeMillis() - alignmentStartTime) > 1500) {
+                isManualAligning = false;
+                limelightController.stopAlignment();
+                driveController.stopDrive();
+            }
+
             last_dpadRight = gamepad1.dpad_right;
 
             double leftPower = drive + turn;
@@ -281,8 +316,14 @@ public class AutoTeleop extends LinearOpMode {
                 telemetry.addData("Expected Left Power", "%.2f", leftPower);
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
-                telemetry.addData("Shooting Power", "%.2f%% (%.0f RPM)",
-                        SHOOTING_POWER * 100, SHOOTING_POWER * ShooterController.SHOOTER_FULL_RPM);
+                // DEBUG INFO - CRITICAL
+                telemetry.addLine("=== DEBUG INFO ===");
+                telemetry.addData(">>> Last Button Pressed", lastButtonPressed);
+                telemetry.addData(">>> Requested RPM", "%.0f", requestedRPM);
+                telemetry.addData(">>> Actual Target RPM", "%.0f", shooterController.getTargetRPM());
+                telemetry.addData(">>> Actual Current RPM", "%.0f", shooterController.getShooterRPM());
+                telemetry.addData(">>> RPM Match?", requestedRPM == shooterController.getTargetRPM() ? "✅ YES" : "❌ NO");
+                telemetry.addLine();
 
                 // Updated intake status display
                 String intakeStatus = "STOPPED";
@@ -290,7 +331,6 @@ public class AutoTeleop extends LinearOpMode {
                 else if (isIntakeEjecting) intakeStatus = "EJECTING";
                 telemetry.addData("Intake Status", intakeStatus);
 
-                telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());
                 telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
                 telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
                 telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
@@ -309,9 +349,9 @@ public class AutoTeleop extends LinearOpMode {
 
                 telemetry.addLine();
                 telemetry.addLine("=== CONTROLS ===");
-                telemetry.addLine("A: Fast Speed Mode | B: Slow Speed Mode");
-                telemetry.addLine("Y: Custom Power Shooter | X: Stop All");
-                telemetry.addLine("D-Pad UP/DOWN: Adjust Shooter Power");
+                telemetry.addLine("A: Close (2800 RPM) | B: Far (3100 RPM) | Y: Medium (2950 RPM)");
+                telemetry.addLine("X: Stop All");
+                telemetry.addLine("D-Pad UP/DOWN: Adjust RPM ±50");
                 telemetry.addLine("D-Pad LEFT: Auto-Shoot | D-Pad RIGHT: Toggle Alignment");
                 telemetry.addLine("Right Bumper: Toggle Intake Forward");
                 telemetry.addLine("Left Bumper: Toggle Intake Eject");
