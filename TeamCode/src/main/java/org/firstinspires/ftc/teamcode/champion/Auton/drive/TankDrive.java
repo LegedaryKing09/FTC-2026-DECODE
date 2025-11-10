@@ -280,37 +280,37 @@ public final class TankDrive {
                 PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
-        pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, pose);
+        pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, 6, 6,pose);
         localizer = pinpointLocalizer;
 
         FlightRecorder.write("TANK_PARAMS", PARAMS);
     }
 
-    public void initializePinpoint(LinearOpMode opMode, Pose2d initialPose) {
-        // Wait for Pinpoint to be ready
-        while (!pinpointLocalizer.isReady() && !opMode.isStopRequested()) {
-            opMode.telemetry.addLine("Waiting for Pinpoint to initialize...");
-            opMode.telemetry.update();
-            opMode.sleep(100);
-        }
+//    public void initializePinpoint(LinearOpMode opMode, Pose2d initialPose) {
+//        // Wait for Pinpoint to be ready
+//        while (!pinpointLocalizer.isReady() && !opMode.isStopRequested()) {
+//            opMode.telemetry.addLine("Waiting for Pinpoint to initialize...");
+//            opMode.telemetry.update();
+//            opMode.sleep(100);
+//        }
 
-        if (!opMode.isStopRequested()) {
-            // Convert Pose2d to Pose2D for Pinpoint
-            Pose2D pose2d = new Pose2D(
-                    DistanceUnit.INCH,
-                    initialPose.position.x,
-                    initialPose.position.y,
-                    AngleUnit.RADIANS,
-                    initialPose.heading.toDouble()
-            );
-
-            pinpointLocalizer.setPoseEstimate(pose2d);
-            localizer.setPose(initialPose);
-
-            opMode.telemetry.addLine("Pinpoint initialized!");
-            opMode.telemetry.update();
-        }
-    }
+//        if (!opMode.isStopRequested()) {
+//            // Convert Pose2d to Pose2D for Pinpoint
+//            Pose2D pose2d = new Pose2D(
+//                    DistanceUnit.INCH,
+//                    initialPose.position.x,
+//                    initialPose.position.y,
+//                    AngleUnit.RADIANS,
+//                    initialPose.heading.toDouble()
+//            );
+//
+//            pinpointLocalizer.setPoseEstimate(pose2d);
+//            localizer.setPose(initialPose);
+//
+//            opMode.telemetry.addLine("Pinpoint initialized!");
+//            opMode.telemetry.update();
+//        }
+//    }
 
     public void setDrivePowers(PoseVelocity2d powers) {
         TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(
