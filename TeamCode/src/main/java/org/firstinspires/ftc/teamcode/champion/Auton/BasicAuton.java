@@ -1,14 +1,11 @@
 package org.firstinspires.ftc.teamcode.champion.Auton;
 
-import android.media.midi.MidiOutputPort;
-
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.MovingStatistics;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
@@ -17,6 +14,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.RampController;
+import org.firstinspires.ftc.teamcode.champion.controller.AutonController;
 
 import java.util.Locale;
 
@@ -31,47 +29,25 @@ public class BasicAuton extends LinearOpMode {
     LimelightAlignmentController limelightController;
     AutoShootController autoShootController;
     RampController rampController;
+    AutonController autonController;
 
+    // Autonomous parameters
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static double CONSTANT_RAMP_ANGLE = 121.0;
+    public static double BACKWARD_DISTANCE = 70.0;
+    public static double BASE_FORWARD_DISTANCE = 0;
+    public static double BASE_REPOSITION_DISTANCE = 0;
+    public static double MOVEMENT_SPEED = 0.6;
+    public static double INTAKE_SPEED = 0.4;
 
-    public static double MOVEMENT_SPEED = 0.4;
-    public static double INTAKE_SPEED = 0.2;
-    public static double TURN_POWER = 0.25;
+    // Pattern parameters
+    public static double SCAN_ANGLE = -40.0;
 
-    public static long SHOOT_DURATION = 1400;
-    public static long SHOOTER_WARMUP = 800;
-    public static long ALIGNMENT_TIMEOUT = 750;
+    // Pattern-specific parameters (all-in-one)
+    public static double[] FETCH_ANGLES = {37.0, 31.0, 26.0};  // PPG, PGP, GPP
+    public static double[] EXTRA_DISTANCES = {40.0, 50.0, 20.0}; // PPG, PGP, GPP
 
-    public static double ALIGNMENT_THRESHOLD = 1.5;
-    public static double HEADING_THRESHOLD_DEG = 2;
-
-    // ============ PATH PARAMETERS ============
-    public static double INITIAL_BACKWARD = 50.0;
-    public static double PATTERN_SCAN_ANGLE = -40.0;  // Turn right  to face AprilTag directly
-    public static double[] PATTERN_POSITION_DISTANCE = {
-            -32.5,
-            -11.0,
-            2.0
-    };
-    public static double LEFT_TURN_ANGLE = 82.0;      // Turn left to align with balls
-    public static double INTAKE_FORWARD = 40.0;       // Forward while intaking
-    public static double INTAKE_BACKWARD = 20.0;       // Backward after intake
-
-    public static double PPG_EXTRA_FORWARD = 20.0;    // extra forward before turning to shoot
-    public static double PGP_EXTRA_FORWARD = 8.0;
-    // Return to shooting position
-    public static double SHOOT_HEADING = 0.0;         // Return to 0° for shooting
-
-    public static long PID_UPDATE_INTERVAL = 5; // Update every 5ms for consistent control
-
-    private final ElapsedTime pidTimer = new ElapsedTime();
     private final ElapsedTime globalTimer = new ElapsedTime();
-    private boolean shooterReady = false;
-
-    // Thread for continuous PID updates
-    private Thread pidUpdateThread;
-    private volatile boolean pidThreadRunning = false;
 
     @Override
     public void runOpMode() {
@@ -82,20 +58,23 @@ public class BasicAuton extends LinearOpMode {
         if (!opModeIsActive()) return;
 
         globalTimer.reset();
-        pidTimer.reset();
 
         // Start shooter and ramp
         shooterController.setShooterRPM(CONSTANT_SHOOTER_RPM);
 
-        // Start continuous PID update thread
-        startPidUpdateThread();
+        // Start continuous PID and intake threads
+        autonController.startPidUpdateThread();
+        autonController.startIntakeThread();
 
         // Execute autonomous sequence
         executeAutonomousSequence();
 
         // Cleanup
-        stopPidUpdateThread();
+        autonController.stopIntakeThread();
+        autonController.stopPidUpdateThread();
         shooterController.shooterStop();
+        intakeController.intakeStop();
+
         telemetry.addData("Total Time", String.format(Locale.US, "%.1fs", globalTimer.seconds()));
         telemetry.update();
     }
@@ -122,52 +101,22 @@ public class BasicAuton extends LinearOpMode {
             autoShootController = null;
         }
 
+        // Initialize movement controller
+        autonController = new AutonController(
+                this, driveController, transferController, shooterController,
+                intakeController, limelightController, autoShootController
+        );
+
         telemetry.addLine("=== AUTON READY ===");
         telemetry.update();
     }
 
-    /**
-     * Start a background thread for continuous PID updates
-     * This ensures the shooter maintains RPM even during other operations
-     */
-    private void startPidUpdateThread() {
-        pidThreadRunning = true;
-        pidUpdateThread = new Thread(() -> {
-            while (pidThreadRunning && opModeIsActive()) {
-                try {
-                    shooterController.updatePID();
-                    Thread.sleep(PID_UPDATE_INTERVAL);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        });
-        pidUpdateThread.setPriority(Thread.MAX_PRIORITY); // High priority for consistent updates
-        pidUpdateThread.start();
-    }
-
-    /**
-     * Stop the PID update thread
-     */
-    private void stopPidUpdateThread() {
-        pidThreadRunning = false;
-        if (pidUpdateThread != null) {
-            try {
-                pidUpdateThread.interrupt();
-                pidUpdateThread.join(100);
-            } catch (InterruptedException e) {
-                // Ignore
-            }
-        }
-    }
-
     private void executeAutonomousSequence() {
-        Thread warmupThread = new Thread(this::warmupShooter);
+        // PHASE 1: Warmup while moving backward
+        Thread warmupThread = new Thread(() -> autonController.warmupShooter());
         warmupThread.start();
 
-        //move backward 50 inches
-        moveRobot(-INITIAL_BACKWARD, MOVEMENT_SPEED);
+        autonController.moveRobot(-BACKWARD_DISTANCE, MOVEMENT_SPEED);
 
         // Wait for warmup to complete (if not already)
         try {
@@ -175,263 +124,35 @@ public class BasicAuton extends LinearOpMode {
         } catch (InterruptedException e) {
             // Continue anyway
         }
-        // Shoot preloaded balls
-        quickShoot();
 
-        // Turn and scan for pattern
-        turnToHeading(PATTERN_SCAN_ANGLE);
+        // Shoot preloaded balls
+        autonController.quickShoot();
+
+        // PHASE 2: Turn and scan for pattern
+        autonController.turnToHeading(SCAN_ANGLE);
 
         // Pattern detection with continuous PID updates
-        int patternIndex = detectPattern();
-        String patternName = (patternIndex == 0) ? "PPG" : (patternIndex == 1) ? "PGP" : "GPP";
+        int patternIndex = autonController.detectPattern();
 
-        //move to appropriate line position based on pattern
-        double positionDistance = PATTERN_POSITION_DISTANCE[patternIndex];
-        moveRobot(positionDistance, MOVEMENT_SPEED);
+        // PHASE 3: Fetch balls
+        double fetchAngle = FETCH_ANGLES[patternIndex];
+        double fetchDistance = BASE_FORWARD_DISTANCE + EXTRA_DISTANCES[patternIndex];
 
-        //turn left 90 degrees to align with balls
-        turnToHeading(getCurrentHeading() + LEFT_TURN_ANGLE);
+        autonController.turnToHeading(fetchAngle);
 
-        //Go forward while intaking
-        intakeController.intakeFull();
-        moveRobot(INTAKE_FORWARD, INTAKE_SPEED);
+        // Move forward with intake running (via thread)
+        autonController.setIntakePower(1.0);  // Start intake via thread
+        autonController.moveRobot(fetchDistance, INTAKE_SPEED);
+
         // Brief intake time with PID-aware sleep
-        sleepWithPid(400);
-        intakeController.intakeStop();
+        autonController.sleepWithPid(400);
+        autonController.setIntakePower(0.0);  // Stop intake via thread
 
-        //Go backward
-        moveRobot(-INTAKE_BACKWARD, MOVEMENT_SPEED);
+        // PHASE 4: Quick reposition and shoot
+        double repositionDistance = BASE_REPOSITION_DISTANCE + EXTRA_DISTANCES[patternIndex];
+        autonController.moveRobot(-repositionDistance, MOVEMENT_SPEED);
 
-        if (patternIndex == 0) {  // PPG pattern
-            turnToHeading(PATTERN_SCAN_ANGLE);
-            // PPG: Go forward extra inches before turning to shoot
-            moveRobot(PPG_EXTRA_FORWARD, MOVEMENT_SPEED);
-        }
-
-        if (patternIndex == 1) {  // PGP pattern
-            turnToHeading(PATTERN_SCAN_ANGLE);
-            // PPG: Go forward extra inches before turning to shoot
-            moveRobot(PGP_EXTRA_FORWARD, MOVEMENT_SPEED);
-        }
-
-        // Turn to 0° heading for shooting
-        turnToHeading(SHOOT_HEADING);
-
-        // Shoot the balls we just intaked
-        quickShoot();
-        
-    }
-
-
-
-    private double getCurrentHeading() {
-        driveController.updateOdometry();
-        return Math.toDegrees(driveController.getHeading());
-    }
-
-    /**
-     * Sleep while ensuring PID updates continue (used when PID thread is not active)
-     * This is a backup method - the background thread should handle most updates
-     */
-    private void sleepWithPid(long milliseconds) {
-        ElapsedTime sleepTimer = new ElapsedTime();
-        while (opModeIsActive() && sleepTimer.milliseconds() < milliseconds) {
-            // PID updates are handled by background thread
-            // Just sleep in small increments to remain responsive
-            sleep(10);
-        }
-    }
-
-    /**
-     * Unified movement method - PID updates handled by background thread
-     */
-    private void moveRobot(double distanceInches, double speed) {
-        driveController.updateOdometry();
-        double startX = driveController.getX();
-        double startY = driveController.getY();
-        double direction = Math.signum(distanceInches);
-
-        ElapsedTime moveTimer = new ElapsedTime();
-        ElapsedTime safetyTimer = new ElapsedTime();
-
-        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
-        driveController.tankDriveVelocityNormalized(direction * speed, direction * speed);
-
-        while (opModeIsActive()) {
-            driveController.updateOdometry();
-
-            double deltaX = driveController.getX() - startX;
-            double deltaY = driveController.getY() - startY;
-            double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-            // Enhanced telemetry
-            telemetry.addData("Distance Traveled", String.format("%.2f", distanceTraveled));
-            telemetry.addData("Target Distance", String.format("%.2f", Math.abs(distanceInches)));
-            telemetry.addData("Delta X", String.format("%.2f", deltaX));
-            telemetry.addData("Delta Y", String.format("%.2f", deltaY));
-            telemetry.addData("Current Heading", String.format("%.1f°", Math.toDegrees(driveController.getHeading())));
-            telemetry.addData("Time Elapsed", String.format("%.1fs", moveTimer.seconds()));
-            telemetry.update();
-
-
-            if (distanceTraveled >= Math.abs(distanceInches)) {
-                break;
-            }
-            sleep(5);
-        }
-        driveController.stopDrive();
-    }
-
-    /**
-     * Unified turn method - PID updates handled by background thread
-     */
-    private void turnToHeading(double targetDegrees) {
-        double targetRad = Math.toRadians(targetDegrees);
-        double thresholdRad = Math.toRadians(HEADING_THRESHOLD_DEG);
-
-        ElapsedTime turnTimer = new ElapsedTime();
-
-        while (opModeIsActive()) {
-            driveController.updateOdometry();
-
-            double error = normalizeAngle(targetRad - driveController.getHeading());
-            if (Math.abs(error) < thresholdRad) break;
-
-            double power = Math.signum(error) * TURN_POWER;
-            driveController.tankDrive(-power, power);
-
-            // Telemetry during turn
-            if (turnTimer.milliseconds() % 100 < 10) {
-                telemetry.addData("Turn Error", Math.toDegrees(error));
-                telemetry.addData("Shooter RPM", shooterController.getShooterRPM());
-                telemetry.update();
-            }
-
-            sleep(5);
-        }
-        driveController.stopDrive();
-    }
-
-    /**
-     * Ultra-fast shooting sequence
-     */
-    private void quickShoot() {
-        // Quick RPM check (max 600ms wait)
-        ElapsedTime rpmWait = new ElapsedTime();
-        while (opModeIsActive() && !shooterReady && rpmWait.milliseconds() < 400) {
-            shooterReady = Math.abs(shooterController.getShooterRPM() - CONSTANT_SHOOTER_RPM) < 100;
-
-            if (rpmWait.milliseconds() % 100 < 10) {
-                telemetry.addData("Waiting for RPM", shooterController.getShooterRPM());
-                telemetry.update();
-            }
-            sleep(10);
-        }
-
-        // Quick alignment if Limelight available
-        if (limelightController != null) {
-            try {
-                driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
-                limelightController.startAlignment();
-
-                ElapsedTime alignTime = new ElapsedTime();
-                while (opModeIsActive() && alignTime.milliseconds() < ALIGNMENT_TIMEOUT) {
-                    limelightController.align(AutoShootController.APRILTAG_ID);
-
-                    if (limelightController.getTargetError() <= ALIGNMENT_THRESHOLD) break;
-                    sleep(10);
-                }
-
-                limelightController.stopAlignment();
-                driveController.stopDrive();
-            } catch (Exception e) {
-                // Continue without alignment
-            }
-        }
-
-        // Shoot immediately
-        transferController.transferFull();
-        intakeController.intakeFull();
-
-        ElapsedTime shootTime = new ElapsedTime();
-        while (opModeIsActive() && shootTime.milliseconds() < SHOOT_DURATION) {
-            // PID updates handled by background thread
-            if (shootTime.milliseconds() % 100 < 10) {
-                telemetry.addData("Shooting RPM", shooterController.getShooterRPM());
-                telemetry.update();
-            }
-            sleep(5);
-        }
-
-        transferController.transferStop();
-        intakeController.intakeStop();
-    }
-
-    /**
-     * Fast pattern detection
-     * Updated mapping: ID21→GPP, ID22→PGP, ID23→PPG
-     */
-    private int detectPattern() {
-        if (autoShootController == null) return 0; // Default to PPG
-
-        try {
-            ElapsedTime waitTimer = new ElapsedTime();
-            while (opModeIsActive() && waitTimer.milliseconds() < 500) {
-                // PID updates handled by background thread
-                if (waitTimer.milliseconds() % 100 < 10) {
-                    telemetry.addData("Detecting pattern...", "");
-                    telemetry.addData("Shooter RPM", shooterController.getShooterRPM());
-                    telemetry.update();
-                }
-                sleep(10);
-            }
-            int tagId = autoShootController.getVisibleAprilTagId();
-
-            // Direct mapping: 21->GPP(2), 22->PGP(1), 23->PPG(0)
-            if (tagId == 21) return 2; // GPP
-            if (tagId == 22) return 1; // PGP
-            if (tagId == 23) return 0; // PPG
-        } catch (Exception e) {
-            // Use default
-        }
-        return 0; // Default PPG
-    }
-
-    /**
-     * Background shooter warmup
-     */
-    private void warmupShooter() {
-        ElapsedTime warmup = new ElapsedTime();
-        while (warmup.milliseconds() < SHOOTER_WARMUP) {
-            // PID updates handled by background thread
-
-            // Check if we're close enough
-            if (warmup.milliseconds() > 500) {
-                double rpm = shooterController.getShooterRPM();
-                if (Math.abs(rpm - CONSTANT_SHOOTER_RPM) < 100) {
-                    break;
-                }
-            }
-            sleep(10);
-        }
-        shooterReady = true; // Mark ready regardless
-    }
-
-    /**
-     * Centralized PID update - called from background thread
-     * Kept for compatibility but primarily handled by thread
-     */
-    private void updateShooterPID() {
-        shooterController.updatePID();
-        pidTimer.reset();
-    }
-
-    /**
-     * Normalize angle to [-π, π]
-     */
-    private double normalizeAngle(double angle) {
-        while (angle > Math.PI) angle -= 2 * Math.PI;
-        while (angle < -Math.PI) angle += 2 * Math.PI;
-        return angle;
+        autonController.turnToHeading(0); // Return to original heading
+        autonController.quickShoot();
     }
 }
