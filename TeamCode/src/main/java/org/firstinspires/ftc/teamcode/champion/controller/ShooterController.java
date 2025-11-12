@@ -24,7 +24,7 @@ public class ShooterController {
     public static double SHOOTER_STOP_RPM = 0;
 
     // Maximum allowed RPM for safety (configurable but enforced)
-    public static double MAX_SAFE_RPM = 2750.0;
+    public static double MAX_SAFE_RPM = 5000;
 
     // Motor specifications
     public static double TICKS_PER_REV = 28;  // Adjust based on your encoder
