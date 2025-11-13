@@ -37,7 +37,7 @@ public class AutonController {
     // ========== TURN PID COEFFICIENTS ==========
     @Config
     public static class TurnPID {
-        public static double kP = 0.65;
+        public static double kP = 0.9;
         public static double kI = 0.0;
         public static double kD = 0.04;
         public static double MIN_POWER = 0.15;
@@ -48,7 +48,7 @@ public class AutonController {
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static long SHOOT_DURATION = 1400;
     public static long SHOOTER_WARMUP = 800;
-    public static long ALIGNMENT_TIMEOUT = 500;
+    public static long ALIGNMENT_TIMEOUT = 750;
     public static double ALIGNMENT_THRESHOLD = 1.5;
     public static double HEADING_THRESHOLD_DEG = 2;
     public static long PID_UPDATE_INTERVAL = 5;
@@ -304,6 +304,12 @@ public class AutonController {
         }
         driveController.stopDrive();
     }
+
+    public double getCurrentHeading() {
+        driveController.updateOdometry();
+        return Math.toDegrees(driveController.getHeading());
+    }
+
 
     // ========== SHOOTING METHODS ==========
 
