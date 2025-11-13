@@ -34,19 +34,26 @@ public class BasicAuton extends LinearOpMode {
     // Autonomous parameters
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static double CONSTANT_RAMP_ANGLE = 121.0;
-    public static double BACKWARD_DISTANCE = 70.0;
-    public static double BASE_FORWARD_DISTANCE = 0;
-    public static double BASE_REPOSITION_DISTANCE = 0;
-    public static double MOVEMENT_SPEED = 0.6;
-    public static double INTAKE_SPEED = 0.4;
+    public static double MOVEMENT_SPEED = 0.4;
+    public static double INTAKE_SPEED = 0.2;
 
-    // Pattern parameters
-    public static double SCAN_ANGLE = -40.0;
+    // ============ PATH PARAMETERS ============
+    public static double INITIAL_BACKWARD = 70.0;
+    public static double PATTERN_SCAN_ANGLE = -45.0;  // Turn right  to face AprilTag directly
+    public static double[] PATTERN_POSITION_DISTANCE = {
+            -32.5,
+            -11.0,
+            5.0
+    };
+    public static double LEFT_TURN_ANGLE = 85.0;      // Turn left to align with balls
+    public static double INTAKE_FORWARD = 40.0;       // Forward while intaking
+    public static double INTAKE_BACKWARD = 20.0;       // Backward after intake
+    public static double PPG_EXTRA_FORWARD = 20.0;    // extra forward before turning to shoot
+    public static double PGP_EXTRA_FORWARD = 8.0;
+    // Return to shooting position
+    public static double SHOOT_HEADING = 0.0;         // Return to 0° for shooting
 
-    // Pattern-specific parameters (all-in-one)
-    public static double[] FETCH_ANGLES = {37.0, 31.0, 26.0};  // PPG, PGP, GPP
-    public static double[] EXTRA_DISTANCES = {40.0, 50.0, 20.0}; // PPG, PGP, GPP
-
+    private final ElapsedTime pidTimer = new ElapsedTime();
     private final ElapsedTime globalTimer = new ElapsedTime();
 
     @Override
@@ -58,6 +65,7 @@ public class BasicAuton extends LinearOpMode {
         if (!opModeIsActive()) return;
 
         globalTimer.reset();
+        pidTimer.reset();
 
         // Start shooter and ramp
         shooterController.setShooterRPM(CONSTANT_SHOOTER_RPM);
@@ -116,7 +124,8 @@ public class BasicAuton extends LinearOpMode {
         Thread warmupThread = new Thread(() -> autonController.warmupShooter());
         warmupThread.start();
 
-        autonController.moveRobot(-BACKWARD_DISTANCE, MOVEMENT_SPEED);
+        //Move backward
+        autonController.moveRobot(-INITIAL_BACKWARD, MOVEMENT_SPEED);
 
         // Wait for warmup to complete (if not already)
         try {
@@ -128,31 +137,48 @@ public class BasicAuton extends LinearOpMode {
         // Shoot preloaded balls
         autonController.quickShoot();
 
-        // PHASE 2: Turn and scan for pattern
-        autonController.turnToHeading(SCAN_ANGLE);
+        // Turn and scan for pattern
+        autonController.turnToHeading(PATTERN_SCAN_ANGLE);
 
         // Pattern detection with continuous PID updates
         int patternIndex = autonController.detectPattern();
+        String patternName = (patternIndex == 0) ? "PPG" : (patternIndex == 1) ? "PGP" : "GPP";
 
-        // PHASE 3: Fetch balls
-        double fetchAngle = FETCH_ANGLES[patternIndex];
-        double fetchDistance = BASE_FORWARD_DISTANCE + EXTRA_DISTANCES[patternIndex];
+        //move to appropriate line position based on pattern
+        double positionDistance = PATTERN_POSITION_DISTANCE[patternIndex];
+        autonController.moveRobot(positionDistance, MOVEMENT_SPEED);
 
-        autonController.turnToHeading(fetchAngle);
+        //turn left 90 degrees to align with balls
+        autonController.turnToHeading(autonController.getCurrentHeading() + LEFT_TURN_ANGLE);
 
         // Move forward with intake running (via thread)
         autonController.setIntakePower(1.0);  // Start intake via thread
-        autonController.moveRobot(fetchDistance, INTAKE_SPEED);
+        autonController.moveRobot(INTAKE_FORWARD, INTAKE_SPEED);
 
         // Brief intake time with PID-aware sleep
         autonController.sleepWithPid(400);
         autonController.setIntakePower(0.0);  // Stop intake via thread
 
-        // PHASE 4: Quick reposition and shoot
-        double repositionDistance = BASE_REPOSITION_DISTANCE + EXTRA_DISTANCES[patternIndex];
-        autonController.moveRobot(-repositionDistance, MOVEMENT_SPEED);
+        //go backward
+        autonController.moveRobot(-INTAKE_BACKWARD, MOVEMENT_SPEED);
 
-        autonController.turnToHeading(0); // Return to original heading
+        if (patternIndex == 0) {  // PPG pattern
+            autonController.turnToHeading(PATTERN_SCAN_ANGLE);
+            // PPG: Go forward extra inches before turning to shoot
+            autonController.moveRobot(PPG_EXTRA_FORWARD, MOVEMENT_SPEED);
+        }
+
+        if (patternIndex == 1) {  // PGP pattern
+            autonController.turnToHeading(PATTERN_SCAN_ANGLE);
+            // PPG: Go forward extra inches before turning to shoot
+            autonController.moveRobot(PGP_EXTRA_FORWARD, MOVEMENT_SPEED);
+        }
+
+        // Turn to 0° heading for shooting
+        autonController.turnToHeading(SHOOT_HEADING);
+
+        // Shoot the balls we just intaked
         autonController.quickShoot();
+
     }
 }
