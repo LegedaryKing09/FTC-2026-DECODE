@@ -218,16 +218,6 @@ public class AutonController {
 
             driveController.tankDriveVelocityNormalized(speed, speed);
 
-            // Telemetry updates
-            if (moveTimer.milliseconds() % 100 < 10) {
-                opMode.telemetry.addData("Distance Error", String.format(Locale.US, "%.2f in", distanceError));
-                opMode.telemetry.addData("Movement Speed", String.format(Locale.US, "%.2f", speed));
-                opMode.telemetry.addData("Intake Running", intakeTargetPower > 0 ? "YES" : "NO");
-                opMode.telemetry.addData("Shooter RPM", shooterController.getShooterRPM());
-                opMode.telemetry.addData("Target RPM", CONSTANT_SHOOTER_RPM);
-                opMode.telemetry.update();
-            }
-
             // Exit condition
             if (distanceError < 0.5 || currentDistance >= targetDistance) {
                 break;
