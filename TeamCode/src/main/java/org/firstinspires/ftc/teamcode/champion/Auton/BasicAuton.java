@@ -34,7 +34,7 @@ public class BasicAuton extends LinearOpMode {
     // Autonomous parameters
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static double CONSTANT_RAMP_ANGLE = 121.0;
-    public static double BACKWARD_DISTANCE = 50.0;
+    public static double BACKWARD_DISTANCE = 70.0;
     public static double BASE_FORWARD_DISTANCE = 0;
     public static double BASE_REPOSITION_DISTANCE = 0;
     public static double MOVEMENT_SPEED = 0.6;
@@ -44,8 +44,8 @@ public class BasicAuton extends LinearOpMode {
     public static double SCAN_ANGLE = -40.0;
 
     // Pattern-specific parameters (all-in-one)
-    public static double[] FETCH_ANGLES = {44.0, 31.0, 26.0};  // PPG, PGP, GPP
-    public static double[] EXTRA_DISTANCES = {80.0, 50.0, 20.0}; // PPG, PGP, GPP
+    public static double[] FETCH_ANGLES = {37.0, 31.0, 26.0};  // PPG, PGP, GPP
+    public static double[] EXTRA_DISTANCES = {40.0, 50.0, 20.0}; // PPG, PGP, GPP
 
     private final ElapsedTime globalTimer = new ElapsedTime();
 

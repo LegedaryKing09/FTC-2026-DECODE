@@ -27,11 +27,11 @@ public class AutonController {
     // ========== MOVEMENT PID COEFFICIENTS ==========
     @Config
     public static class MovementPID {
-        public static double kP = 0.06;
+        public static double kP = 0.046;
         public static double kI = 0.0;
         public static double kD = 0.017;
         public static double MIN_SPEED = 0.05;
-        public static double MAX_SPEED = 0.8;
+        public static double MAX_SPEED = 0.65;
     }
 
     // ========== TURN PID COEFFICIENTS ==========
