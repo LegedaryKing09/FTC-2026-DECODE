@@ -263,7 +263,7 @@ public class AutoTeleop extends LinearOpMode {
             }
 
             // Manual alignment logic
-            if (isManualAligning) {
+            if (isManualAligning && limelightController != null) {
                 limelightController.align(AutoShootController.APRILTAG_ID);
                 limelightController.displayAlignmentWithInitialAngle();
                 if (limelightController.hasTarget() &&
@@ -281,11 +281,11 @@ public class AutoTeleop extends LinearOpMode {
 
             // D-pad RIGHT: Toggle manual alignment
             if (gamepad1.dpad_right && !last_dpadRight) {
-                if (!isManualAligning && autoShootController.isNotAutoShooting()) {
+                if (limelightController != null && !isManualAligning && autoShootController.isNotAutoShooting()) {
                     isManualAligning = true;
                     limelightController.startAlignment();
                     alignmentStartTime = System.currentTimeMillis();
-                } else if (isManualAligning) {
+                } else if (isManualAligning && limelightController != null) {
                     isManualAligning = false;
                     limelightController.stopAlignment();
                     driveController.stopDrive();
@@ -293,7 +293,7 @@ public class AutoTeleop extends LinearOpMode {
             }
 
 // Auto-disable alignment after 2.5 seconds
-            if (isManualAligning && (System.currentTimeMillis() - alignmentStartTime) > 1500) {
+            if (isManualAligning && limelightController != null && (System.currentTimeMillis() - alignmentStartTime) > 1500) {
                 isManualAligning = false;
                 limelightController.stopAlignment();
                 driveController.stopDrive();

@@ -25,7 +25,7 @@ public class PIDTuningTest extends LinearOpMode {
 
     // ========== MOVEMENT PID COEFFICIENTS ==========
     @Config
-    public static class MovementPID {
+    public static class TestingMovementPID {
         public static double kP = 0.06;  // Proportional gain for distance error
         public static double kI = 0.0;   // Integral gain
         public static double kD = 0.017;  // Derivative gain
@@ -35,7 +35,7 @@ public class PIDTuningTest extends LinearOpMode {
 
     // ========== TURN PID COEFFICIENTS ==========
     @Config
-    public static class TurnPID {
+    public static class TestingTurnPID {
         public static double kP = 0.65;   // Proportional gain for heading error
         public static double kI = 0.0;   // Integral gain
         public static double kD = 0.04;  // Derivative gain
@@ -138,13 +138,13 @@ public class PIDTuningTest extends LinearOpMode {
             telemetry.addData("Current Heading", String.format(Locale.US, "%.2f°", driveController.getHeadingDegrees()));
             telemetry.addLine();
             telemetry.addLine("--- Movement PID ---");
-            telemetry.addData("kP", MovementPID.kP);
-            telemetry.addData("kI", MovementPID.kI);
-            telemetry.addData("kD", MovementPID.kD);
+            telemetry.addData("kP", TestingMovementPID.kP);
+            telemetry.addData("kI", TestingMovementPID.kI);
+            telemetry.addData("kD", TestingMovementPID.kD);
             telemetry.addLine("--- Turn PID ---");
-            telemetry.addData("kP", TurnPID.kP);
-            telemetry.addData("kI", TurnPID.kI);
-            telemetry.addData("kD", TurnPID.kD);
+            telemetry.addData("kP", TestingTurnPID.kP);
+            telemetry.addData("kI", TestingTurnPID.kI);
+            telemetry.addData("kD", TestingTurnPID.kD);
             telemetry.update();
 
             sleep(50);
@@ -181,17 +181,17 @@ public class PIDTuningTest extends LinearOpMode {
             pidTimer.reset();
 
             // Proportional term
-            double pTerm = MovementPID.kP * distanceError;
+            double pTerm = TestingMovementPID.kP * distanceError;
 
             // Integral term (with anti-windup)
             movementIntegral += distanceError * dt;
             movementIntegral = Math.max(-10, Math.min(10, movementIntegral)); // Clamp integral
-            double iTerm = MovementPID.kI * movementIntegral;
+            double iTerm = TestingMovementPID.kI * movementIntegral;
 
             // Derivative term
             double dTerm = 0.0;
             if (dt > 0) {
-                dTerm = MovementPID.kD * (distanceError - movementLastError) / dt;
+                dTerm = TestingMovementPID.kD * (distanceError - movementLastError) / dt;
             }
             movementLastError = distanceError;
 
@@ -199,8 +199,8 @@ public class PIDTuningTest extends LinearOpMode {
             double speed = pTerm + iTerm + dTerm;
 
             // Apply speed limits
-            speed = Math.max(MovementPID.MIN_SPEED, Math.min(maxSpeed, Math.abs(speed)));
-            speed = Math.min(speed, MovementPID.MAX_SPEED);
+            speed = Math.max(TestingMovementPID.MIN_SPEED, Math.min(maxSpeed, Math.abs(speed)));
+            speed = Math.min(speed, TestingMovementPID.MAX_SPEED);
 
             // Apply direction
             speed *= direction;
@@ -268,17 +268,17 @@ public class PIDTuningTest extends LinearOpMode {
             pidTimer.reset();
 
             // Proportional term
-            double pTerm = TurnPID.kP * headingError;
+            double pTerm = TestingTurnPID.kP * headingError;
 
             // Integral term (with anti-windup)
             turnIntegral += headingError * dt;
             turnIntegral = Math.max(-5, Math.min(5, turnIntegral)); // Clamp integral
-            double iTerm = TurnPID.kI * turnIntegral;
+            double iTerm = TestingTurnPID.kI * turnIntegral;
 
             // Derivative term
             double dTerm = 0.0;
             if (dt > 0) {
-                dTerm = TurnPID.kD * (headingError - turnLastError) / dt;
+                dTerm = TestingTurnPID.kD * (headingError - turnLastError) / dt;
             }
             turnLastError = headingError;
 
@@ -287,10 +287,10 @@ public class PIDTuningTest extends LinearOpMode {
 
             // Apply power limits and minimum power
             double absPower = Math.abs(power);
-            if (absPower < TurnPID.MIN_POWER) {
-                power = Math.signum(power) * TurnPID.MIN_POWER;
-            } else if (absPower > TurnPID.MAX_POWER) {
-                power = Math.signum(power) * TurnPID.MAX_POWER;
+            if (absPower < TestingTurnPID.MIN_POWER) {
+                power = Math.signum(power) * TestingTurnPID.MIN_POWER;
+            } else if (absPower > TestingTurnPID.MAX_POWER) {
+                power = Math.signum(power) * TestingTurnPID.MAX_POWER;
             }
 
             driveController.tankDrive(-power, power);
