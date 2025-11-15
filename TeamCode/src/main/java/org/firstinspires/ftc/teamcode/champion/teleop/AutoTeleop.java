@@ -3,364 +3,355 @@ package org.firstinspires.ftc.teamcode.champion.teleop;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.acmerobotics.dashboard.FtcDashboard;
-import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
-import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
-import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
-import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
-import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
-import org.firstinspires.ftc.teamcode.champion.controller.RampController;
+import org.firstinspires.ftc.teamcode.champion.controller.*;
 
-@TeleOp(name = "Enhanced TeleOp V2", group = "Competition")
+@Config
+@TeleOp(name = "TeleOp V4", group = "Competition")
 public class AutoTeleop extends LinearOpMode {
 
-    SixWheelDriveController driveController;
-    TransferController transferController;
-    ShooterController shooterController;
-    IntakeController intakeController;
-    LimelightAlignmentController limelightController;
-    AutoShootController autoShootController;
-    RampController rampController;
+    // Controllers
+    private SixWheelDriveController driveController;
+    private TransferController transferController;
+    private ShooterController shooterController;
+    private IntakeController intakeController;
+    private LimelightAlignmentController limelightController;
+    private AutoShootController autoShootController;
+    private RampController rampController;
 
-    // REMOVED @Config from SHOOTING_POWER to prevent dashboard override
-    public static double RAMP_INCREMENT = 2.5;  // Manual ramp control increment
+    // Shooter Management (Simplified to 3 levels)
+    public static double IDLE_RPM = 1800;      // Higher idle for faster response
+    public static double CLOSE_RPM = 2800;
+    public static double FAR_RPM = 3100;
 
-    // Track last button pressed for debugging
-    private String lastButtonPressed = "NONE";
-    private double requestedRPM = 2800;
+    // Battery thresholds
+    public static double LOW_VOLTAGE = 11.0;
 
-    boolean isManualAligning = false;
-    private long alignmentStartTime = 0;
-    boolean last_dpadLeft = false;
-    boolean last_dpadRight = false;
-    boolean isUsingTelemetry = true;
-    boolean isPressingB = false;
-    boolean isPressingA = false;
-    boolean isPressingY = false;
-    boolean isPressingX = false;
-    boolean isPressingLeftBumper = false;
-    boolean isPressingRightBumper = false;
-    boolean isPressingRightTrigger = false;
-    boolean isPressingStart = false;
-    boolean isPressingDpadDown = false;
-    boolean isPressingDpadUp = false;
-    boolean isPressingBack = false;
-    boolean isPressingLeftStickButton = false;
-    boolean isPressingRightStickButton = false;
+    // Current states
+    private double currentTargetRPM = IDLE_RPM;
+    private boolean shooterActive = false;
+    private boolean intakeRunning = false;
+    private boolean isAligning = false;
 
-    // Toggle states for intake
-    boolean isIntakeRunning = false;
-    boolean isIntakeEjecting = false;
+    // Timing
+    private ElapsedTime runtimeTimer = new ElapsedTime();
+    private ElapsedTime activityTimer = new ElapsedTime();
+    private ElapsedTime telemetryTimer = new ElapsedTime();
+
+    // Single background thread for PID
+    private Thread pidThread;
+    private volatile boolean runPid = true;
+
+    // Battery monitoring
+    private VoltageSensor voltageSensor;
+    private double voltage = 12.0;
+
+    // Button tracking (simplified)
+    private boolean lastA = false, lastB = false, lastY = false, lastX = false;
+    private boolean lastRB = false, lastLB = false;
+    private boolean lastDpadLeft = false, lastDpadRight = false;
 
     @Override
     public void runOpMode() {
+        initialize();
 
+        waitForStart();
+        runtimeTimer.reset();
+
+        // Start single PID thread
+        startPidThread();
+
+        while (opModeIsActive()) {
+            // Drive control
+            handleDriving();
+
+            // Button control
+            handleButtons();
+
+            // Shooter management (simple timeout)
+            manageShooter();
+
+            // Update telemetry sparingly (every 500ms)
+            if (telemetryTimer.milliseconds() > 500) {
+                updateTelemetry();
+                telemetryTimer.reset();
+            }
+        }
+
+        cleanup();
+    }
+
+    private void initialize() {
+        // Initialize controllers
         driveController = new SixWheelDriveController(this);
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
         rampController = new RampController(this);
-        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
-        LimelightAlignmentController tempLimelight = null;
+        // Try to get voltage sensor
         try {
-            tempLimelight = new LimelightAlignmentController(this, driveController);
-            tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
+            voltageSensor = hardwareMap.voltageSensor.iterator().next();
         } catch (Exception e) {
-            telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
-            telemetry.update();
+            voltageSensor = null;
         }
-        limelightController = tempLimelight;
 
-        // Initialize enhanced auto shoot controller with ramp controller (7 parameters now)
-        autoShootController = new AutoShootController(
-                this,
-                driveController,
-                shooterController,
-                intakeController,
-                transferController,
-                limelightController,
-                rampController
-        );
+        // Initialize vision (optional)
+        try {
+            limelightController = new LimelightAlignmentController(this, driveController);
+            limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
+            autoShootController = new AutoShootController(
+                    this, driveController, shooterController, intakeController,
+                    transferController, limelightController, rampController
+            );
+        } catch (Exception e) {
+            // Continue without vision
+        }
 
-        // Initialize ramp to starting position
+        // Set initial state
         rampController.setTo0Degrees();
-
-        waitForStart();
-
-        // Set initial shooter RPM
-        requestedRPM = 2800;
-        shooterController.setShooterRPM(requestedRPM);
-        lastButtonPressed = "INIT";
-
         driveController.setFastSpeed();
+        shooterController.setShooterRPM(IDLE_RPM);
 
-        while (opModeIsActive()) {
+        telemetry.addLine("Ready!");
+        telemetry.update();
+    }
 
-            shooterController.updatePID();
+    private void startPidThread() {
+        pidThread = new Thread(() -> {
+            while (runPid && opModeIsActive()) {
+                shooterController.updatePID();
 
-            // Calculate drive and turn based on current speed mode
-            double drive, turn;
-            if (driveController.isFastSpeedMode()) {
-                drive = -gamepad1.left_stick_y * SixWheelDriveController.FAST_SPEED_MULTIPLIER;
-                turn = gamepad1.right_stick_x * SixWheelDriveController.FAST_TURN_MULTIPLIER;
-            } else {
-                drive = -gamepad1.left_stick_y * SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
-                turn = gamepad1.right_stick_x * SixWheelDriveController.SLOW_TURN_MULTIPLIER;
+                // Check voltage occasionally
+                if (voltageSensor != null && runtimeTimer.seconds() % 2 < 0.05) {
+                    voltage = voltageSensor.getVoltage();
+                }
+
+                try {
+                    Thread.sleep(20); // 50Hz
+                } catch (InterruptedException e) {
+                    break;
+                }
             }
+        });
+        pidThread.setPriority(Thread.MAX_PRIORITY);
+        pidThread.start();
+    }
 
-            driveController.arcadeDrive(drive, turn);
+    private void handleDriving() {
+        double drive = -gamepad1.left_stick_y;
+        double turn = gamepad1.right_stick_x;
 
-            // A button: Close distance setting
-            if (gamepad1.a && !isPressingA) {
-                isPressingA = true;
-                requestedRPM = 2800;
-                shooterController.setShooterRPM(requestedRPM);
-                rampController.setPosition(0.71);
-                lastButtonPressed = "A (2800 RPM)";
-            } else if (!gamepad1.a && isPressingA) {
-                isPressingA = false;
+        // Speed multipliers
+        if (driveController.isFastSpeedMode()) {
+            drive *= SixWheelDriveController.FAST_SPEED_MULTIPLIER;
+            turn *= SixWheelDriveController.FAST_TURN_MULTIPLIER;
+        } else {
+            drive *= SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
+            turn *= SixWheelDriveController.SLOW_TURN_MULTIPLIER;
+        }
+
+        // Low battery mode
+        if (voltage < LOW_VOLTAGE) {
+            drive *= 0.8;
+            turn *= 0.8;
+        }
+
+        driveController.arcadeDrive(drive, turn);
+    }
+
+    private void handleButtons() {
+        // A: Close shot
+        if (gamepad1.a && !lastA) {
+            setShooterPreset(CLOSE_RPM, 0.71);
+            shooterActive = true;
+            activityTimer.reset();
+        }
+        lastA = gamepad1.a;
+
+        // B: Far shot
+        if (gamepad1.b && !lastB) {
+            setShooterPreset(FAR_RPM, 0.70);
+            shooterActive = true;
+            activityTimer.reset();
+        }
+        lastB = gamepad1.b;
+
+        // Y: Medium shot
+        if (gamepad1.y && !lastY) {
+            setShooterPreset(2950, 0.705);
+            shooterActive = true;
+            activityTimer.reset();
+        }
+        lastY = gamepad1.y;
+
+        // X: Emergency stop
+        if (gamepad1.x && !lastX) {
+            emergencyStop();
+        }
+        lastX = gamepad1.x;
+
+        // Right trigger: Transfer (hold)
+        if (gamepad1.right_trigger > 0.1) {
+            transferController.transferFull();
+            // Ensure shooter is active when transferring
+            if (!shooterActive && currentTargetRPM > IDLE_RPM) {
+                shooterActive = true;
+                activityTimer.reset();
             }
+        } else {
+            transferController.transferStop();
+        }
 
-            // B button: Far distance setting
-            if (gamepad1.b && !isPressingB) {
-                isPressingB = true;
-                requestedRPM = 3100;
-                shooterController.setShooterRPM(requestedRPM);
-                rampController.setPosition(0.70);
-                lastButtonPressed = "B (3100 RPM)";
-            } else if (!gamepad1.b && isPressingB) {
-                isPressingB = false;
-            }
-
-            // Y button: Medium distance setting
-            if (gamepad1.y && !isPressingY) {
-                isPressingY = true;
-                requestedRPM = 2950;
-                shooterController.setShooterRPM(requestedRPM);
-                lastButtonPressed = "Y (2950 RPM)";
-            } else if (!gamepad1.y && isPressingY) {
-                isPressingY = false;
-            }
-
-            // X button: Stop all systems
-            if (gamepad1.x && !isPressingX) {
-                isPressingX = true;
-                shooterController.shooterStop();
+        // Right bumper: Toggle intake
+        if (gamepad1.right_bumper && !lastRB) {
+            if (intakeRunning) {
                 intakeController.intakeStop();
-                transferController.transferStop();
-                requestedRPM = 0;
-                lastButtonPressed = "X (STOP)";
-                // Reset intake toggle states
-                isIntakeRunning = false;
-                isIntakeEjecting = false;
-            } else if (!gamepad1.x && isPressingX) {
-                isPressingX = false;
-            }
-
-            // D-pad UP: Increase shooting RPM by 50
-            if (gamepad1.dpad_up && !isPressingDpadUp) {
-                isPressingDpadUp = true;
-                requestedRPM = Math.min(requestedRPM + 50, ShooterController.SHOOTER_FULL_RPM);
-                shooterController.setShooterRPM(requestedRPM);
-                lastButtonPressed = "DPAD_UP (+" + requestedRPM + ")";
-            } else if (!gamepad1.dpad_up && isPressingDpadUp) {
-                isPressingDpadUp = false;
-            }
-
-            // D-pad DOWN: Decrease shooting RPM by 50
-            if (gamepad1.dpad_down && !isPressingDpadDown) {
-                isPressingDpadDown = true;
-                requestedRPM = Math.max(requestedRPM - 50, 0);
-                shooterController.setShooterRPM(requestedRPM);
-                lastButtonPressed = "DPAD_DOWN (-" + requestedRPM + ")";
-            } else if (!gamepad1.dpad_down && isPressingDpadDown) {
-                isPressingDpadDown = false;
-            }
-
-            // Right trigger: Transfer full (hold to run)
-            if (gamepad1.right_trigger > 0.1 && !isPressingRightTrigger) {
-                isPressingRightTrigger = true;
-                transferController.transferFull();
-            } else if (gamepad1.right_trigger < 0.1 && isPressingRightTrigger) {
-                isPressingRightTrigger = false;
-                transferController.transferStop();
-            }
-
-            // Right bumper: Toggle intake forward
-            if (gamepad1.right_bumper && !isPressingRightBumper) {
-                isPressingRightBumper = true;
-
-                if (isIntakeRunning) {
-                    // If intake is running, stop it
-                    intakeController.intakeStop();
-                    isIntakeRunning = false;
-                } else {
-                    // If intake is not running, start it (and stop ejecting if it was)
-                    intakeController.intakeFull();
-                    isIntakeRunning = true;
-                    isIntakeEjecting = false;
+                intakeRunning = false;
+            } else {
+                intakeController.intakeFull();
+                intakeRunning = true;
+                // Pre-spin shooter when intaking
+                if (currentTargetRPM == IDLE_RPM) {
+                    shooterController.setShooterRPM(CLOSE_RPM);
+                    currentTargetRPM = CLOSE_RPM;
                 }
-            } else if (!gamepad1.right_bumper && isPressingRightBumper) {
-                isPressingRightBumper = false;
+                activityTimer.reset();
             }
+        }
+        lastRB = gamepad1.right_bumper;
 
-            // Left bumper: Toggle intake eject
-            if (gamepad1.left_bumper && !isPressingLeftBumper) {
-                isPressingLeftBumper = true;
+        // Left bumper: Eject
+        if (gamepad1.left_bumper && !lastLB) {
+            if (intakeRunning) {
+                intakeController.intakeStop();
+                intakeRunning = false;
+            } else {
+                intakeController.intakeEject();
+            }
+        } else if (!gamepad1.left_bumper && lastLB) {
+            if (!intakeRunning) {
+                intakeController.intakeStop();
+            }
+        }
+        lastLB = gamepad1.left_bumper;
 
-                if (isIntakeEjecting) {
-                    // If intake is ejecting, stop it
-                    intakeController.intakeStop();
-                    isIntakeEjecting = false;
-                } else {
-                    // If intake is not ejecting, start it (and stop forward if it was)
-                    intakeController.intakeEject();
-                    isIntakeEjecting = true;
-                    isIntakeRunning = false;
+        // D-pad left: Auto-shoot
+        if (gamepad1.dpad_left && !lastDpadLeft) {
+            if (autoShootController != null && autoShootController.isNotAutoShooting()) {
+                // Ensure shooter is spun up first
+                if (currentTargetRPM == IDLE_RPM) {
+                    shooterController.setShooterRPM(CLOSE_RPM);
+                    currentTargetRPM = CLOSE_RPM;
                 }
-            } else if (!gamepad1.left_bumper && isPressingLeftBumper) {
-                isPressingLeftBumper = false;
+                // Use non-adjusting mode for speed
+                autoShootController.executeDistanceBasedAutoShoot(false, false, false);
+                activityTimer.reset();
             }
+        }
+        lastDpadLeft = gamepad1.dpad_left;
 
-            // Left stick button: Manual ramp retract (decrease angle)
-            if (gamepad1.left_stick_button && !isPressingLeftStickButton) {
-                isPressingLeftStickButton = true;
-                rampController.decrementAngle(RAMP_INCREMENT);
-            } else if (!gamepad1.left_stick_button && isPressingLeftStickButton) {
-                isPressingLeftStickButton = false;
-            }
-
-            // Right stick button: Manual ramp extend (increase angle)
-            if (gamepad1.right_stick_button && !isPressingRightStickButton) {
-                isPressingRightStickButton = true;
-                rampController.incrementAngle(RAMP_INCREMENT);
-            } else if (!gamepad1.right_stick_button && isPressingRightStickButton) {
-                isPressingRightStickButton = false;
-            }
-
-            // Back button: Toggle speed mode (kept for redundancy)
-            if (gamepad1.back && !isPressingBack) {
-                isPressingBack = true;
-                if (driveController.isFastSpeedMode()) {
-                    driveController.setSlowSpeed();
-                } else {
-                    driveController.setFastSpeed();
-                }
-            } else if (!gamepad1.back && isPressingBack) {
-                isPressingBack = false;
-            }
-
-            // Start button: Toggle telemetry
-            if (gamepad1.start && !isPressingStart) {
-                isPressingStart = true;
-                isUsingTelemetry = !isUsingTelemetry;
-            } else if (!gamepad1.start && isPressingStart) {
-                isPressingStart = false;
-            }
-
-            // Manual alignment logic
-            if (isManualAligning && limelightController != null) {
-                limelightController.align(AutoShootController.APRILTAG_ID);
-                limelightController.displayAlignmentWithInitialAngle();
-                if (limelightController.hasTarget() &&
-                        limelightController.getTargetError() <= AutoShootController.ALIGNMENT_THRESHOLD) {
-                    telemetry.addLine(">>> ALIGNED - Ready to shoot!");
-                }
-            }
-
-            // D-pad LEFT: Distance-based auto-shoot with automatic ramp adjustment
-            if (gamepad1.dpad_left && !last_dpadLeft && autoShootController.isNotAutoShooting()) {
-                lastButtonPressed = "DPAD_LEFT (AUTO)";
-                autoShootController.executeDistanceBasedAutoShoot();
-            }
-            last_dpadLeft = gamepad1.dpad_left;
-
-            // D-pad RIGHT: Toggle manual alignment
-            if (gamepad1.dpad_right && !last_dpadRight) {
-                if (limelightController != null && !isManualAligning && autoShootController.isNotAutoShooting()) {
-                    isManualAligning = true;
+        // D-pad right: Toggle alignment
+        if (gamepad1.dpad_right && !lastDpadRight) {
+            if (limelightController != null) {
+                if (!isAligning) {
+                    isAligning = true;
                     limelightController.startAlignment();
-                    alignmentStartTime = System.currentTimeMillis();
-                } else if (isManualAligning && limelightController != null) {
-                    isManualAligning = false;
+                } else {
+                    isAligning = false;
                     limelightController.stopAlignment();
                     driveController.stopDrive();
                 }
             }
+        }
+        lastDpadRight = gamepad1.dpad_right;
 
-// Auto-disable alignment after 2.5 seconds
-            if (isManualAligning && limelightController != null && (System.currentTimeMillis() - alignmentStartTime) > 1500) {
-                isManualAligning = false;
+        // Handle alignment
+        if (isAligning && limelightController != null) {
+            limelightController.align(AutoShootController.APRILTAG_ID);
+
+            // Auto-stop after 1.5 seconds
+            if (activityTimer.seconds() > 1.5) {
+                isAligning = false;
                 limelightController.stopAlignment();
                 driveController.stopDrive();
             }
-
-            last_dpadRight = gamepad1.dpad_right;
-
-            double leftPower = drive + turn;
-            double rightPower = drive - turn;
-            double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
-            if (maxPower > 1.0) {
-                leftPower /= maxPower;
-                rightPower /= maxPower;
-            }
-
-            if (isUsingTelemetry) {
-
-                driveController.getMotorStatus();
-
-                telemetry.addData("Expected Left Power", "%.2f", leftPower);
-                telemetry.addData("Expected Right Power", "%.2f", rightPower);
-
-                // DEBUG INFO - CRITICAL
-                telemetry.addLine("=== DEBUG INFO ===");
-                telemetry.addData(">>> Last Button Pressed", lastButtonPressed);
-                telemetry.addData(">>> Requested RPM", "%.0f", requestedRPM);
-                telemetry.addData(">>> Actual Target RPM", "%.0f", shooterController.getTargetRPM());
-                telemetry.addData(">>> Actual Current RPM", "%.0f", shooterController.getShooterRPM());
-                telemetry.addData(">>> RPM Match?", requestedRPM == shooterController.getTargetRPM() ? "✅ YES" : "❌ NO");
-                telemetry.addLine();
-
-                // Updated intake status display
-                String intakeStatus = "STOPPED";
-                if (isIntakeRunning) intakeStatus = "RUNNING";
-                else if (isIntakeEjecting) intakeStatus = "EJECTING";
-                telemetry.addData("Intake Status", intakeStatus);
-
-                telemetry.addData("Shooter Encoder Velocity(RPM):", shooterController.getShooterRPM());
-                telemetry.addData("RPM Error", "%.0f", shooterController.getRPMError());
-                telemetry.addData("Target RPM", "%.0f", shooterController.getTargetRPM());
-                telemetry.addData("At Target", shooterController.isAtTargetRPM() ? "✅ YES" : "NO");
-
-                telemetry.addData("Robot X (inches)", "%.2f", driveController.getX());
-                telemetry.addData("Robot Y (inches)", "%.2f", driveController.getY());
-                telemetry.addData("Heading (Degrees)", "%.2f", driveController.getHeadingDegrees());
-
-                // Ramp telemetry
-                telemetry.addData("Ramp Angle (degrees)", "%.1f", rampController.getAngle());
-                telemetry.addData("Ramp Position", "%.2f", rampController.getPosition());
-
-                // Enhanced telemetry showing distance-based shooting info with ramp angle
-                autoShootController.addTelemetry(telemetry);
-
-                telemetry.addLine();
-                telemetry.addLine("=== CONTROLS ===");
-                telemetry.addLine("A: Close (2800 RPM) | B: Far (3100 RPM) | Y: Medium (2950 RPM)");
-                telemetry.addLine("X: Stop All");
-                telemetry.addLine("D-Pad UP/DOWN: Adjust RPM ±50");
-                telemetry.addLine("D-Pad LEFT: Auto-Shoot | D-Pad RIGHT: Toggle Alignment");
-                telemetry.addLine("Right Bumper: Toggle Intake Forward");
-                telemetry.addLine("Left Bumper: Toggle Intake Eject");
-                telemetry.addLine("Right Trigger: Transfer (hold)");
-                telemetry.addLine("L/R Stick Buttons: Manual Ramp Control");
-                telemetry.addLine("Back: Toggle Speed Mode | Start: Toggle Telemetry");
-            }
-
-            telemetry.update();
         }
+
+        // Back button: Speed toggle
+        if (gamepad1.back) {
+            if (driveController.isFastSpeedMode()) {
+                driveController.setSlowSpeed();
+            } else {
+                driveController.setFastSpeed();
+            }
+        }
+    }
+
+    private void manageShooter() {
+        // Simple timeout-based idle return
+        if (shooterActive && activityTimer.seconds() > 3.0) {
+            // Return to idle after 3 seconds of inactivity
+            shooterController.setShooterRPM(IDLE_RPM);
+            currentTargetRPM = IDLE_RPM;
+            shooterActive = false;
+        }
+    }
+
+    private void setShooterPreset(double rpm, double rampPos) {
+        shooterController.setShooterRPM(rpm);
+        currentTargetRPM = rpm;
+        rampController.setPosition(rampPos);
+    }
+
+    private void emergencyStop() {
+        shooterController.shooterStop();
+        intakeController.intakeStop();
+        transferController.transferStop();
+        currentTargetRPM = 0;
+        shooterActive = false;
+        intakeRunning = false;
+        isAligning = false;
+    }
+
+    private void updateTelemetry() {
+        telemetry.clear();
+
+        // Essential info only
+        telemetry.addData("Shooter", "%.0f/%.0f RPM",
+                shooterController.getShooterRPM(), currentTargetRPM);
+
+        if (voltageSensor != null) {
+            telemetry.addData("Battery", "%.1fV %s",
+                    voltage, voltage < LOW_VOLTAGE ? "LOW" : "OK");
+        }
+
+        telemetry.addData("Mode", driveController.isFastSpeedMode() ? "FAST" : "SLOW");
+        telemetry.addData("Intake", intakeRunning ? "ON" : "OFF");
+
+        if (isAligning && limelightController != null) {
+            telemetry.addData("Align", "%.1f°", limelightController.getTargetError());
+        }
+
+        telemetry.addData("Runtime", "%.0fs", runtimeTimer.seconds());
+
+        telemetry.update();
+    }
+
+    private void cleanup() {
+        runPid = false;
+
+        if (pidThread != null) {
+            try {
+                pidThread.interrupt();
+                pidThread.join(100);
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+
+        emergencyStop();
     }
 }
