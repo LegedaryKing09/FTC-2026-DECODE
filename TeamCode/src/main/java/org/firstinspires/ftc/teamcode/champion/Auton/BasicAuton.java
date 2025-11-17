@@ -8,7 +8,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.*;
 
 @Config
-@Autonomous(name = "Stable Basic Auton", group = "Competition")
+@Autonomous(name = "Basic Auton", group = "Competition")
 public class BasicAuton extends LinearOpMode {
 
     // Controllers
@@ -19,7 +19,7 @@ public class BasicAuton extends LinearOpMode {
     private LimelightAlignmentController limelightController;
     private AutoShootController autoShootController;
     private RampController rampController;
-    private StableAutonController autonController;
+    private AutonController autonController;
 
     // Autonomous parameters (UNCHANGED)
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
@@ -95,7 +95,7 @@ public class BasicAuton extends LinearOpMode {
         }
 
         // Use stable controller
-        autonController = new StableAutonController(
+        autonController = new AutonController(
                 this, driveController, transferController, shooterController,
                 intakeController, limelightController, autoShootController
         );
