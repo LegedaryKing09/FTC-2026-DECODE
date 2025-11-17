@@ -3,161 +3,184 @@ package org.firstinspires.ftc.teamcode.champion.Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.*;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
+import org.firstinspires.ftc.teamcode.champion.controller.AutonController;
+import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
+import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
+import org.firstinspires.ftc.teamcode.champion.controller.RampController;
+
+import java.util.Locale;
 
 @Config
-@Autonomous(name = "Stable Basic Auton", group = "Competition")
+@Autonomous(name = "Basic Auton Fixed", group = "Competition")
 public class BasicAuton extends LinearOpMode {
-
     // Controllers
-    private SixWheelDriveController driveController;
-    private TransferController transferController;
-    private ShooterController shooterController;
-    private IntakeController intakeController;
-    private LimelightAlignmentController limelightController;
-    private AutoShootController autoShootController;
-    private RampController rampController;
-    private StableAutonController autonController;
+    SixWheelDriveController driveController;
+    TransferController transferController;
+    ShooterController shooterController;
+    IntakeController intakeController;
+    LimelightAlignmentController limelightController;
+    AutoShootController autoShootController;
+    RampController rampController;
+    AutonController autonController;
 
-    // Autonomous parameters (UNCHANGED)
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static double CONSTANT_RAMP_ANGLE = 121.0;
+
     public static double MOVEMENT_SPEED = 0.4;
     public static double INTAKE_SPEED = 0.2;
 
-    // Path parameters (UNCHANGED)
-    public static double INITIAL_BACKWARD = 60.0;
-    public static double PATTERN_SCAN_ANGLE = -45.0;
-    public static double[] PATTERN_POSITION_DISTANCE = {-32.5, -11.0, 5.0};
-    public static double LEFT_TURN_ANGLE = 90.0;
-    public static double INTAKE_FORWARD = 40.0;
-    public static double INTAKE_BACKWARD = 20.0;
-    public static double PPG_EXTRA_FORWARD = 20.0;
-    public static double PGP_EXTRA_FORWARD = 8.0;
-    public static double SHOOT_HEADING = 0.0;
+    // ============ PATH PARAMETERS ============
+    public static double INITIAL_BACKWARD = 50.0;
+    public static double PATTERN_SCAN_ANGLE = -40.0;  // Turn right to face AprilTag directly
+    public static double[] PATTERN_POSITION_DISTANCE = {
+            -32.5,  // PPG
+            -11.0,  // PGP
+            2.0     // GPP
+    };
+    public static double LEFT_TURN_ANGLE = 82.0;      // Turn left to align with balls
+    public static double INTAKE_FORWARD = 40.0;       // Forward while intaking
+    public static double INTAKE_BACKWARD = 20.0;      // Backward after intake
+
+    public static double PPG_EXTRA_FORWARD = 20.0;    // Extra forward before turning to shoot (PPG)
+    public static double PGP_EXTRA_FORWARD = 8.0;     // Extra forward before turning to shoot (PGP)
+
+    // Return to shooting position
+    public static double SHOOT_HEADING = 0.0;         // Return to 0° for shooting
 
     private final ElapsedTime globalTimer = new ElapsedTime();
 
     @Override
     public void runOpMode() {
-        // Initialize
+        // Fast initialization
         initializeRobot();
-
-        // Simple ready message
-        telemetry.addLine("READY");
-        telemetry.update();
 
         waitForStart();
         if (!opModeIsActive()) return;
 
         globalTimer.reset();
 
-        // Start shooter at constant RPM
+        // Start shooter and ramp
         shooterController.setShooterRPM(CONSTANT_SHOOTER_RPM);
 
-        // Start single PID thread
+        // Start continuous PID update thread
         autonController.startPidUpdateThread();
 
-        // Execute sequence (UNCHANGED LOGIC)
+        // Execute autonomous sequence
         executeAutonomousSequence();
 
         // Cleanup
-        cleanup();
-
-        // Final telemetry
-        telemetry.addData("Complete", "%.1fs", globalTimer.seconds());
+        autonController.stopPidUpdateThread();
+        shooterController.shooterStop();
+        telemetry.addData("Total Time", String.format(Locale.US, "%.1fs", globalTimer.seconds()));
         telemetry.update();
     }
 
     private void initializeRobot() {
-        // Initialize base controllers
         driveController = new SixWheelDriveController(this);
         transferController = new TransferController(this);
         shooterController = new ShooterController(this);
         intakeController = new IntakeController(this);
         rampController = new RampController(this);
 
-        // Set initial values
         rampController.setAngle(CONSTANT_RAMP_ANGLE);
 
-        // Try to initialize vision (optional)
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
+
+        // Try to initialize Limelight (don't fail if not available)
         try {
             limelightController = new LimelightAlignmentController(this, driveController);
             limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
-            autoShootController = new AutoShootController(
-                    this, driveController, shooterController, intakeController,
-                    transferController, limelightController, rampController
-            );
+            autoShootController = new AutoShootController(this, driveController, shooterController,
+                    intakeController, transferController, limelightController, rampController);
         } catch (Exception e) {
-            // Continue without vision
+            limelightController = null;
+            autoShootController = null;
         }
 
-        // Use stable controller
-        autonController = new StableAutonController(
-                this, driveController, transferController, shooterController,
-                intakeController, limelightController, autoShootController
-        );
+        // Initialize AutonController
+        autonController = new AutonController(this, driveController, transferController,
+                shooterController, intakeController, limelightController, autoShootController);
+
+        telemetry.addLine("=== AUTON READY ===");
+        telemetry.update();
     }
 
     private void executeAutonomousSequence() {
-        // PHASE 1: Move backward (NO separate warmup thread)
+        // Start warmup in background
+        Thread warmupThread = new Thread(() -> autonController.warmupShooter());
+        warmupThread.start();
+
+        // Move backward 50 inches
         autonController.moveRobot(-INITIAL_BACKWARD, MOVEMENT_SPEED);
 
-        // Quick warmup check (inline, no thread)
-        autonController.warmupShooter();
+        // Wait for warmup to complete (if not already)
+        try {
+            warmupThread.join(100); // Max 100ms wait
+        } catch (InterruptedException e) {
+            // Continue anyway
+        }
 
-        // Shoot preloaded
+        // Shoot preloaded balls
         autonController.quickShoot();
 
-        // PHASE 2: Turn and detect pattern
+        // Turn and scan for pattern
         autonController.turnToHeading(PATTERN_SCAN_ANGLE);
 
+        // Pattern detection
         int patternIndex = autonController.detectPattern();
+        String patternName = (patternIndex == 0) ? "PPG" : (patternIndex == 1) ? "PGP" : "GPP";
 
-        // Move to position
+        telemetry.addData("Detected Pattern", patternName);
+        telemetry.update();
+
+        // Move to appropriate line position based on pattern
         double positionDistance = PATTERN_POSITION_DISTANCE[patternIndex];
         autonController.moveRobot(positionDistance, MOVEMENT_SPEED);
 
-        // Turn to face balls
-        autonController.turnToHeading(LEFT_TURN_ANGLE);
+        // Turn left 90 degrees to align with balls
+        autonController.turnToHeading(getCurrentHeading() + LEFT_TURN_ANGLE);
 
-        // PHASE 3: Intake sequence (direct control, no thread)
+        // Go forward while intaking
         intakeController.intakeFull();
         autonController.moveRobot(INTAKE_FORWARD, INTAKE_SPEED);
 
         // Brief intake time
-        sleep(400);
+        autonController.sleepWithPid(400);
         intakeController.intakeStop();
 
-        // Move backward
+        // Go backward
         autonController.moveRobot(-INTAKE_BACKWARD, MOVEMENT_SPEED);
 
-        // PHASE 4: Position for final shot
-        if (patternIndex == 0) {  // PPG
+        // Pattern-specific repositioning
+        if (patternIndex == 0) {  // PPG pattern
             autonController.turnToHeading(PATTERN_SCAN_ANGLE);
+            // Go forward extra inches before turning to shoot
             autonController.moveRobot(PPG_EXTRA_FORWARD, MOVEMENT_SPEED);
-        } else if (patternIndex == 1) {  // PGP
+        }
+
+        if (patternIndex == 1) {  // PGP pattern
             autonController.turnToHeading(PATTERN_SCAN_ANGLE);
+            // Go forward extra inches before turning to shoot
             autonController.moveRobot(PGP_EXTRA_FORWARD, MOVEMENT_SPEED);
         }
 
-        // Turn to shoot
+        // Turn to 0° heading for shooting
         autonController.turnToHeading(SHOOT_HEADING);
 
-        // Final shot
+        // Shoot the balls we just intaked
         autonController.quickShoot();
     }
 
-    private void cleanup() {
-        // Stop PID thread
-        autonController.stopPidUpdateThread();
-
-        // Stop all motors
-        shooterController.shooterStop();
-        intakeController.intakeStop();
-        transferController.transferStop();
-        driveController.stopDrive();
+    private double getCurrentHeading() {
+        driveController.updateOdometry();
+        return Math.toDegrees(driveController.getHeading());
     }
 }
