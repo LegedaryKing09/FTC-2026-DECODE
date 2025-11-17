@@ -24,16 +24,16 @@ public class BasicAuton extends LinearOpMode {
     // Autonomous parameters (UNCHANGED)
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static double CONSTANT_RAMP_ANGLE = 121.0;
-    public static double MOVEMENT_SPEED = 0.4;
-    public static double INTAKE_SPEED = 0.2;
+    public static double MOVEMENT_SPEED = 0.65;
+    public static double INTAKE_SPEED = 0.4;
 
     // Path parameters (UNCHANGED)
-    public static double INITIAL_BACKWARD = 60.0;
+    public static double INITIAL_BACKWARD = 38.0;
     public static double PATTERN_SCAN_ANGLE = -45.0;
-    public static double[] PATTERN_POSITION_DISTANCE = {-32.5, -11.0, 5.0};
-    public static double LEFT_TURN_ANGLE = 90.0;
-    public static double INTAKE_FORWARD = 40.0;
-    public static double INTAKE_BACKWARD = 20.0;
+    public static double[] PATTERN_POSITION_DISTANCE = {-35, -20, 0};
+    public static double LEFT_TURN_ANGLE = 71.0;
+    public static double INTAKE_FORWARD = 34.0;
+    public static double INTAKE_BACKWARD = 17.0;
     public static double PPG_EXTRA_FORWARD = 20.0;
     public static double PGP_EXTRA_FORWARD = 8.0;
     public static double SHOOT_HEADING = 0.0;
@@ -121,7 +121,7 @@ public class BasicAuton extends LinearOpMode {
         autonController.moveRobot(positionDistance, MOVEMENT_SPEED);
 
         // Turn to face balls
-        autonController.turnToHeading(LEFT_TURN_ANGLE);
+        autonController.turnToHeading(PATTERN_SCAN_ANGLE+LEFT_TURN_ANGLE);
 
         // PHASE 3: Intake sequence (direct control, no thread)
         intakeController.intakeFull();

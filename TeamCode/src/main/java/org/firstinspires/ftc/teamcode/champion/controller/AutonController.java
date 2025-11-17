@@ -37,7 +37,7 @@ public class AutonController {
     // ========== TURN PID COEFFICIENTS ==========
     @Config
     public static class TurnPID {
-        public static double kP = 0.9;
+        public static double kP = 0.65;
         public static double kI = 0.0;
         public static double kD = 0.04;
         public static double MIN_POWER = 0.15;
