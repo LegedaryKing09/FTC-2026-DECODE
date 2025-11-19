@@ -29,7 +29,7 @@ public class AutoShootController {
     public static double ALIGNMENT_THRESHOLD = 1.0;
     public static long ALIGNMENT_TIMEOUT = 1000;
     public static long RPM_TIMEOUT = 1500;
-    public static long SHOOT_DURATION = 1000;
+    public static long SHOOT_DURATION = 1500;
     public static double RPM_TOLERANCE = 150;
 
     private final LinearOpMode opMode;
