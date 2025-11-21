@@ -4,9 +4,8 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-/**
- * STABLE Controller for autonomous - minimal telemetry, single thread
- */
+import fr.charleslabs.simplypid.SimplyPID;
+
 @Config
 public class AutonController {
 
@@ -18,37 +17,37 @@ public class AutonController {
     private final LimelightAlignmentController limelightController;
     private final AutoShootController autoShootController;
 
-    // ========== MOVEMENT PID ==========
+    // ========== MOVEMENT PID PARAMETERS ==========
     @Config
     public static class MovementPID {
-        public static double kP = 0.046;
-        public static double kD = 0.017;
-        public static double MIN_SPEED = 0.05;
-        public static double MAX_SPEED = 0.65;
+        public static double kP = 0.03;
+        public static double kI = 0.0;
+        public static double kD = 0.007;
+        public static double MIN_SPEED = 0.1;
+        public static double MAX_SPEED = 0.8;
+        public static double TOLERANCE = 1.0;
+        public static double TIMEOUT_MS = 5000;
+        public static double HEADING_CORRECTION_KP = 0.1;
+        public static double DECEL_DISTANCE = 9.2;
     }
 
-    // ========== TURN PID ==========
+    // ========== TURN PID PARAMETERS ==========
     @Config
     public static class TurnPID {
         public static double kP = 0.65;
+        public static double kI = 0.0;
         public static double kD = 0.04;
         public static double MIN_POWER = 0.15;
         public static double MAX_POWER = 0.65;
+        public static double TOLERANCE_DEG = 2.0;
+        public static double TIMEOUT_MS = 3000;
     }
 
-    // Configuration
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static long SHOOT_DURATION = 1400;
-    public static double HEADING_THRESHOLD_DEG = 2;
 
-    // Single PID thread
     private Thread pidThread;
     private volatile boolean runPid = false;
-
-    // Simplified intake control (no thread)
-    private double intakePower = 0.0;
-
-    // Single timer for efficiency
     private final ElapsedTime timer = new ElapsedTime();
 
     public AutonController(
@@ -69,11 +68,8 @@ public class AutonController {
         this.autoShootController = autoShootController;
     }
 
-    // ========== SIMPLIFIED THREAD MANAGEMENT ==========
+    // ========== THREAD MANAGEMENT ==========
 
-    /**
-     * Start single PID thread
-     */
     public void startPidUpdateThread() {
         if (pidThread != null && pidThread.isAlive()) return;
 
@@ -82,7 +78,7 @@ public class AutonController {
             while (runPid && opMode.opModeIsActive()) {
                 shooterController.updatePID();
                 try {
-                    Thread.sleep(20); // 50Hz
+                    Thread.sleep(20);
                 } catch (InterruptedException e) {
                     break;
                 }
@@ -103,46 +99,24 @@ public class AutonController {
         }
     }
 
-    /**
-     * NO INTAKE THREAD - Direct control only
-     */
-    public void startIntakeThread() {
-        // Empty - no thread needed
-    }
+    // ========== MOVEMENT WITH DECELERATION ==========
 
-    public void stopIntakeThread() {
-        // Empty - no thread needed
-        intakeController.intakeStop();
-    }
-
-    public void setIntakePower(double power) {
-        if (power > 0.5) {
-            intakeController.intakeFull();
-        } else if (power < -0.5) {
-            intakeController.intakeEject();
-        } else {
-            intakeController.intakeStop();
-        }
-    }
-
-    // ========== SIMPLIFIED MOVEMENT ==========
-
-    /**
-     * Move robot - MINIMAL telemetry
-     */
     public void moveRobot(double distanceInches, double maxSpeed) {
         driveController.updateOdometry();
         double startX = driveController.getX();
+        double startHeading = driveController.getHeading();
         double targetDistance = Math.abs(distanceInches);
         double direction = Math.signum(distanceInches);
 
-        double lastError = 0.0;
+        SimplyPID movePID = new SimplyPID(
+                0.0,
+                MovementPID.kP,
+                MovementPID.kI,
+                MovementPID.kD
+        );
+        movePID.setOuputLimits(-MovementPID.MAX_SPEED, MovementPID.MAX_SPEED);
+
         timer.reset();
-
-        // Single telemetry at start
-        opMode.telemetry.addData("Moving", "%.1f inches", distanceInches);
-        opMode.telemetry.update();
-
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
 
         while (opMode.opModeIsActive()) {
@@ -151,69 +125,98 @@ public class AutonController {
             double currentDistance = Math.abs(driveController.getX() - startX);
             double error = targetDistance - currentDistance;
 
-            // Exit if complete
-            if (error < 0.5 || currentDistance >= targetDistance) {
+            // Heading correction
+            double currentHeading = driveController.getHeading();
+            double headingError = normalizeAngle(startHeading - currentHeading);
+            double headingCorrection = MovementPID.HEADING_CORRECTION_KP * headingError;
+
+            // Check completion
+            if (Math.abs(error) < MovementPID.TOLERANCE) {
                 break;
             }
 
-            // Simple P-D control
-            double pTerm = MovementPID.kP * error;
-            double dTerm = MovementPID.kD * (error - lastError);
-            lastError = error;
+            // Check timeout
+            if (timer.milliseconds() > MovementPID.TIMEOUT_MS) {
+                break;
+            }
 
-            double speed = pTerm + dTerm;
-            speed = Math.max(MovementPID.MIN_SPEED, Math.min(maxSpeed, Math.abs(speed)));
-            speed = Math.min(speed, MovementPID.MAX_SPEED) * direction;
+            // Get base speed from PID
+            double pidOutput = movePID.getOutput(timer.seconds(), -error);
+            double speed = pidOutput;
 
-            driveController.tankDriveVelocityNormalized(speed, speed);
+            // DECELERATION ZONE - gradually reduce max speed near target
+            double effectiveMaxSpeed = maxSpeed;
+            if (Math.abs(error) < MovementPID.DECEL_DISTANCE) {
+                double decelFactor = Math.abs(error) / MovementPID.DECEL_DISTANCE;
+                decelFactor = decelFactor * decelFactor; // Quadratic for smooth curve
+                effectiveMaxSpeed = MovementPID.MIN_SPEED +
+                        (maxSpeed - MovementPID.MIN_SPEED) * decelFactor;
+            }
 
-            // NO telemetry in loop!
+            // Apply MIN_SPEED only when far from target
+            if (Math.abs(speed) < MovementPID.MIN_SPEED && Math.abs(error) > MovementPID.TOLERANCE * 2) {
+                speed = Math.signum(speed) * MovementPID.MIN_SPEED;
+            }
+
+            // Clamp to effective max speed
+            speed = Math.max(-effectiveMaxSpeed, Math.min(effectiveMaxSpeed, speed));
+            speed *= direction;
+
+            // Apply heading correction
+            double leftSpeed = speed - headingCorrection;
+            double rightSpeed = speed + headingCorrection;
+
+            leftSpeed = Math.max(-1.0, Math.min(1.0, leftSpeed));
+            rightSpeed = Math.max(-1.0, Math.min(1.0, rightSpeed));
+
+            driveController.tankDriveVelocityNormalized(leftSpeed, rightSpeed);
+
             opMode.sleep(10);
         }
 
         driveController.stopDrive();
     }
 
-    /**
-     * Turn to heading - MINIMAL telemetry
-     */
+    // ========== TURN TO HEADING ==========
+
     public void turnToHeading(double targetDegrees) {
         double targetRad = Math.toRadians(targetDegrees);
-        double thresholdRad = Math.toRadians(HEADING_THRESHOLD_DEG);
+        double toleranceRad = Math.toRadians(TurnPID.TOLERANCE_DEG);
 
-        double lastError = 0.0;
+        SimplyPID turnPID = new SimplyPID(
+                0.0,
+                TurnPID.kP,
+                TurnPID.kI,
+                TurnPID.kD
+        );
+        turnPID.setOuputLimits(-TurnPID.MAX_POWER, TurnPID.MAX_POWER);
+
         timer.reset();
-
-        // Single telemetry at start
-        opMode.telemetry.addData("Turning", "%.1f°", targetDegrees);
-        opMode.telemetry.update();
+        driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
 
         while (opMode.opModeIsActive()) {
             driveController.updateOdometry();
 
-            double headingError = normalizeAngle(targetRad - driveController.getHeading());
+            double currentHeading = driveController.getHeading();
+            double headingError = normalizeAngle(targetRad - currentHeading);
 
-            // Exit if within threshold
-            if (Math.abs(headingError) < thresholdRad) break;
+            if (Math.abs(headingError) < toleranceRad) {
+                break;
+            }
 
-            // Simple P-D control
-            double pTerm = TurnPID.kP * headingError;
-            double dTerm = TurnPID.kD * (headingError - lastError);
-            lastError = headingError;
+            if (timer.milliseconds() > TurnPID.TIMEOUT_MS) {
+                break;
+            }
 
-            double power = pTerm + dTerm;
+            double pidOutput = turnPID.getOutput(timer.seconds(), -headingError);
 
-            // Apply limits
-            double absPower = Math.abs(power);
-            if (absPower < TurnPID.MIN_POWER) {
+            double power = pidOutput;
+            if (Math.abs(power) < TurnPID.MIN_POWER && Math.abs(headingError) > toleranceRad) {
                 power = Math.signum(power) * TurnPID.MIN_POWER;
-            } else if (absPower > TurnPID.MAX_POWER) {
-                power = Math.signum(power) * TurnPID.MAX_POWER;
             }
 
             driveController.tankDrive(-power, power);
 
-            // NO telemetry in loop!
             opMode.sleep(10);
         }
 
@@ -225,22 +228,17 @@ public class AutonController {
         return Math.toDegrees(driveController.getHeading());
     }
 
-    // ========== SIMPLIFIED SHOOTING ==========
+    // ========== SHOOTING ==========
 
-    /**
-     * Quick shoot - NO telemetry spam
-     */
     public void quickShoot() {
-        // Wait for RPM (max 300ms)
         timer.reset();
         while (opMode.opModeIsActive() && timer.milliseconds() < 300) {
-            if (Math.abs(shooterController.getShooterRPM() - CONSTANT_SHOOTER_RPM) < 150) {
+            if (Math.abs(shooterController.getShooterRPM() - shooterController.getTargetRPM()) < 150) {
                 break;
             }
             opMode.sleep(20);
         }
 
-        // Optional quick alignment
         if (limelightController != null) {
             try {
                 driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
@@ -260,28 +258,19 @@ public class AutonController {
             }
         }
 
-        // Shoot
         transferController.transferFull();
         intakeController.intakeFull();
 
-        // Single telemetry
-        opMode.telemetry.addLine("Shooting!");
-        opMode.telemetry.update();
-
         timer.reset();
         while (opMode.opModeIsActive() && timer.milliseconds() < SHOOT_DURATION) {
-            opMode.sleep(50); // Less frequent checks
+            opMode.sleep(50);
         }
 
         transferController.transferStop();
         intakeController.intakeStop();
     }
 
-    /**
-     * SIMPLIFIED warmup - no threading
-     */
     public void warmupShooter() {
-        // Just wait a bit for RPM to stabilize
         timer.reset();
         while (timer.milliseconds() < 500) {
             if (Math.abs(shooterController.getShooterRPM() - CONSTANT_SHOOTER_RPM) < 150) {
@@ -293,31 +282,22 @@ public class AutonController {
 
     // ========== PATTERN DETECTION ==========
 
-    /**
-     * Detect pattern - NO telemetry spam
-     */
     public int detectPattern() {
         if (autoShootController == null) return 0;
 
         try {
-            // Brief wait for camera
             opMode.sleep(300);
-
             int tagId = autoShootController.getVisibleAprilTagId();
 
-            // Mapping: 21->GPP(2), 22->PGP(1), 23->PPG(0)
             if (tagId == 21) return 2;
             if (tagId == 22) return 1;
             if (tagId == 23) return 0;
         } catch (Exception e) {
             // Use default
         }
-        return 0; // Default PPG
+        return 0;
     }
 
-    /**
-     * Simple sleep
-     */
     public void sleepWithPid(long milliseconds) {
         timer.reset();
         while (opMode.opModeIsActive() && timer.milliseconds() < milliseconds) {
@@ -329,5 +309,25 @@ public class AutonController {
         while (angle > Math.PI) angle -= 2 * Math.PI;
         while (angle < -Math.PI) angle += 2 * Math.PI;
         return angle;
+    }
+
+    // ========== INTAKE CONTROL ==========
+
+    public void startIntakeThread() {
+        // Empty
+    }
+
+    public void stopIntakeThread() {
+        intakeController.intakeStop();
+    }
+
+    public void setIntakePower(double power) {
+        if (power > 0.5) {
+            intakeController.intakeFull();
+        } else if (power < -0.5) {
+            intakeController.intakeEject();
+        } else {
+            intakeController.intakeStop();
+        }
     }
 }
