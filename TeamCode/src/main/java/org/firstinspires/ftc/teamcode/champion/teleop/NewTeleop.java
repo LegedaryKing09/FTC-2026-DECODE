@@ -7,46 +7,61 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.*;
 
 @Config
-@TeleOp(name="Champion TeleOp", group="Competition")
+@TeleOp(name="New Champion TeleOp", group="Competition")
 public class NewTeleop extends LinearOpMode {
 
     // Controllers
-    private EightWheelDrive drive;
     private TurretController turret;
     private NewIntakeController intake;
     private NewTransferController transfer;
     private UptakeController uptake;
     private NewShooterController shooter;
+    private newRampController ramp;
+
+    // Drive motors
+    private DcMotor motor1Left, motor2Left;
+    private DcMotor motor1Right, motor2Right;
 
     private ElapsedTime runtime = new ElapsedTime();
 
     // Button debouncing
     private boolean lastRightBumper = false;
+    private boolean lastRightTrigger = false;
     private boolean lastLeftBumper = false;
     private boolean lastY = false;
-    private boolean lastBack = false;
     private boolean lastA = false;
     private boolean lastB = false;
     private boolean lastX = false;
+    private boolean lastDpadUp = false;
+    private boolean lastDpadDown = false;
+    private boolean lastDpadLeft = false;
+    private boolean lastDpadRight = false;
+
+    // Trigger threshold for transfer toggle
+    private static final double TRIGGER_THRESHOLD = 0.5;
+
+    // Track shooter control mode
+    private boolean shooterManualMode = false;
+
+    // Emergency stop flag
+    private boolean emergencyStop = false;
 
     @Override
     public void runOpMode() {
-        // Initialize FTC Dashboard
         FtcDashboard dashboard = FtcDashboard.getInstance();
         telemetry = new MultipleTelemetry(telemetry, dashboard.getTelemetry());
 
         telemetry.addData("Status", "Initializing hardware...");
         telemetry.update();
 
-        // Initialize hardware and controllers
         initializeHardware();
-
         displayInitScreen();
         telemetry.update();
 
@@ -54,65 +69,65 @@ public class NewTeleop extends LinearOpMode {
         runtime.reset();
 
         while (opModeIsActive()) {
-            // ========== DRIVE CONTROL ==========
-            handleDriveControls();
+            // ========== EMERGENCY STOP ==========
+            handleEmergencyStop();
 
-            // ========== TURRET CONTROL ==========
-            handleTurretControls();
+            if (!emergencyStop) {
+                // ========== DRIVE CONTROL ==========
+                handleDriveControls();
 
-            // ========== SYSTEM TOGGLES ==========
-            handleSystemToggles();
+                // ========== TURRET CONTROL ==========
+                handleTurretControls();
 
-            // ========== SHOOTER CONTROL ==========
-            handleShooterControl();
+                // ========== RAMP CONTROL ==========
+                handleRampControls();
 
-            // ========== UPDATE ALL CONTROLLERS ==========
-            updateAllSystems();
+                // ========== SYSTEM TOGGLES ==========
+                handleSystemToggles();
+
+                // ========== SHOOTER CONTROL ==========
+                handleShooterControl();
+
+                // ========== UPDATE ALL CONTROLLERS ==========
+                updateAllSystems();
+            }
 
             // ========== TELEMETRY ==========
             displayTelemetry();
         }
     }
 
-    /**
-     * Initialize all hardware and create controllers
-     */
     private void initializeHardware() {
         telemetry.addLine("═══════════════════════");
         telemetry.addLine("  HARDWARE CHECK");
         telemetry.addLine("═══════════════════════");
 
         // Initialize drive motors
-        DcMotor lf = null, lb = null, rf = null, rb = null;
         try {
-            lf = hardwareMap.get(DcMotor.class, "lf");
-            telemetry.addData("✓ Left Front", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Left Front", "NOT FOUND");
-        }
+            motor1Left = hardwareMap.get(DcMotor.class, "lf");
+            motor2Left = hardwareMap.get(DcMotor.class, "lb");
+            motor1Right = hardwareMap.get(DcMotor.class, "rf");
+            motor2Right = hardwareMap.get(DcMotor.class, "rb");
 
-        try {
-            lb = hardwareMap.get(DcMotor.class, "lb");
-            telemetry.addData("✓ Left Back", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Left Back", "NOT FOUND");
-        }
+            motor1Left.setDirection(DcMotorSimple.Direction.FORWARD);
+            motor2Left.setDirection(DcMotorSimple.Direction.FORWARD);
+            motor1Right.setDirection(DcMotorSimple.Direction.REVERSE);
+            motor2Right.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        try {
-            rf = hardwareMap.get(DcMotor.class, "rf");
-            telemetry.addData("✓ Right Front", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Right Front", "NOT FOUND");
-        }
+            motor1Left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            motor2Left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            motor1Right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            motor2Right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        try {
-            rb = hardwareMap.get(DcMotor.class, "rb");
-            telemetry.addData("✓ Right Back", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Right Back", "NOT FOUND");
-        }
+            motor1Left.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            motor2Left.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            motor1Right.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            motor2Right.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        drive = new EightWheelDrive(lf, lb, rf, rb);
+            telemetry.addData("✓ Drive", "OK");
+        } catch (Exception e) {
+            telemetry.addData("✗ Drive", "NOT FOUND");
+        }
 
         // Initialize turret
         CRServo turretServo = null;
@@ -125,6 +140,14 @@ public class NewTeleop extends LinearOpMode {
             telemetry.addData("✗ Turret", "NOT FOUND");
         }
         turret = new TurretController(turretServo, turretEncoder, runtime);
+
+        // Initialize ramp
+        try {
+            ramp = new newRampController(this);
+            telemetry.addData("✓ Ramp", "OK");
+        } catch (Exception e) {
+            telemetry.addData("✗ Ramp", "NOT FOUND: " + e.getMessage());
+        }
 
         // Initialize intake
         DcMotor intakeMotor = null;
@@ -167,112 +190,151 @@ public class NewTeleop extends LinearOpMode {
         shooter = new NewShooterController(shooterMotor);
     }
 
-    /**
-     * Display initialization screen
-     */
     private void displayInitScreen() {
         telemetry.addLine();
         telemetry.addLine("═══════════════════════");
         telemetry.addLine("    🎮 CONTROLS");
         telemetry.addLine("═══════════════════════");
         telemetry.addLine();
-        telemetry.addLine("🚗 DRIVE (Left Stick)");
-        telemetry.addLine("  Y-Axis: Forward/Back");
-        telemetry.addLine("  (Sensitivity curves enabled)");
+        telemetry.addLine("🚗 DRIVE");
+        telemetry.addLine("  Left Stick Y: Forward/Back");
+        telemetry.addLine("  Right Stick X: Turn");
         telemetry.addLine();
-        telemetry.addLine("🎯 TURRET (Right Stick)");
-        telemetry.addLine("  X-Axis: Manual/Turn");
-        telemetry.addLine("  A: Rotate Clockwise");
-        telemetry.addLine("  B: Rotate CounterClockwise");
-        telemetry.addLine("  D-Pad: Presets");
-        telemetry.addLine("  X: Stop/Cancel");
+        telemetry.addLine("🎯 TURRET");
+        telemetry.addLine("  DPAD LEFT: Turn Left");
+        telemetry.addLine("  DPAD RIGHT: Turn Right");
+        telemetry.addLine();
+        telemetry.addLine("📐 RAMP");
+        telemetry.addLine("  DPAD UP: Increase Angle");
+        telemetry.addLine("  DPAD DOWN: Decrease Angle");
+        telemetry.addLine();
+        telemetry.addLine("🎯 SHOOTER");
+        telemetry.addLine("  X: Increase RPM +100");
+        telemetry.addLine("  A: Decrease RPM -100");
+        telemetry.addLine("  Y: SHOOT (reach target RPM)");
+        telemetry.addLine("  LT: Manual power (overrides)");
+        telemetry.addLine();
+        telemetry.addLine("🛑 B: EMERGENCY STOP");
         telemetry.addLine();
         telemetry.addLine("📦 SYSTEMS");
         telemetry.addLine("  RB: Intake Toggle");
+        telemetry.addLine("  RT: Transfer Toggle");
         telemetry.addLine("  LB: Uptake Toggle");
-        telemetry.addLine("  Y: Transfer Toggle");
-        telemetry.addLine("  LT: Shooter (Variable)");
-        telemetry.addLine();
-        telemetry.addLine("⚙️ OTHER");
-        telemetry.addLine("  Back: Speed Mode Toggle");
         telemetry.addLine();
         telemetry.addLine("Ready to start!");
     }
 
     /**
-     * Handle drive controls (gamepad1)
+     * Handle emergency stop - B button
      */
-    private void handleDriveControls() {
-        // Get joystick inputs
-        double rawDrive = -gamepad1.left_stick_y;  // Inverted
-        double rawTurn = gamepad1.right_stick_x;
-
-        // Update drive
-        drive.drive(rawDrive, rawTurn);
-
-        // Toggle speed mode with back button
-        boolean currentBack = gamepad1.back;
-        if (currentBack && !lastBack) {
-            drive.toggleSpeedMode();
-        }
-        lastBack = currentBack;
-    }
-
-    /**
-     * Handle turret controls (gamepad1)
-     * Note: Right stick X is shared between turning and turret
-     * When turning is needed, it takes priority. When centered, turret can use it.
-     */
-    private void handleTurretControls() {
-        // Update turret position
-        turret.update();
-
-        // A Button - Continuous clockwise rotation (toggle)
-        boolean currentA = gamepad1.a;
-        if (currentA && !lastA) {
-            if (turret.isRotating() && turret.getRotationMode().equals("CLOCKWISE")) {
-                turret.stopRotation();
-            } else {
-                turret.setClockwiseRotation();
-            }
-        }
-        lastA = currentA;
-
-        // B Button - Continuous counterclockwise rotation (toggle)
+    private void handleEmergencyStop() {
         boolean currentB = gamepad1.b;
         if (currentB && !lastB) {
-            if (turret.isRotating() && turret.getRotationMode().equals("COUNTERCLOCKWISE")) {
-                turret.stopRotation();
-            } else {
-                turret.setCounterclockwiseRotation();
+            emergencyStop = !emergencyStop;
+            if (emergencyStop) {
+                stopAllSystems();
             }
         }
         lastB = currentB;
+    }
 
-        // D-Pad preset positions
-        if (gamepad1.dpad_up) {
-            turret.setTargetPosition(turret.frontPosition);
-        } else if (gamepad1.dpad_left) {
-            turret.setTargetPosition(turret.leftPosition);
-        } else if (gamepad1.dpad_down) {
-            turret.setTargetPosition(turret.backPosition);
-        } else if (gamepad1.dpad_right) {
-            turret.setTargetPosition(turret.rightPosition);
+    /**
+     * Stop all motors and systems
+     */
+    private void stopAllSystems() {
+        // Stop drive
+        if (motor1Left != null) motor1Left.setPower(0);
+        if (motor2Left != null) motor2Left.setPower(0);
+        if (motor1Right != null) motor1Right.setPower(0);
+        if (motor2Right != null) motor2Right.setPower(0);
+
+        if (turret != null) turret.setPower(0);
+        if (shooter != null) {
+            shooter.stopShooting();
+            shooter.setPower(0);
+        }
+        if (intake != null && intake.isActive()) intake.toggle();
+        if (transfer != null && transfer.isActive()) transfer.toggle();
+        if (uptake != null && uptake.isActive()) uptake.toggle();
+    }
+
+    /**
+     * Handle drive controls - Left stick Y for forward/back, Right stick X for turning
+     */
+    private void handleDriveControls() {
+        double rawDrive = -gamepad1.left_stick_y;
+        double rawTurn = gamepad1.right_stick_x;
+
+        // Apply sensitivity curve (exponent 2.0 for smoother low-speed control)
+        double drive = applySensitivityCurve(rawDrive, 2.0);
+        double turn = applySensitivityCurve(rawTurn, 2.0);
+
+        double leftPower = drive + turn;
+        double rightPower = drive - turn;
+
+        // Normalize powers if any exceed 1.0
+        double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
+        if (maxPower > 1.0) {
+            leftPower /= maxPower;
+            rightPower /= maxPower;
         }
 
-        // X button - Stop/Cancel all turret movement
-        boolean currentX = gamepad1.x;
-        if (currentX && !lastX) {
-            turret.cancelPositionMode();
-        }
-        lastX = currentX;
+        if (motor1Left != null) motor1Left.setPower(leftPower);
+        if (motor2Left != null) motor2Left.setPower(leftPower);
+        if (motor1Right != null) motor1Right.setPower(rightPower);
+        if (motor2Right != null) motor2Right.setPower(rightPower);
+    }
 
-        // Manual control with gamepad1 right stick X
-        // Note: This is shared with turning, so turret manual control
-        // will also turn the robot. Use A/B buttons or D-pad for independent turret control.
-        double turretManual = gamepad1.right_stick_x;
-        double turretPower = turret.calculatePower(turretManual);
-        turret.setPower(turretPower);
+    /**
+     * Apply sensitivity curve to input
+     */
+    private double applySensitivityCurve(double value, double exponent) {
+        double sign = Math.signum(value);
+        double magnitude = Math.abs(value);
+        double curved = Math.pow(magnitude, exponent);
+        return sign * curved;
+    }
+
+    /**
+     * Handle turret controls - DPAD Left/Right for manual turning
+     */
+    private void handleTurretControls() {
+        turret.update();
+
+        // DPAD Left - Turn turret left
+        if (gamepad1.dpad_left) {
+            turret.setPower(-0.5);
+        }
+        // DPAD Right - Turn turret right
+        else if (gamepad1.dpad_right) {
+            turret.setPower(0.5);
+        }
+        // Stop turret when neither pressed
+        else {
+            turret.setPower(0);
+        }
+    }
+
+    /**
+     * Handle ramp controls - DPAD Up/Down for angle adjustment
+     */
+    private void handleRampControls() {
+        if (ramp == null) return;
+        ramp.update();
+
+        // DPAD UP - Increase ramp angle
+        boolean currentDpadUp = gamepad1.dpad_up;
+        if (currentDpadUp && !lastDpadUp) {
+            ramp.incrementAngle(0);
+        }
+        lastDpadUp = currentDpadUp;
+
+        // DPAD DOWN - Decrease ramp angle
+        boolean currentDpadDown = gamepad1.dpad_down;
+        if (currentDpadDown && !lastDpadDown) {
+            ramp.decrementAngle(0);
+        }
+        lastDpadDown = currentDpadDown;
     }
 
     /**
@@ -286,12 +348,12 @@ public class NewTeleop extends LinearOpMode {
         }
         lastRightBumper = currentRightBumper;
 
-        // Y Button - Transfer toggle
-        boolean currentY = gamepad1.y;
-        if (currentY && !lastY) {
+        // Right Trigger - Transfer toggle
+        boolean currentRightTrigger = gamepad1.right_trigger > TRIGGER_THRESHOLD;
+        if (currentRightTrigger && !lastRightTrigger) {
             transfer.toggle();
         }
-        lastY = currentY;
+        lastRightTrigger = currentRightTrigger;
 
         // Left Bumper - Uptake toggle
         boolean currentLeftBumper = gamepad1.left_bumper;
@@ -302,83 +364,106 @@ public class NewTeleop extends LinearOpMode {
     }
 
     /**
-     * Handle shooter control (gamepad1)
+     * Handle shooter control - X/A for RPM, Y for shoot
      */
     private void handleShooterControl() {
+        // X Button - Increase target RPM
+        boolean currentX = gamepad1.x;
+        if (currentX && !lastX) {
+            shooter.incrementTargetRPM();
+        }
+        lastX = currentX;
+
+        // A Button - Decrease target RPM
+        boolean currentA = gamepad1.a;
+        if (currentA && !lastA) {
+            shooter.decrementTargetRPM();
+        }
+        lastA = currentA;
+
+        // Y Button - Toggle shoot mode
+        boolean currentY = gamepad1.y;
+        if (currentY && !lastY) {
+            shooter.toggleShoot();
+        }
+        lastY = currentY;
+
+        // Left Trigger - Manual control (overrides)
         double triggerValue = gamepad1.left_trigger;
-        shooter.setPower(triggerValue);
+        if (triggerValue > 0.1) {
+            shooterManualMode = true;
+            shooter.stopShooting();
+            shooter.setPower(triggerValue);
+        } else if (shooterManualMode && triggerValue <= 0.1) {
+            shooterManualMode = false;
+            shooter.setPower(0);
+        }
+
+        shooter.update();
     }
 
-    /**
-     * Update all systems
-     */
     private void updateAllSystems() {
         intake.update();
         transfer.update();
         uptake.update();
-        // Drive and turret are already updated in their respective methods
-        // Shooter is directly controlled
     }
 
-    /**
-     * Display comprehensive telemetry
-     */
     private void displayTelemetry() {
-        telemetry.addData("⏱ Runtime", "%.1f sec", runtime.seconds());
-        telemetry.addData("🔋 Battery", "%.2f V", getBatteryVoltage());
-        telemetry.addLine();
+        telemetry.addData("Runtime", "%.1f sec", runtime.seconds());
+        telemetry.addData("Battery", "%.2f V", getBatteryVoltage());
+
+        // Emergency stop warning
+        if (emergencyStop) {
+            telemetry.addLine();
+            telemetry.addLine(" EMERGENCY STOP ACTIVE ");
+            telemetry.addLine("Press B to resume");
+            telemetry.addLine();
+        }
 
         // Drive status
-        telemetry.addLine("═══ 🚗 DRIVE ═══");
-        telemetry.addData("Mode", drive.isFastMode() ? "⚡ FAST" : "🐢 SLOW");
-        telemetry.addData("Left Power", "%.2f", drive.getLeftPower());
-        telemetry.addData("Right Power", "%.2f", drive.getRightPower());
         telemetry.addLine();
+        telemetry.addLine("═══ DRIVE ═══");
+        double leftPwr = motor1Left != null ? motor1Left.getPower() : 0;
+        double rightPwr = motor1Right != null ? motor1Right.getPower() : 0;
+        telemetry.addData("Left Power", "%.2f", leftPwr);
+        telemetry.addData("Right Power", "%.2f", rightPwr);
 
         // Turret status
-        telemetry.addLine("═══ 🎯 TURRET ═══");
-        String turretMode = "MANUAL";
-        if (turret.isPositionMode()) {
-            turretMode = "AUTO POSITION";
-        } else if (turret.isRotating()) {
-            turretMode = "ROTATING " + turret.getRotationMode();
-        }
-        telemetry.addData("Mode", turretMode);
-        telemetry.addData("Position", "%.2f°", turret.getCurrentPosition());
-        telemetry.addData("Voltage", "%.3f V", turret.getRawVoltage());
-
-        if (turret.isPositionMode()) {
-            telemetry.addData("Target", "%.2f°", turret.getTargetPosition());
-        }
-
-        // Show which preset we're at
-        String preset = "";
-        if (turret.isNear(turret.frontPosition)) preset = "FRONT ✓";
-        else if (turret.isNear(turret.leftPosition)) preset = "LEFT ✓";
-        else if (turret.isNear(turret.backPosition)) preset = "BACK ✓";
-        else if (turret.isNear(turret.rightPosition)) preset = "RIGHT ✓";
-        if (!preset.isEmpty()) {
-            telemetry.addData("At", preset);
-        }
         telemetry.addLine();
+        telemetry.addLine("═══ TURRET ═══");
+        telemetry.addData("Position", "%.2f°", turret.getCurrentPosition());
+
+        // Ramp status
+        if (ramp != null) {
+            telemetry.addLine();
+            telemetry.addLine("═══ RAMP ═══");
+            telemetry.addData("Angle", "%.1f°", ramp.getCurrentAngle());
+            telemetry.addData("Power", "%.2f", ramp.getPower());
+        }
+
+        // Shooter status
+        telemetry.addLine();
+        telemetry.addLine("═══ SHOOTER ═══");
+        String shootMode = shooter.isShootMode() ? "🟢 SHOOTING" : "IDLE";
+        if (shooterManualMode) shootMode = "🟡 MANUAL";
+        telemetry.addData("Mode", shootMode);
+        telemetry.addData("Current RPM", "%.0f", shooter.getRPM());
+        telemetry.addData("Target RPM", "%.0f", shooter.getTargetRPM());
+        telemetry.addData("Power", "%.2f", shooter.getCurrentPower());
 
         // Systems status
-        telemetry.addLine("═══ 📦 SYSTEMS ═══");
-        telemetry.addData("Intake", "%s %.2f",
-                intake.isActive() ? "🟢" : "⚫", intake.getCurrentPower());
-        telemetry.addData("Transfer", "%s %.2f",
-                transfer.isActive() ? "🟢" : "⚫", transfer.getCurrentPower());
-        telemetry.addData("Uptake", "%s %.2f",
-                uptake.isActive() ? "🟢" : "⚫", uptake.getCurrentPower());
-        telemetry.addData("Shooter", "%.2f (LT: %.2f)",
-                shooter.getCurrentPower(), gamepad1.left_trigger);
+        telemetry.addLine();
+        telemetry.addLine("═══ SYSTEMS ═══");
+        telemetry.addData("Intake (RB)", "%s", intake.isActive() ? "🟢 ON" : "⚫ OFF");
+        telemetry.addData("Transfer (RT)", "%s", transfer.isActive() ? "🟢 ON" : "⚫ OFF");
+        telemetry.addData("Uptake (LB)", "%s", uptake.isActive() ? "🟢 ON" : "⚫ OFF");
+
+        telemetry.addLine();
+        telemetry.addLine("X/A=RPM | Y=Shoot | B=E-STOP");
 
         telemetry.update();
     }
 
-    /**
-     * Get battery voltage
-     */
     private double getBatteryVoltage() {
         double voltage = 0;
         for (com.qualcomm.robotcore.hardware.VoltageSensor sensor : hardwareMap.voltageSensor) {

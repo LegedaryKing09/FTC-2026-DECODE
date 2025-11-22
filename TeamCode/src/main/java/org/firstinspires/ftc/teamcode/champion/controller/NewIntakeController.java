@@ -11,7 +11,7 @@ public class NewIntakeController {
     private DcMotor intakeMotor;
     private boolean isActive = false;
 
-    public double power = 1.0;
+    public double power = -1.0;
     public boolean reversed = false;
 
     public NewIntakeController(DcMotor motor) {

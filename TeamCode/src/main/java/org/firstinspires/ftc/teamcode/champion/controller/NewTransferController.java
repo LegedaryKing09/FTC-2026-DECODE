@@ -1,17 +1,20 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
 /**
  * Controller for transfer motor
  */
+@Config
 public class NewTransferController {
 
     private DcMotor transferMotor;
     private boolean isActive = false;
 
-    public double power = 1.0;
-    public boolean reversed = false;
+    // Configurable via FTC Dashboard
+    public static double power = -1.0;
+    public static boolean reversed = false;
 
     public NewTransferController(DcMotor motor) {
         this.transferMotor = motor;
@@ -36,6 +39,20 @@ public class NewTransferController {
     }
 
     /**
+     * Turn transfer on
+     */
+    public void start() {
+        isActive = true;
+    }
+
+    /**
+     * Turn transfer off
+     */
+    public void stop() {
+        isActive = false;
+    }
+
+    /**
      * Update motor power based on state
      */
     public void update() {
@@ -54,5 +71,10 @@ public class NewTransferController {
         return transferMotor.getPower();
     }
 
-    public boolean isActive() { return isActive; }
+    /**
+     * Check if transfer is active
+     */
+    public boolean isActive() {
+        return isActive;
+    }
 }
