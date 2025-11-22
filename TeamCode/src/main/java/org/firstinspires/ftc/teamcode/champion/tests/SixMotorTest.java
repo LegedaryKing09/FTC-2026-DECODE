@@ -4,17 +4,17 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.champion.controller.EightWheelDriveController;
+import org.firstinspires.ftc.teamcode.champion.controller.SixMotorDriveController;
 
 @Config
 @TeleOp
-public class EightWheelDriveTest extends LinearOpMode {
+public class SixMotorTest extends LinearOpMode {
 
-    EightWheelDriveController driveController;
+    SixMotorDriveController driveController;
 
     @Override
     public void runOpMode() {
-        driveController = new EightWheelDriveController(this);
+        driveController = new SixMotorDriveController(this);
 
         boolean isPressingB = false;
         boolean isPressingA = false;
@@ -25,19 +25,19 @@ public class EightWheelDriveTest extends LinearOpMode {
         boolean isPressingStart = false;
         boolean isPressingBack = false;
 
-        double drive = -gamepad1.left_stick_y * EightWheelDriveController.SLOW_SPEED_MULTIPLIER;
-        double turn = gamepad1.right_stick_x * EightWheelDriveController.SLOW_TURN_MULTIPLIER;
+        double drive = -gamepad1.left_stick_y * SixMotorDriveController.SLOW_SPEED_MULTIPLIER;
+        double turn = gamepad1.right_stick_x * SixMotorDriveController.SLOW_TURN_MULTIPLIER;
 
         waitForStart();
 
         while (opModeIsActive()) {
             if (driveController.isFastSpeedMode()) {
-                drive = -gamepad1.left_stick_y * EightWheelDriveController.FAST_SPEED_MULTIPLIER;
-                turn = gamepad1.right_stick_x * EightWheelDriveController.FAST_TURN_MULTIPLIER;
+                drive = -gamepad1.left_stick_y * SixMotorDriveController.FAST_SPEED_MULTIPLIER;
+                turn = gamepad1.right_stick_x * SixMotorDriveController.FAST_TURN_MULTIPLIER;
             }
             if (!driveController.isFastSpeedMode()) {
-                drive = -gamepad1.left_stick_y * EightWheelDriveController.SLOW_SPEED_MULTIPLIER;
-                turn = gamepad1.right_stick_x * EightWheelDriveController.SLOW_TURN_MULTIPLIER;
+                drive = -gamepad1.left_stick_y * SixMotorDriveController.SLOW_SPEED_MULTIPLIER;
+                turn = gamepad1.right_stick_x * SixMotorDriveController.SLOW_TURN_MULTIPLIER;
             }
 
             driveController.arcadeDrive(drive, turn);
