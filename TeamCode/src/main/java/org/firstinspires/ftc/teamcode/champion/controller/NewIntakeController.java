@@ -1,14 +1,13 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 /**
  * Controller for intake motor
  */
 public class NewIntakeController {
 
-    private DcMotor intakeMotor;
+    private final DcMotor intakeMotor;
     private boolean isActive = false;
 
     public double power = -1.0;
@@ -27,6 +26,10 @@ public class NewIntakeController {
      */
     public void toggle() {
         isActive = !isActive;
+    }
+
+    public void toggleDirection() {
+        reversed = !reversed;
     }
 
     /**

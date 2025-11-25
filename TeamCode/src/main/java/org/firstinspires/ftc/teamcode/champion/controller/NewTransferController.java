@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 @Config
 public class NewTransferController {
 
-    private DcMotor transferMotor;
+    private final DcMotor transferMotor;
     private boolean isActive = false;
 
     // Configurable via FTC Dashboard
@@ -29,6 +29,10 @@ public class NewTransferController {
      */
     public void toggle() {
         isActive = !isActive;
+    }
+
+    public void toggleDirection() {
+        reversed = !reversed;
     }
 
     /**

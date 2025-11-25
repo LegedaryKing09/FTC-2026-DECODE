@@ -10,8 +10,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 @Config
 public class NewShooterController {
 
-    private DcMotor shooterMotor;
-    private ElapsedTime runtime;
+    private final DcMotor shooterMotor;
+    private final ElapsedTime runtime;
 
     // Configurable parameters
     public static double maxPower = 1.0;
@@ -38,7 +38,7 @@ public class NewShooterController {
 
     // Shooter state
     private boolean isShootMode = false; // Whether we're actively trying to reach target RPM
-    private double currentTargetRPM = TARGET_RPM;
+    private double currentTargetRPM;
 
     public NewShooterController(DcMotor motor) {
         this.shooterMotor = motor;
@@ -93,6 +93,10 @@ public class NewShooterController {
         } else {
             startShooting();
         }
+    }
+
+    public void toggleShootDirection() {
+        reversed = !reversed;
     }
 
     /**
@@ -177,11 +181,9 @@ public class NewShooterController {
             int deltaTicks = currentPosition - lastEncoderPosition;
 
             // Calculate RPM
-            if (deltaTime > 0) {
-                double ticksPerSecond = deltaTicks / deltaTime;
-                double revolutionsPerSecond = ticksPerSecond / TICKS_PER_REVOLUTION;
-                currentRPM = Math.abs(revolutionsPerSecond * 60.0);
-            }
+            double ticksPerSecond = deltaTicks / deltaTime;
+            double revolutionsPerSecond = ticksPerSecond / TICKS_PER_REVOLUTION;
+            currentRPM = Math.abs(revolutionsPerSecond * 60.0);
 
             lastEncoderPosition = currentPosition;
             lastTime = currentTime;

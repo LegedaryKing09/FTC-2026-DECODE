@@ -6,10 +6,11 @@ import com.qualcomm.robotcore.hardware.CRServo;
  */
 public class UptakeController {
 
-    private CRServo uptakeServo;
+    private final CRServo uptakeServo;
     private boolean isActive = false;
 
-    public double power = -1.0;  // Reversed by default as requested
+    public double power = 1.0;  // Reversed by default as requested
+    public static boolean reversed = true;
 
     public UptakeController(CRServo servo) {
         this.uptakeServo = servo;
@@ -20,6 +21,10 @@ public class UptakeController {
      */
     public void toggle() {
         isActive = !isActive;
+    }
+
+    public void toggleDirection() {
+        reversed = !reversed;
     }
 
     /**
@@ -35,6 +40,7 @@ public class UptakeController {
     public void update() {
         if (uptakeServo != null) {
             double actualPower = isActive ? power : 0.0;
+            if (reversed) actualPower = -actualPower;
             uptakeServo.setPower(actualPower);
         }
     }
