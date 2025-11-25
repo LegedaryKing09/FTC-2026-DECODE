@@ -52,7 +52,7 @@ public class NewTeleop extends LinearOpMode {
     private boolean shooterManualMode = false;
 
     // Emergency stop flag
-    private boolean emergencyStop = false;
+    private final boolean emergencyStop = false;
 
     @Override
     public void runOpMode() {
@@ -91,7 +91,7 @@ public class NewTeleop extends LinearOpMode {
 
         while (opModeIsActive()) {
             // ========== EMERGENCY STOP ==========
-            handleEmergencyStop();
+            handleReverse();
 
             if (!emergencyStop) {
                 // ========== DRIVE CONTROL ==========
@@ -246,39 +246,22 @@ public class NewTeleop extends LinearOpMode {
     }
 
     /**
-     * Handle emergency stop - B button
+     * Reverse - B button
      */
-    private void handleEmergencyStop() {
+    private void handleReverse() {
         boolean currentB = gamepad1.b;
         if (currentB && !lastB) {
-            emergencyStop = !emergencyStop;
-            if (emergencyStop) {
-                stopAllSystems();
-            }
+            if (intake != null && intake.isActive()) intake.toggleDirection();
+            if (transfer != null && transfer.isActive()) transfer.toggleDirection();
+            if (uptake != null && uptake.isActive()) uptake.toggleDirection();
+            assert intake != null;
+            intake.update();
+            transfer.update();
+            uptake.update();
         }
         lastB = currentB;
     }
 
-    /**
-     * Stop all motors and systems
-     */
-    private void stopAllSystems() {
-        // Stop drive
-        if (lf != null) lf.setPower(0);
-        if (lb != null) lb.setPower(0);
-        if (rf != null) rf.setPower(0);
-        if (rb != null) rb.setPower(0);
-
-        if (turret != null) turret.setPower(0);
-        if (ramp != null) ramp.stop();
-        if (shooter != null) {
-            shooter.stopShooting();
-            shooter.setPower(0);
-        }
-        if (intake != null && intake.isActive()) intake.toggle();
-        if (transfer != null && transfer.isActive()) transfer.toggle();
-        if (uptake != null && uptake.isActive()) uptake.toggle();
-    }
 
     /**
      * Handle drive controls - Left stick Y for forward/back, Right stick X for turning
@@ -366,21 +349,27 @@ public class NewTeleop extends LinearOpMode {
         // Right Bumper - Intake toggle
         boolean currentRightBumper = gamepad1.right_bumper;
         if (currentRightBumper && !lastRightBumper) {
+            intake.reversed = false;
             intake.toggle();
+            intake.update();
         }
         lastRightBumper = currentRightBumper;
 
         // Right Trigger - Transfer toggle
         boolean currentRightTrigger = gamepad1.right_trigger > TRIGGER_THRESHOLD;
         if (currentRightTrigger && !lastRightTrigger) {
+            transfer.reversed = false;
             transfer.toggle();
+            transfer.update();
         }
         lastRightTrigger = currentRightTrigger;
 
         // Left Bumper - Uptake toggle
         boolean currentLeftBumper = gamepad1.left_bumper;
         if (currentLeftBumper && !lastLeftBumper) {
+            uptake.reversed = false;
             uptake.toggle();
+            uptake.update();
         }
         lastLeftBumper = currentLeftBumper;
     }

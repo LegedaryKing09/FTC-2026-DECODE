@@ -13,18 +13,18 @@ public class NewRampController {
     public static String RAMP_ANALOG_NAME = "ramp_analog";
 
     // PID Constants (tunable via FTC Dashboard)
-    public static double Kp = 0.02;
+    public static double Kp = 0.03;
     public static double Ki = 0.0;
-    public static double Kd = 0.001;
+    public static double Kd = 0.004;
 
     // Control parameters
     public static double MAX_POWER = 0.5;           // Maximum servo power
-    public static double ANGLE_TOLERANCE = 2.0;     // Degrees - when to stop
+    public static double ANGLE_TOLERANCE = 4.0;     // Degrees - when to stop
     public static double MIN_POWER = 0.05;          // Minimum power to overcome friction
     public static double TIMEOUT_SECONDS = 3.0;     // Timeout for moves
 
     // Constants for Axon mini servo
-    private static final double VOLTAGE_TO_DEGREES = 360.0 / 3.3;
+    public static double VOLTAGE_TO_DEGREES = 360.0 / 3.3;
 
     private final CRServo rampServo;
     private final AnalogInput rampAnalog;
@@ -202,7 +202,7 @@ public class NewRampController {
      * Increment ramp angle by specified degrees
      */
     public void incrementAngle(double degrees) {
-        targetAngle = getCurrentAngle() + degrees;
+        targetAngle = getCurrentAngle() - degrees;
 
         // Wrap target angle to [0, 360]
         while (targetAngle >= 360) targetAngle -= 360;

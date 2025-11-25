@@ -14,7 +14,7 @@ public class NewTransferController {
 
     // Configurable via FTC Dashboard
     public static double power = -1.0;
-    public static boolean reversed = false;
+    public boolean reversed = false;
 
     public NewTransferController(DcMotor motor) {
         this.transferMotor = motor;

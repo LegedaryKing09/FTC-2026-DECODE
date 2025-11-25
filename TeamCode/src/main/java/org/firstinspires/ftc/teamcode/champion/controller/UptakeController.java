@@ -10,7 +10,7 @@ public class UptakeController {
     private boolean isActive = false;
 
     public double power = 1.0;  // Reversed by default as requested
-    public static boolean reversed = true;
+    public boolean reversed = true;
 
     public UptakeController(CRServo servo) {
         this.uptakeServo = servo;
