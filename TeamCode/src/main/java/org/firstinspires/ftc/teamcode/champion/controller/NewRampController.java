@@ -12,9 +12,16 @@ public class NewRampController {
     public static String RAMP_SERVO_NAME = "ramp";
     public static String RAMP_ANALOG_NAME = "ramp_analog";
 
-    // Incremental control settings (matching RampTest)
-    public static double INCREMENT_POWER = 0.1;     // Power for increments
-    public static long INCREMENT_TIME_MS = 100;      // How long to pulse (milliseconds)
+    // PID Constants (tunable via FTC Dashboard)
+    public static double Kp = 0.02;
+    public static double Ki = 0.0;
+    public static double Kd = 0.001;
+
+    // Control parameters
+    public static double MAX_POWER = 0.5;           // Maximum servo power
+    public static double ANGLE_TOLERANCE = 2.0;     // Degrees - when to stop
+    public static double MIN_POWER = 0.05;          // Minimum power to overcome friction
+    public static double TIMEOUT_SECONDS = 3.0;     // Timeout for moves
 
     // Constants for Axon mini servo
     private static final double VOLTAGE_TO_DEGREES = 360.0 / 3.3;
@@ -23,15 +30,22 @@ public class NewRampController {
     private final AnalogInput rampAnalog;
     private final ElapsedTime runtime;
 
-    // Increment state tracking
-    private long incrementStartTime = 0;
-    private boolean isIncrementing = false;
-    private double incrementDirection = 0;
+    // PID state
+    private double targetAngle = 0;
+    private double integral = 0;
+    private double lastError = 0;
+    private double lastTime = 0;
+    private boolean pidActive = false;
+    private double moveStartTime = 0;
 
     // Velocity tracking
     private double lastAngle = 0;
-    private double lastTime = 0;
+    private double lastVelocityTime = 0;
     private double velocity = 0;
+
+    // Initialization state
+    private boolean isInitialized = false;
+    private static final double INIT_TARGET_ANGLE = 0.0;  // Target angle for initialization
 
     public NewRampController(LinearOpMode opMode) {
         rampServo = opMode.hardwareMap.get(CRServo.class, RAMP_SERVO_NAME);
@@ -43,16 +57,37 @@ public class NewRampController {
 
         lastAngle = getCurrentAngle();
         lastTime = runtime.seconds();
+        lastVelocityTime = lastTime;
+        targetAngle = getCurrentAngle();
     }
 
     /**
-     * Update method - handles increment timing and velocity calculation
+     * Initialize ramp to 0 degrees
+     * Call this during initialization or at the start of autonomous/teleop
+     */
+    public void initialize() {
+        targetAngle = INIT_TARGET_ANGLE;
+        pidActive = true;
+        resetPID();
+        moveStartTime = runtime.seconds();
+        isInitialized = false;
+    }
+
+    /**
+     * Check if initialization is complete
+     */
+    public boolean isInitialized() {
+        return isInitialized;
+    }
+
+    /**
+     * Update method - handles PID control and velocity calculation
      * MUST be called every loop!
      */
     public void update() {
         // Update velocity
         double currentTime = runtime.seconds();
-        double deltaTime = currentTime - lastTime;
+        double deltaTime = currentTime - lastVelocityTime;
 
         if (deltaTime > 0.1) {
             double currentAngle = getCurrentAngle();
@@ -64,17 +99,34 @@ public class NewRampController {
 
             velocity = deltaAngle / deltaTime;
             lastAngle = currentAngle;
-            lastTime = currentTime;
+            lastVelocityTime = currentTime;
         }
 
-        // Handle increment timing
+        // Handle PID control
         double power = 0;
-        if (isIncrementing) {
-            if (System.currentTimeMillis() - incrementStartTime < INCREMENT_TIME_MS) {
-                power = incrementDirection;
-            } else {
-                isIncrementing = false;
+        if (pidActive) {
+            power = calculatePID();
+
+            // Check if target reached
+            double currentAngle = getCurrentAngle();
+            double error = getShortestAngleError(targetAngle, currentAngle);
+
+            if (Math.abs(error) < ANGLE_TOLERANCE) {
+                pidActive = false;
                 power = 0;
+                integral = 0;
+
+                // Mark as initialized if we were initializing
+                if (!isInitialized && Math.abs(targetAngle - INIT_TARGET_ANGLE) < ANGLE_TOLERANCE) {
+                    isInitialized = true;
+                }
+            }
+
+            // Check for timeout
+            if (currentTime - moveStartTime > TIMEOUT_SECONDS) {
+                pidActive = false;
+                power = 0;
+                integral = 0;
             }
         }
 
@@ -82,32 +134,113 @@ public class NewRampController {
     }
 
     /**
-     * Increment ramp angle (pulse upward)
+     * Calculate PID output
+     */
+    private double calculatePID() {
+        double currentTime = runtime.seconds();
+        double deltaTime = currentTime - lastTime;
+
+        if (deltaTime <= 0) return 0;
+
+        double currentAngle = getCurrentAngle();
+        double error = getShortestAngleError(targetAngle, currentAngle);
+
+        // Proportional term
+        double P = Kp * error;
+
+        // Integral term (with anti-windup)
+        integral += error * deltaTime;
+        // Limit integral to prevent windup
+        double maxIntegral = MAX_POWER / (Ki + 0.0001); // Avoid division by zero
+        integral = Math.max(-maxIntegral, Math.min(maxIntegral, integral));
+        double I = Ki * integral;
+
+        // Derivative term
+        double derivative = (error - lastError) / deltaTime;
+        double D = Kd * derivative;
+
+        // Calculate total output
+        double output = P + I + D;
+
+        // Apply minimum power to overcome friction
+        if (Math.abs(output) > 0.01 && Math.abs(output) < MIN_POWER) {
+            output = Math.signum(output) * MIN_POWER;
+        }
+
+        // Clamp output to max power
+        output = Math.max(-MAX_POWER, Math.min(MAX_POWER, output));
+
+        lastError = error;
+        lastTime = currentTime;
+
+        return output;
+    }
+
+    /**
+     * Calculate shortest angle error (handles wraparound)
+     */
+    private double getShortestAngleError(double target, double current) {
+        double error = target - current;
+
+        // Normalize to [-180, 180]
+        while (error > 180) error -= 360;
+        while (error < -180) error += 360;
+
+        return error;
+    }
+
+    /**
+     * Reset PID state
+     */
+    private void resetPID() {
+        integral = 0;
+        lastError = 0;
+        lastTime = runtime.seconds();
+    }
+
+    /**
+     * Increment ramp angle by specified degrees
      */
     public void incrementAngle(double degrees) {
-        // Note: degrees parameter not used for CR servo
-        // We just pulse with fixed power and time
-        isIncrementing = true;
-        incrementDirection = INCREMENT_POWER;
-        incrementStartTime = System.currentTimeMillis();
+        targetAngle = getCurrentAngle() + degrees;
+
+        // Wrap target angle to [0, 360]
+        while (targetAngle >= 360) targetAngle -= 360;
+        while (targetAngle < 0) targetAngle += 360;
+
+        pidActive = true;
+        resetPID();
+        moveStartTime = runtime.seconds();
     }
 
     /**
-     * Decrement ramp angle (pulse downward)
+     * Decrement ramp angle by specified degrees
      */
     public void decrementAngle(double degrees) {
-        // Note: degrees parameter not used for CR servo
-        // We just pulse with fixed power and time
-        isIncrementing = true;
-        incrementDirection = -INCREMENT_POWER;
-        incrementStartTime = System.currentTimeMillis();
+        incrementAngle(-degrees);
     }
 
     /**
-     * Set continuous power to ramp (for manual control)
+     * Set absolute target angle
+     */
+    public void setTargetAngle(double angle) {
+        targetAngle = angle;
+
+        // Wrap target angle to [0, 360]
+        while (targetAngle >= 360) targetAngle -= 360;
+        while (targetAngle < 0) targetAngle += 360;
+
+        pidActive = true;
+        resetPID();
+        moveStartTime = runtime.seconds();
+    }
+
+    /**
+     * Set continuous power to ramp (for manual control, disables PID)
      */
     public void setPower(double power) {
-        isIncrementing = false;
+        pidActive = false;
+        integral = 0;
         rampServo.setPower(power);
     }
 
@@ -115,8 +248,23 @@ public class NewRampController {
      * Stop the ramp
      */
     public void stop() {
-        isIncrementing = false;
+        pidActive = false;
+        integral = 0;
         rampServo.setPower(0);
+    }
+
+    /**
+     * Check if PID is actively controlling
+     */
+    public boolean isMoving() {
+        return pidActive;
+    }
+
+    /**
+     * Check if target has been reached
+     */
+    public boolean atTarget() {
+        return !pidActive && Math.abs(getShortestAngleError(targetAngle, getCurrentAngle())) < ANGLE_TOLERANCE;
     }
 
     /**
@@ -125,6 +273,20 @@ public class NewRampController {
     public double getCurrentAngle() {
         double voltage = rampAnalog.getVoltage();
         return voltage * VOLTAGE_TO_DEGREES;
+    }
+
+    /**
+     * Get target angle
+     */
+    public double getTargetAngle() {
+        return targetAngle;
+    }
+
+    /**
+     * Get angle error
+     */
+    public double getAngleError() {
+        return getShortestAngleError(targetAngle, getCurrentAngle());
     }
 
     /**
@@ -146,20 +308,5 @@ public class NewRampController {
      */
     public double getPower() {
         return rampServo.getPower();
-    }
-
-    /**
-     * Check if currently incrementing
-     */
-    public boolean isIncrementing() {
-        return isIncrementing;
-    }
-
-    /**
-     * Get increment direction (for telemetry)
-     */
-    public String getIncrementDirection() {
-        if (!isIncrementing) return "NONE";
-        return incrementDirection > 0 ? "UP" : "DOWN";
     }
 }

@@ -17,6 +17,9 @@ import org.firstinspires.ftc.teamcode.champion.controller.*;
 @TeleOp(name="New Champion TeleOp", group="Competition")
 public class NewTeleop extends LinearOpMode {
 
+    // Ramp angle increment (tunable via FTC Dashboard)
+    public static double RAMP_INCREMENT_DEGREES = 10.0;
+
     // Controllers
     private TurretController turret;
     private NewIntakeController intake;
@@ -65,6 +68,26 @@ public class NewTeleop extends LinearOpMode {
 
         waitForStart();
         runtime.reset();
+
+        // Initialize ramp to 0 degrees at start
+        if (ramp != null) {
+            ramp.initialize();
+            telemetry.addLine("Initializing ramp to 0°...");
+            telemetry.update();
+
+            // Wait for initialization to complete (with timeout)
+            ElapsedTime initTimer = new ElapsedTime();
+            while (!ramp.isInitialized() && initTimer.seconds() < 3.0 && opModeIsActive()) {
+                ramp.update();
+                telemetry.addData("Ramp Angle", "%.1f°", ramp.getCurrentAngle());
+                telemetry.addData("Target", "0.0°");
+                telemetry.update();
+                sleep(20);
+            }
+            telemetry.addLine("Ramp initialized!");
+            telemetry.update();
+            sleep(500);
+        }
 
         while (opModeIsActive()) {
             // ========== EMERGENCY STOP ==========
@@ -202,9 +225,9 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addLine("  DPAD LEFT: Turn Left");
         telemetry.addLine("  DPAD RIGHT: Turn Right");
         telemetry.addLine();
-        telemetry.addLine("📐 RAMP");
-        telemetry.addLine("  DPAD UP: Increase Angle");
-        telemetry.addLine("  DPAD DOWN: Decrease Angle");
+        telemetry.addLine("📐 RAMP (PID Control)");
+        telemetry.addLine("  DPAD UP: +10° Angle");
+        telemetry.addLine("  DPAD DOWN: -10° Angle");
         telemetry.addLine();
         telemetry.addLine("🎯 SHOOTER");
         telemetry.addLine("  X: Increase RPM +100");
@@ -247,6 +270,7 @@ public class NewTeleop extends LinearOpMode {
         if (rb != null) rb.setPower(0);
 
         if (turret != null) turret.setPower(0);
+        if (ramp != null) ramp.stop();
         if (shooter != null) {
             shooter.stopShooting();
             shooter.setPower(0);
@@ -314,23 +338,23 @@ public class NewTeleop extends LinearOpMode {
     }
 
     /**
-     * Handle ramp controls - DPAD Up/Down for angle adjustment
+     * Handle ramp controls - DPAD Up/Down for precise angle adjustment with PID
      */
     private void handleRampControls() {
         if (ramp == null) return;
         ramp.update();
 
-        // DPAD UP - Increase ramp angle
+        // DPAD UP - Increase ramp angle by configured amount
         boolean currentDpadUp = gamepad1.dpad_up;
         if (currentDpadUp && !lastDpadUp) {
-            ramp.incrementAngle(0);
+            ramp.incrementAngle(RAMP_INCREMENT_DEGREES);
         }
         lastDpadUp = currentDpadUp;
 
-        // DPAD DOWN - Decrease ramp angle
+        // DPAD DOWN - Decrease ramp angle by configured amount
         boolean currentDpadDown = gamepad1.dpad_down;
         if (currentDpadDown && !lastDpadDown) {
-            ramp.decrementAngle(0);
+            ramp.decrementAngle(RAMP_INCREMENT_DEGREES);
         }
         lastDpadDown = currentDpadDown;
     }
@@ -413,7 +437,7 @@ public class NewTeleop extends LinearOpMode {
         // Emergency stop warning
         if (emergencyStop) {
             telemetry.addLine();
-            telemetry.addLine(" EMERGENCY STOP ACTIVE ");
+            telemetry.addLine("🛑 EMERGENCY STOP ACTIVE 🛑");
             telemetry.addLine("Press B to resume");
             telemetry.addLine();
         }
@@ -431,12 +455,16 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addLine("═══ TURRET ═══");
         telemetry.addData("Position", "%.2f°", turret.getCurrentPosition());
 
-        // Ramp status
+        // Ramp status (detailed PID info)
         if (ramp != null) {
             telemetry.addLine();
-            telemetry.addLine("═══ RAMP ═══");
-            telemetry.addData("Angle", "%.1f°", ramp.getCurrentAngle());
+            telemetry.addLine("═══ RAMP (PID) ═══");
+            telemetry.addData("Current Angle", "%.1f°", ramp.getCurrentAngle());
+            telemetry.addData("Target Angle", "%.1f°", ramp.getTargetAngle());
+            telemetry.addData("Error", "%.1f°", ramp.getAngleError());
             telemetry.addData("Power", "%.2f", ramp.getPower());
+            String status = ramp.isMoving() ? "🔄 MOVING" : (ramp.atTarget() ? "✓ AT TARGET" : "IDLE");
+            telemetry.addData("Status", status);
         }
 
         // Shooter status
