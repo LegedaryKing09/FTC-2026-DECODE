@@ -40,21 +40,21 @@ public class TurretController {
     private static final double VOLTAGE_TO_DEGREES = 360.0 / 3.3;
     private static final double GEAR_RATIO = 2.5;
 
-    private CRServo turretServo;
-    private AnalogInput turretEncoder;
-    private ElapsedTime runtime;
+    private final CRServo turretServo;
+    private final AnalogInput turretEncoder;
+    private final ElapsedTime runtime;
 
     // Position tracking
     private double lastPosition = 0;
     private double currentPosition = 0;
     private double velocity = 0;
-    private double lastVelocityTime = 0;
+    private double lastVelocityTime;
 
     // PID state
     private double targetPosition = 0;
     private double integral = 0;
     private double lastError = 0;
-    private double lastTime = 0;
+    private double lastTime;
     private boolean pidActive = false;
     private double moveStartTime = 0;
 
@@ -104,7 +104,7 @@ public class TurretController {
         updatePosition();
 
         // Handle PID control
-        double power = 0;
+        double power;
 
         if (!manualOverride && pidActive) {
             power = calculatePID();
