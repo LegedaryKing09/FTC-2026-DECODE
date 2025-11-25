@@ -17,9 +17,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.*;
 @TeleOp(name="New Champion TeleOp", group="Competition")
 public class NewTeleop extends LinearOpMode {
 
-    // Increment amounts (tunable via FTC Dashboard)
+    // Ramp angle increment (tunable via FTC Dashboard)
     public static double RAMP_INCREMENT_DEGREES = 10.0;
-    public static double TURRET_INCREMENT_DEGREES = 15.0;
 
     // Controllers
     private TurretController turret;
@@ -45,8 +44,6 @@ public class NewTeleop extends LinearOpMode {
     private boolean lastX = false;
     private boolean lastDpadUp = false;
     private boolean lastDpadDown = false;
-    private boolean lastDpadLeft = false;
-    private boolean lastDpadRight = false;
 
     // Trigger threshold for transfer toggle
     private static final double TRIGGER_THRESHOLD = 0.5;
@@ -72,50 +69,25 @@ public class NewTeleop extends LinearOpMode {
         waitForStart();
         runtime.reset();
 
-        // Initialize systems to starting positions
-        telemetry.addLine("═══════════════════════");
-        telemetry.addLine("  INITIALIZING SYSTEMS");
-        telemetry.addLine("═══════════════════════");
-        telemetry.update();
-
-        // Initialize ramp to 0 degrees
+        // Initialize ramp to 0 degrees at start
         if (ramp != null) {
             ramp.initialize();
-            telemetry.addLine("Initializing ramp...");
+            telemetry.addLine("Initializing ramp to 0°...");
             telemetry.update();
 
+            // Wait for initialization to complete (with timeout)
             ElapsedTime initTimer = new ElapsedTime();
             while (!ramp.isInitialized() && initTimer.seconds() < 3.0 && opModeIsActive()) {
                 ramp.update();
-                telemetry.addData("Ramp", "%.1f° → %.1f°",
-                        ramp.getCurrentAngle(), ramp.getTargetAngle());
+                telemetry.addData("Ramp Angle", "%.1f°", ramp.getCurrentAngle());
+                telemetry.addData("Target", "0.0°");
                 telemetry.update();
                 sleep(20);
             }
-            telemetry.addData("✓ Ramp", ramp.isInitialized() ? "READY" : "TIMEOUT");
-        }
-
-        // Initialize turret to front position
-        if (turret != null) {
-            turret.initialize();
-            telemetry.addLine("Initializing turret...");
+            telemetry.addLine("Ramp initialized!");
             telemetry.update();
-
-            ElapsedTime initTimer = new ElapsedTime();
-            while (!turret.isInitialized() && initTimer.seconds() < 3.0 && opModeIsActive()) {
-                turret.update();
-                telemetry.addData("Turret", "%.1f° → %.1f°",
-                        turret.getCurrentPosition(), turret.getTargetPosition());
-                telemetry.update();
-                sleep(20);
-            }
-            telemetry.addData("✓ Turret", turret.isInitialized() ? "READY" : "TIMEOUT");
+            sleep(500);
         }
-
-        telemetry.addLine();
-        telemetry.addLine("All systems ready!");
-        telemetry.update();
-        sleep(500);
 
         while (opModeIsActive()) {
             // ========== EMERGENCY STOP ==========
@@ -249,11 +221,11 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addLine("  Left Stick Y: Forward/Back");
         telemetry.addLine("  Right Stick X: Turn");
         telemetry.addLine();
-        telemetry.addLine("🎯 TURRET (PID)");
-        telemetry.addLine("  DPAD LEFT: -15° Position");
-        telemetry.addLine("  DPAD RIGHT: +15° Position");
+        telemetry.addLine("🎯 TURRET");
+        telemetry.addLine("  DPAD LEFT: Turn Left");
+        telemetry.addLine("  DPAD RIGHT: Turn Right");
         telemetry.addLine();
-        telemetry.addLine("📐 RAMP (PID)");
+        telemetry.addLine("📐 RAMP (PID Control)");
         telemetry.addLine("  DPAD UP: +10° Angle");
         telemetry.addLine("  DPAD DOWN: -10° Angle");
         telemetry.addLine();
@@ -297,7 +269,7 @@ public class NewTeleop extends LinearOpMode {
         if (rf != null) rf.setPower(0);
         if (rb != null) rb.setPower(0);
 
-        if (turret != null) turret.stop();
+        if (turret != null) turret.setPower(0);
         if (ramp != null) ramp.stop();
         if (shooter != null) {
             shooter.stopShooting();
@@ -346,25 +318,23 @@ public class NewTeleop extends LinearOpMode {
     }
 
     /**
-     * Handle turret controls - DPAD Left/Right for incremental positioning
+     * Handle turret controls - DPAD Left/Right for manual turning
      */
     private void handleTurretControls() {
-        if (turret == null) return;
         turret.update();
 
-        // DPAD LEFT - Decrement turret position
-        boolean currentDpadLeft = gamepad1.dpad_left;
-        if (currentDpadLeft && !lastDpadLeft) {
-            turret.decrementPosition(TURRET_INCREMENT_DEGREES);
+        // DPAD Left - Turn turret left
+        if (gamepad1.dpad_left) {
+            turret.setPower(-0.5);
         }
-        lastDpadLeft = currentDpadLeft;
-
-        // DPAD RIGHT - Increment turret position
-        boolean currentDpadRight = gamepad1.dpad_right;
-        if (currentDpadRight && !lastDpadRight) {
-            turret.incrementPosition(TURRET_INCREMENT_DEGREES);
+        // DPAD Right - Turn turret right
+        else if (gamepad1.dpad_right) {
+            turret.setPower(0.5);
         }
-        lastDpadRight = currentDpadRight;
+        // Stop turret when neither pressed
+        else {
+            turret.setPower(0);
+        }
     }
 
     /**
@@ -480,31 +450,21 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addData("Left Power", "%.2f", leftPwr);
         telemetry.addData("Right Power", "%.2f", rightPwr);
 
-        // Turret status (detailed PID info)
-        if (turret != null) {
-            telemetry.addLine();
-            telemetry.addLine("═══ TURRET (PID) ═══");
-            telemetry.addData("Position", "%.1f°", turret.getCurrentPosition());
-            telemetry.addData("Target", "%.1f°", turret.getTargetPosition());
-            telemetry.addData("Error", "%.1f°", turret.getPositionError());
-            telemetry.addData("Power", "%.2f", turret.getCurrentPower());
-            String turretStatus = turret.isMoving() ? "🔄 MOVING" :
-                    (turret.atTarget() ? "✓ AT TARGET" : "IDLE");
-            if (turret.isManualOverride()) turretStatus = "🟡 MANUAL";
-            telemetry.addData("Status", turretStatus);
-        }
+        // Turret status
+        telemetry.addLine();
+        telemetry.addLine("═══ TURRET ═══");
+        telemetry.addData("Position", "%.2f°", turret.getCurrentPosition());
 
         // Ramp status (detailed PID info)
         if (ramp != null) {
             telemetry.addLine();
             telemetry.addLine("═══ RAMP (PID) ═══");
-            telemetry.addData("Angle", "%.1f°", ramp.getCurrentAngle());
-            telemetry.addData("Target", "%.1f°", ramp.getTargetAngle());
+            telemetry.addData("Current Angle", "%.1f°", ramp.getCurrentAngle());
+            telemetry.addData("Target Angle", "%.1f°", ramp.getTargetAngle());
             telemetry.addData("Error", "%.1f°", ramp.getAngleError());
             telemetry.addData("Power", "%.2f", ramp.getPower());
-            String rampStatus = ramp.isMoving() ? "🔄 MOVING" :
-                    (ramp.atTarget() ? "✓ AT TARGET" : "IDLE");
-            telemetry.addData("Status", rampStatus);
+            String status = ramp.isMoving() ? "🔄 MOVING" : (ramp.atTarget() ? "✓ AT TARGET" : "IDLE");
+            telemetry.addData("Status", status);
         }
 
         // Shooter status
@@ -525,7 +485,7 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addData("Uptake (LB)", "%s", uptake.isActive() ? "🟢 ON" : "⚫ OFF");
 
         telemetry.addLine();
-        telemetry.addLine("DPAD=Position | X/A=RPM | Y=Shoot | B=E-STOP");
+        telemetry.addLine("X/A=RPM | Y=Shoot | B=E-STOP");
 
         telemetry.update();
     }

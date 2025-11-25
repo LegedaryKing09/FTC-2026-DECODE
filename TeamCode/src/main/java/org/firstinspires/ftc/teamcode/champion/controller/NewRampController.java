@@ -13,16 +13,15 @@ public class NewRampController {
     public static String RAMP_ANALOG_NAME = "ramp_analog";
 
     // PID Constants (tunable via FTC Dashboard)
-    public static double RAMP_Kp = 0.02;
-    public static double RAMP_Ki = 0.0;
-    public static double RAMP_Kd = 0.001;
+    public static double Kp = 0.02;
+    public static double Ki = 0.0;
+    public static double Kd = 0.001;
 
-    // Control parameters (tunable via FTC Dashboard)
-    public static double RAMP_MAX_POWER = 0.5;           // Maximum servo power
-    public static double RAMP_ANGLE_TOLERANCE = 2.0;     // Degrees - when to stop
-    public static double RAMP_MIN_POWER = 0.05;          // Minimum power to overcome friction
-    public static double RAMP_TIMEOUT_SECONDS = 3.0;     // Timeout for moves
-    public static double RAMP_INIT_ANGLE = 0.0;          // Initialization target angle
+    // Control parameters
+    public static double MAX_POWER = 0.5;           // Maximum servo power
+    public static double ANGLE_TOLERANCE = 2.0;     // Degrees - when to stop
+    public static double MIN_POWER = 0.05;          // Minimum power to overcome friction
+    public static double TIMEOUT_SECONDS = 3.0;     // Timeout for moves
 
     // Constants for Axon mini servo
     private static final double VOLTAGE_TO_DEGREES = 360.0 / 3.3;
@@ -46,6 +45,7 @@ public class NewRampController {
 
     // Initialization state
     private boolean isInitialized = false;
+    private static final double INIT_TARGET_ANGLE = 0.0;  // Target angle for initialization
 
     public NewRampController(LinearOpMode opMode) {
         rampServo = opMode.hardwareMap.get(CRServo.class, RAMP_SERVO_NAME);
@@ -62,11 +62,11 @@ public class NewRampController {
     }
 
     /**
-     * Initialize ramp to configured angle
+     * Initialize ramp to 0 degrees
      * Call this during initialization or at the start of autonomous/teleop
      */
     public void initialize() {
-        targetAngle = RAMP_INIT_ANGLE;
+        targetAngle = INIT_TARGET_ANGLE;
         pidActive = true;
         resetPID();
         moveStartTime = runtime.seconds();
@@ -111,19 +111,19 @@ public class NewRampController {
             double currentAngle = getCurrentAngle();
             double error = getShortestAngleError(targetAngle, currentAngle);
 
-            if (Math.abs(error) < RAMP_ANGLE_TOLERANCE) {
+            if (Math.abs(error) < ANGLE_TOLERANCE) {
                 pidActive = false;
                 power = 0;
                 integral = 0;
 
                 // Mark as initialized if we were initializing
-                if (!isInitialized && Math.abs(targetAngle - RAMP_INIT_ANGLE) < RAMP_ANGLE_TOLERANCE) {
+                if (!isInitialized && Math.abs(targetAngle - INIT_TARGET_ANGLE) < ANGLE_TOLERANCE) {
                     isInitialized = true;
                 }
             }
 
             // Check for timeout
-            if (currentTime - moveStartTime > RAMP_TIMEOUT_SECONDS) {
+            if (currentTime - moveStartTime > TIMEOUT_SECONDS) {
                 pidActive = false;
                 power = 0;
                 integral = 0;
@@ -146,29 +146,29 @@ public class NewRampController {
         double error = getShortestAngleError(targetAngle, currentAngle);
 
         // Proportional term
-        double P = RAMP_Kp * error;
+        double P = Kp * error;
 
         // Integral term (with anti-windup)
         integral += error * deltaTime;
         // Limit integral to prevent windup
-        double maxIntegral = RAMP_MAX_POWER / (RAMP_Ki + 0.0001); // Avoid division by zero
+        double maxIntegral = MAX_POWER / (Ki + 0.0001); // Avoid division by zero
         integral = Math.max(-maxIntegral, Math.min(maxIntegral, integral));
-        double I = RAMP_Ki * integral;
+        double I = Ki * integral;
 
         // Derivative term
         double derivative = (error - lastError) / deltaTime;
-        double D = RAMP_Kd * derivative;
+        double D = Kd * derivative;
 
         // Calculate total output
         double output = P + I + D;
 
         // Apply minimum power to overcome friction
-        if (Math.abs(output) > 0.01 && Math.abs(output) < RAMP_MIN_POWER) {
-            output = Math.signum(output) * RAMP_MIN_POWER;
+        if (Math.abs(output) > 0.01 && Math.abs(output) < MIN_POWER) {
+            output = Math.signum(output) * MIN_POWER;
         }
 
         // Clamp output to max power
-        output = Math.max(-RAMP_MAX_POWER, Math.min(RAMP_MAX_POWER, output));
+        output = Math.max(-MAX_POWER, Math.min(MAX_POWER, output));
 
         lastError = error;
         lastTime = currentTime;
@@ -264,7 +264,7 @@ public class NewRampController {
      * Check if target has been reached
      */
     public boolean atTarget() {
-        return !pidActive && Math.abs(getShortestAngleError(targetAngle, getCurrentAngle())) < RAMP_ANGLE_TOLERANCE;
+        return !pidActive && Math.abs(getShortestAngleError(targetAngle, getCurrentAngle())) < ANGLE_TOLERANCE;
     }
 
     /**
@@ -308,20 +308,5 @@ public class NewRampController {
      */
     public double getPower() {
         return rampServo.getPower();
-    }
-
-    /**
-     * Get PID components (for debugging)
-     */
-    public double getProportional() {
-        return RAMP_Kp * getAngleError();
-    }
-
-    public double getIntegral() {
-        return RAMP_Ki * integral;
-    }
-
-    public double getDerivative() {
-        return RAMP_Kd * (getAngleError() - lastError);
     }
 }
