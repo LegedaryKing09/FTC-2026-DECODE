@@ -51,9 +51,6 @@ public class NewTeleop extends LinearOpMode {
     // Track shooter control mode
     private boolean shooterManualMode = false;
 
-    // Emergency stop flag
-    private final boolean emergencyStop = false;
-
     @Override
     public void runOpMode() {
         FtcDashboard dashboard = FtcDashboard.getInstance();
@@ -93,25 +90,23 @@ public class NewTeleop extends LinearOpMode {
             // ========== EMERGENCY STOP ==========
             handleReverse();
 
-            if (!emergencyStop) {
-                // ========== DRIVE CONTROL ==========
-                handleDriveControls();
+            // ========== DRIVE CONTROL ==========
+            handleDriveControls();
 
-                // ========== TURRET CONTROL ==========
-                handleTurretControls();
+            // ========== TURRET CONTROL ==========
+            handleTurretControls();
 
-                // ========== RAMP CONTROL ==========
-                handleRampControls();
+            // ========== RAMP CONTROL ==========
+            handleRampControls();
 
-                // ========== SYSTEM TOGGLES ==========
-                handleSystemToggles();
+            // ========== SYSTEM TOGGLES ==========
+            handleSystemToggles();
 
-                // ========== SHOOTER CONTROL ==========
-                handleShooterControl();
+            // ========== SHOOTER CONTROL ==========
+            handleShooterControl();
 
-                // ========== UPDATE ALL CONTROLLERS ==========
-                updateAllSystems();
-            }
+            // ========== UPDATE ALL CONTROLLERS ==========
+            updateAllSystems();
 
             // ========== TELEMETRY ==========
             displayTelemetry();
@@ -251,10 +246,13 @@ public class NewTeleop extends LinearOpMode {
     private void handleReverse() {
         boolean currentB = gamepad1.b;
         if (currentB && !lastB) {
-            if (intake != null && intake.isActive()) intake.toggleDirection();
-            if (transfer != null && transfer.isActive()) transfer.toggleDirection();
-            if (uptake != null && uptake.isActive()) uptake.toggleDirection();
             assert intake != null;
+            if (intake.isActive()) intake.toggle();
+            else {intake.reversed = true; intake.toggle();}
+            if (transfer.isActive()) transfer.toggle();
+            else {transfer.reversed = true; transfer.toggle();}
+            if (uptake.isActive()) uptake.toggle();
+            else {uptake.reversed= true; uptake.toggle();}
             intake.update();
             transfer.update();
             uptake.update();
@@ -422,14 +420,6 @@ public class NewTeleop extends LinearOpMode {
     private void displayTelemetry() {
         telemetry.addData("Runtime", "%.1f sec", runtime.seconds());
         telemetry.addData("Battery", "%.2f V", getBatteryVoltage());
-
-        // Emergency stop warning
-        if (emergencyStop) {
-            telemetry.addLine();
-            telemetry.addLine("🛑 EMERGENCY STOP ACTIVE 🛑");
-            telemetry.addLine("Press B to resume");
-            telemetry.addLine();
-        }
 
         // Drive status
         telemetry.addLine();
