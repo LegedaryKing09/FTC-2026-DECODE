@@ -29,7 +29,7 @@ public class NewTeleop extends LinearOpMode {
     private DcMotor lf, lb;
     private DcMotor rf, rb;
 
-    private ElapsedTime runtime = new ElapsedTime();
+    private final ElapsedTime runtime = new ElapsedTime();
 
     // Button debouncing
     private boolean lastRightBumper = false;
@@ -41,8 +41,6 @@ public class NewTeleop extends LinearOpMode {
     private boolean lastX = false;
     private boolean lastDpadUp = false;
     private boolean lastDpadDown = false;
-    private boolean lastDpadLeft = false;
-    private boolean lastDpadRight = false;
 
     // Trigger threshold for transfer toggle
     private static final double TRIGGER_THRESHOLD = 0.5;
@@ -266,8 +264,8 @@ public class NewTeleop extends LinearOpMode {
         double rawTurn = gamepad1.right_stick_x;
 
         // Apply sensitivity curve (exponent 2.0 for smoother low-speed control)
-        double drive = applySensitivityCurve(rawDrive, 2.0);
-        double turn = applySensitivityCurve(rawTurn, 2.0);
+        double drive = applySensitivityCurve(rawDrive);
+        double turn = applySensitivityCurve(rawTurn);
 
         double leftPower = drive + turn;
         double rightPower = drive - turn;
@@ -288,10 +286,10 @@ public class NewTeleop extends LinearOpMode {
     /**
      * Apply sensitivity curve to input
      */
-    private double applySensitivityCurve(double value, double exponent) {
+    private double applySensitivityCurve(double value) {
         double sign = Math.signum(value);
         double magnitude = Math.abs(value);
-        double curved = Math.pow(magnitude, exponent);
+        double curved = Math.pow(magnitude, 2.0);
         return sign * curved;
     }
 
