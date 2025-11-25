@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 @Config
-public class newRampController {
+public class NewRampController {
 
     public static String RAMP_SERVO_NAME = "ramp";
     public static String RAMP_ANALOG_NAME = "ramp_analog";
@@ -33,7 +33,7 @@ public class newRampController {
     private double lastTime = 0;
     private double velocity = 0;
 
-    public newRampController(LinearOpMode opMode) {
+    public NewRampController(LinearOpMode opMode) {
         rampServo = opMode.hardwareMap.get(CRServo.class, RAMP_SERVO_NAME);
         rampAnalog = opMode.hardwareMap.get(AnalogInput.class, RAMP_ANALOG_NAME);
         runtime = new ElapsedTime();

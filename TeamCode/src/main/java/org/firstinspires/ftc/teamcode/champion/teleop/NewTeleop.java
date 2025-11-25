@@ -23,11 +23,11 @@ public class NewTeleop extends LinearOpMode {
     private NewTransferController transfer;
     private UptakeController uptake;
     private NewShooterController shooter;
-    private newRampController ramp;
+    private NewRampController ramp;
 
     // Drive motors
-    private DcMotor motor1Left, motor2Left;
-    private DcMotor motor1Right, motor2Right;
+    private DcMotor lf, lb;
+    private DcMotor rf, rb;
 
     private ElapsedTime runtime = new ElapsedTime();
 
@@ -104,25 +104,25 @@ public class NewTeleop extends LinearOpMode {
 
         // Initialize drive motors
         try {
-            motor1Left = hardwareMap.get(DcMotor.class, "lf");
-            motor2Left = hardwareMap.get(DcMotor.class, "lb");
-            motor1Right = hardwareMap.get(DcMotor.class, "rf");
-            motor2Right = hardwareMap.get(DcMotor.class, "rb");
+            lf = hardwareMap.get(DcMotor.class, "lf");
+            lb = hardwareMap.get(DcMotor.class, "lb");
+            rf = hardwareMap.get(DcMotor.class, "rf");
+            rb = hardwareMap.get(DcMotor.class, "rb");
 
-            motor1Left.setDirection(DcMotorSimple.Direction.FORWARD);
-            motor2Left.setDirection(DcMotorSimple.Direction.FORWARD);
-            motor1Right.setDirection(DcMotorSimple.Direction.REVERSE);
-            motor2Right.setDirection(DcMotorSimple.Direction.REVERSE);
+            lf.setDirection(DcMotorSimple.Direction.FORWARD);
+            lb.setDirection(DcMotorSimple.Direction.FORWARD);
+            rf.setDirection(DcMotorSimple.Direction.REVERSE);
+            rb.setDirection(DcMotorSimple.Direction.REVERSE);
 
-            motor1Left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            motor2Left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            motor1Right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            motor2Right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            lf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            lb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            rf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            rb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-            motor1Left.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            motor2Left.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            motor1Right.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            motor2Right.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            lf.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            lb.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            rf.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            rb.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
             telemetry.addData("✓ Drive", "OK");
         } catch (Exception e) {
@@ -143,7 +143,7 @@ public class NewTeleop extends LinearOpMode {
 
         // Initialize ramp
         try {
-            ramp = new newRampController(this);
+            ramp = new NewRampController(this);
             telemetry.addData("✓ Ramp", "OK");
         } catch (Exception e) {
             telemetry.addData("✗ Ramp", "NOT FOUND: " + e.getMessage());
@@ -243,10 +243,10 @@ public class NewTeleop extends LinearOpMode {
      */
     private void stopAllSystems() {
         // Stop drive
-        if (motor1Left != null) motor1Left.setPower(0);
-        if (motor2Left != null) motor2Left.setPower(0);
-        if (motor1Right != null) motor1Right.setPower(0);
-        if (motor2Right != null) motor2Right.setPower(0);
+        if (lf != null) lf.setPower(0);
+        if (lb != null) lb.setPower(0);
+        if (rf != null) rf.setPower(0);
+        if (rb != null) rb.setPower(0);
 
         if (turret != null) turret.setPower(0);
         if (shooter != null) {
@@ -279,10 +279,10 @@ public class NewTeleop extends LinearOpMode {
             rightPower /= maxPower;
         }
 
-        if (motor1Left != null) motor1Left.setPower(leftPower);
-        if (motor2Left != null) motor2Left.setPower(leftPower);
-        if (motor1Right != null) motor1Right.setPower(rightPower);
-        if (motor2Right != null) motor2Right.setPower(rightPower);
+        if (lf != null) lf.setPower(leftPower);
+        if (lb != null) lb.setPower(leftPower);
+        if (rf != null) rf.setPower(rightPower);
+        if (rb != null) rb.setPower(rightPower);
     }
 
     /**
@@ -423,8 +423,8 @@ public class NewTeleop extends LinearOpMode {
         // Drive status
         telemetry.addLine();
         telemetry.addLine("═══ DRIVE ═══");
-        double leftPwr = motor1Left != null ? motor1Left.getPower() : 0;
-        double rightPwr = motor1Right != null ? motor1Right.getPower() : 0;
+        double leftPwr = lf != null ? lf.getPower() : 0;
+        double rightPwr = rf != null ? rf.getPower() : 0;
         telemetry.addData("Left Power", "%.2f", leftPwr);
         telemetry.addData("Right Power", "%.2f", rightPwr);
 
