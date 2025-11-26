@@ -20,8 +20,12 @@ public class NewTeleop extends LinearOpMode {
     // Ramp angle increment (tunable via FTC Dashboard)
     public static double RAMP_INCREMENT_DEGREES = 10.0;
 
+    // Turret alignment enable/disable
+    public static boolean ENABLE_AUTO_ALIGNMENT = true;
+
     // Controllers
     private TurretController turret;
+    private TurretAlignmentController turretAlignment;
     private NewIntakeController intake;
     private NewTransferController transfer;
     private UptakeController uptake;
@@ -50,6 +54,9 @@ public class NewTeleop extends LinearOpMode {
 
     // Track shooter control mode
     private boolean shooterManualMode = false;
+
+    // Track manual turret override
+    private boolean manualTurretOverride = false;
 
     @Override
     public void runOpMode() {
@@ -86,6 +93,14 @@ public class NewTeleop extends LinearOpMode {
             sleep(500);
         }
 
+        // Start turret auto-alignment
+        if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) {
+            turretAlignment.startAlignment();
+            telemetry.addLine("Turret auto-alignment ENABLED");
+            telemetry.update();
+            sleep(500);
+        }
+
         while (opModeIsActive()) {
             // ========== EMERGENCY STOP ==========
             handleReverse();
@@ -93,7 +108,7 @@ public class NewTeleop extends LinearOpMode {
             // ========== DRIVE CONTROL ==========
             handleDriveControls();
 
-            // ========== TURRET CONTROL ==========
+            // ========== TURRET CONTROL (Manual Override or Auto-Alignment) ==========
             handleTurretControls();
 
             // ========== RAMP CONTROL ==========
@@ -157,6 +172,10 @@ public class NewTeleop extends LinearOpMode {
         }
         turret = new TurretController(turretServo, turretEncoder, runtime);
 
+        // Initialize turret alignment controller
+        turretAlignment = new TurretAlignmentController(this, turret);
+        telemetry.addData("✓ Turret Alignment", "Initialized");
+
         // Initialize ramp
         try {
             ramp = new NewRampController(this);
@@ -217,8 +236,10 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addLine("  Right Stick X: Turn");
         telemetry.addLine();
         telemetry.addLine("🎯 TURRET");
-        telemetry.addLine("  DPAD LEFT: Turn Left");
-        telemetry.addLine("  DPAD RIGHT: Turn Right");
+        telemetry.addLine("  AUTO-ALIGN: Always ON (Tag 20)");
+        telemetry.addLine("  DPAD LEFT: Manual Override LEFT");
+        telemetry.addLine("  DPAD RIGHT: Manual Override RIGHT");
+        telemetry.addLine("  (Auto resumes when released)");
         telemetry.addLine();
         telemetry.addLine("📐 RAMP (PID Control)");
         telemetry.addLine("  DPAD UP: +10° Angle");
@@ -299,23 +320,52 @@ public class NewTeleop extends LinearOpMode {
     }
 
     /**
-     * Handle turret controls - DPAD Left/Right for manual turning
+     * Handle turret controls - Manual override with DPAD, otherwise auto-alignment runs
      */
     private void handleTurretControls() {
-        turret.update();
+        // Check for manual override
+        boolean dpadLeftPressed = gamepad1.dpad_left;
+        boolean dpadRightPressed = gamepad1.dpad_right;
 
-        // DPAD Left - Turn turret left
-        if (gamepad1.dpad_left) {
-            turret.setPower(-0.5);
+        // If either dpad is pressed, enter manual override mode
+        if (dpadLeftPressed || dpadRightPressed) {
+            if (!manualTurretOverride) {
+                // Entering manual override
+                manualTurretOverride = true;
+                if (turretAlignment != null) {
+                    turretAlignment.stopAlignment();
+                }
+            }
+
+            // Manual control
+            if (dpadLeftPressed) {
+                turret.setPower(-0.5);
+            } else {
+                turret.setPower(0.5);
+            }
+        } else {
+            // No dpad input
+            if (manualTurretOverride) {
+                // Exiting manual override - resume auto-alignment
+                manualTurretOverride = false;
+                turret.setPower(0);
+
+                if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) {
+                    turretAlignment.startAlignment();
+                }
+            }
+
+            // Run auto-alignment if enabled and not in manual override
+            if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT && !manualTurretOverride) {
+                turretAlignment.update();
+            } else {
+                // Stop turret if no auto-alignment
+                turret.setPower(0);
+            }
         }
-        // DPAD Right - Turn turret right
-        else if (gamepad1.dpad_right) {
-            turret.setPower(0.5);
-        }
-        // Stop turret when neither pressed
-        else {
-            turret.setPower(0);
-        }
+
+        // Always update turret encoder
+        turret.update();
     }
 
     /**
@@ -429,10 +479,25 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addData("Left Power", "%.2f", leftPwr);
         telemetry.addData("Right Power", "%.2f", rightPwr);
 
-        // Turret status
+        // Turret status with auto-alignment info
         telemetry.addLine();
         telemetry.addLine("═══ TURRET ═══");
         telemetry.addData("Position", "%.2f°", turret.getCurrentPosition());
+
+        if (turretAlignment != null) {
+            String mode = manualTurretOverride ? "🟡 MANUAL" : "🟢 AUTO-ALIGN";
+            telemetry.addData("Mode", mode);
+
+            if (!manualTurretOverride && ENABLE_AUTO_ALIGNMENT) {
+                telemetry.addData("Align State", turretAlignment.getState());
+                telemetry.addData("Has Target", turretAlignment.hasTarget() ? "✓ YES" : "✗ NO");
+                if (turretAlignment.hasTarget()) {
+                    telemetry.addData("TX Error", "%.2f°", turretAlignment.getCurrentError());
+                }
+            }
+        } else {
+            telemetry.addData("Mode", "🔴 MANUAL ONLY");
+        }
 
         // Ramp status (detailed PID info)
         if (ramp != null) {
@@ -464,7 +529,7 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addData("Uptake (LB)", "%s", uptake.isActive() ? "🟢 ON" : "⚫ OFF");
 
         telemetry.addLine();
-        telemetry.addLine("X/A=RPM | Y=Shoot | B=E-STOP");
+        telemetry.addLine("DPAD L/R=Manual | X/A=RPM | Y=Shoot");
 
         telemetry.update();
     }
