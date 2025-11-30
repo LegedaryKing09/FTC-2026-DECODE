@@ -23,6 +23,9 @@ public class NewTeleop extends LinearOpMode {
     // Turret alignment enable/disable
     public static boolean ENABLE_AUTO_ALIGNMENT = true;
 
+    // Target AprilTag ID for turret alignment
+    public static int TURRET_TARGET_TAG_ID = 20;
+
     // Controllers
     private TurretController turret;
     private TurretAlignmentController turretAlignment;
@@ -174,7 +177,8 @@ public class NewTeleop extends LinearOpMode {
 
         // Initialize turret alignment controller
         turretAlignment = new TurretAlignmentController(this, turret);
-        telemetry.addData("✓ Turret Alignment", "Initialized");
+        turretAlignment.setTargetTag(TURRET_TARGET_TAG_ID);
+        telemetry.addData("✓ Turret Alignment", "Initialized (Tag " + TURRET_TARGET_TAG_ID + ")");
 
         // Initialize ramp
         try {
@@ -236,7 +240,7 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addLine("  Right Stick X: Turn");
         telemetry.addLine();
         telemetry.addLine("🎯 TURRET");
-        telemetry.addLine("  AUTO-ALIGN: Always ON (Tag 20)");
+        telemetry.addLine("  AUTO-ALIGN: Always ON (Tag " + TURRET_TARGET_TAG_ID + ")");
         telemetry.addLine("  DPAD LEFT: Manual Override LEFT");
         telemetry.addLine("  DPAD RIGHT: Manual Override RIGHT");
         telemetry.addLine("  (Auto resumes when released)");
@@ -492,7 +496,7 @@ public class NewTeleop extends LinearOpMode {
                 telemetry.addData("Align State", turretAlignment.getState());
                 telemetry.addData("Has Target", turretAlignment.hasTarget() ? "✓ YES" : "✗ NO");
                 if (turretAlignment.hasTarget()) {
-                    telemetry.addData("TX Error", "%.2f°", turretAlignment.getCurrentError());
+                    telemetry.addData("TX Error", "%.2f°", turretAlignment.getTargetError());
                 }
             }
         } else {
