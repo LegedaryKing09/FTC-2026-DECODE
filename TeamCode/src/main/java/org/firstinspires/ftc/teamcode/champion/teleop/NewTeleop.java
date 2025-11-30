@@ -176,7 +176,11 @@ public class NewTeleop extends LinearOpMode {
         turret = new TurretController(turretServo, turretEncoder, runtime);
 
         // Initialize turret alignment controller
-        turretAlignment = new TurretAlignmentController(this, turret);
+        try {
+            turretAlignment = new TurretAlignmentController(this, turret);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         turretAlignment.setTargetTag(TURRET_TARGET_TAG_ID);
         telemetry.addData("✓ Turret Alignment", "Initialized (Tag " + TURRET_TARGET_TAG_ID + ")");
 
@@ -272,12 +276,15 @@ public class NewTeleop extends LinearOpMode {
         boolean currentB = gamepad1.b;
         if (currentB && !lastB) {
             assert intake != null;
-            if (intake.isActive()) intake.toggle();
+            if (intake.reversed) intake.toggle();
+            else if (intake.isActive()) intake.reversed = true;
             else {intake.reversed = true; intake.toggle();}
-            if (transfer.isActive()) transfer.toggle();
+            if (transfer.reversed) transfer.toggle();
+            else if (transfer.isActive()) transfer.reversed = true;
             else {transfer.reversed = true; transfer.toggle();}
-            if (uptake.isActive()) uptake.toggle();
-            else {uptake.reversed= true; uptake.toggle();}
+            if (uptake.reversed) uptake.toggle();
+            else if (uptake.isActive()) uptake.reversed = true;
+            else {uptake.reversed = true; uptake.toggle();}
             intake.update();
             transfer.update();
             uptake.update();
@@ -361,7 +368,7 @@ public class NewTeleop extends LinearOpMode {
 
             // Run auto-alignment if enabled and not in manual override
             if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT && !manualTurretOverride) {
-                turretAlignment.update();
+                turretAlignment.align(20);
             } else {
                 // Stop turret if no auto-alignment
                 turret.setPower(0);
