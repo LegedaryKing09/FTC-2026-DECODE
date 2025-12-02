@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
-
-
 import android.annotation.SuppressLint;
 
 import com.acmerobotics.dashboard.config.Config;

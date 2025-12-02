@@ -26,15 +26,25 @@ public class PIDTuningTest extends LinearOpMode {
     @Config
     public static class MovementTest {
         public static double TARGET_DISTANCE = 48.0;
-        public static double kP = 0.03;
+        public static double kP = 0.0333;
         public static double kI = 0.0;
-        public static double kD = 0.007;
+        public static double kD = 0.01;
         public static double MIN_SPEED = 0.1;
-        public static double MAX_SPEED = 0.8;
-        public static double TOLERANCE = 1.0;
+        public static double MAX_SPEED = 0.7;
+        public static double TOLERANCE = 2.0;
         public static double TIMEOUT_MS = 5000;
-        public static double HEADING_CORRECTION_KP = 0.1;
-        public static double DECEL_DISTANCE = 9.2;
+
+        // HEADING CORRECTION PID
+        public static double HEADING_kP = 0.25;
+        public static double HEADING_kI = 0.0;
+        public static double HEADING_kD = 0.15;  // Increased for damping
+        public static double MAX_HEADING_CORRECTION = 0.3;
+
+        public static double DECEL_DISTANCE = 15.0;
+
+        // STABLE SETTLING PARAMETERS - KEY FIX!
+        public static int STABLE_COUNTS_REQUIRED = 15;  // Must be stable for 15 loops (150ms)
+        public static double STABLE_SPEED_THRESHOLD = 0.05;  // Speed must be < 0.05
     }
 
     // ========== TURN TEST PARAMETERS ==========
@@ -43,11 +53,14 @@ public class PIDTuningTest extends LinearOpMode {
         public static double TARGET_ANGLE = 90.0;
         public static double kP = 0.65;
         public static double kI = 0.0;
-        public static double kD = 0.04;
+        public static double kD = 0.03;
         public static double MIN_POWER = 0.15;
         public static double MAX_POWER = 0.65;
         public static double TOLERANCE_DEG = 2.0;
         public static double TIMEOUT_MS = 3000;
+
+        // STABLE SETTLING FOR TURNS
+        public static int STABLE_COUNTS_REQUIRED = 15;
     }
 
     public static boolean REPEAT_TEST = false;
@@ -93,6 +106,7 @@ public class PIDTuningTest extends LinearOpMode {
         double targetDistance = Math.abs(MovementTest.TARGET_DISTANCE);
         double direction = Math.signum(MovementTest.TARGET_DISTANCE);
 
+        // Movement PID
         SimplyPID movePID = new SimplyPID(
                 0.0,
                 MovementTest.kP,
@@ -101,12 +115,26 @@ public class PIDTuningTest extends LinearOpMode {
         );
         movePID.setOuputLimits(-MovementTest.MAX_SPEED, MovementTest.MAX_SPEED);
 
+        // HEADING CORRECTION PID
+        SimplyPID headingPID = new SimplyPID(
+                0.0,
+                MovementTest.HEADING_kP,
+                MovementTest.HEADING_kI,
+                MovementTest.HEADING_kD
+        );
+        headingPID.setOuputLimits(-MovementTest.MAX_HEADING_CORRECTION, MovementTest.MAX_HEADING_CORRECTION);
+
         timer.reset();
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
 
         double maxError = 0;
+        double maxHeadingError = 0;
         double settlingTime = 0;
         boolean settled = false;
+
+        // STABLE SETTLING TRACKING
+        int stableCount = 0;
+        double previousSpeed = 0;
 
         while (opModeIsActive()) {
             driveController.updateOdometry();
@@ -114,10 +142,16 @@ public class PIDTuningTest extends LinearOpMode {
             double currentDistance = Math.abs(driveController.getX() - startX);
             double error = targetDistance - currentDistance;
 
-            // Heading correction
+            // Heading error calculation
             double currentHeading = driveController.getHeading();
             double headingError = normalizeAngle(startHeading - currentHeading);
-            double headingCorrection = MovementTest.HEADING_CORRECTION_KP * headingError;
+
+            if (Math.abs(headingError) > Math.abs(maxHeadingError)) {
+                maxHeadingError = headingError;
+            }
+
+            // Use PID for heading correction
+            double headingCorrection = headingPID.getOutput(timer.seconds(), -headingError);
 
             if (Math.abs(error) > Math.abs(maxError)) {
                 maxError = error;
@@ -128,23 +162,19 @@ public class PIDTuningTest extends LinearOpMode {
                 settled = true;
             }
 
-            if (Math.abs(error) < MovementTest.TOLERANCE) {
-                break;
-            }
-
-            if (timer.milliseconds() > MovementTest.TIMEOUT_MS) {
-                break;
-            }
+            // ========== STABLE EXIT CONDITION - KEY FIX! ==========
+            // Check if robot is within tolerance AND stable (not moving much)
+            boolean withinTolerance = Math.abs(error) < MovementTest.TOLERANCE;
 
             // Get base speed from PID
             double pidOutput = movePID.getOutput(timer.seconds(), -error);
             double speed = pidOutput;
 
-            // DECELERATION ZONE - gradually reduce max speed near target
+            // DECELERATION ZONE
             double effectiveMaxSpeed = MovementTest.MAX_SPEED;
             if (Math.abs(error) < MovementTest.DECEL_DISTANCE) {
                 double decelFactor = Math.abs(error) / MovementTest.DECEL_DISTANCE;
-                decelFactor = decelFactor * decelFactor; // Quadratic for smooth curve
+                decelFactor = decelFactor * decelFactor;
                 effectiveMaxSpeed = MovementTest.MIN_SPEED +
                         (MovementTest.MAX_SPEED - MovementTest.MIN_SPEED) * decelFactor;
             }
@@ -156,6 +186,26 @@ public class PIDTuningTest extends LinearOpMode {
 
             // Clamp to effective max speed
             speed = Math.max(-effectiveMaxSpeed, Math.min(effectiveMaxSpeed, speed));
+
+            // Check if speed is stable (not changing much)
+            boolean speedStable = Math.abs(speed) < MovementTest.STABLE_SPEED_THRESHOLD;
+
+            // Count consecutive stable readings
+            if (withinTolerance && speedStable) {
+                stableCount++;
+            } else {
+                stableCount = 0;  // Reset if not stable
+            }
+
+            // Exit ONLY when stable for required number of loops
+            if (stableCount >= MovementTest.STABLE_COUNTS_REQUIRED) {
+                break;  // Robot is stable at target!
+            }
+
+            if (timer.milliseconds() > MovementTest.TIMEOUT_MS) {
+                break;
+            }
+
             speed *= direction;
 
             // Apply heading correction
@@ -167,10 +217,22 @@ public class PIDTuningTest extends LinearOpMode {
 
             driveController.tankDriveVelocityNormalized(leftSpeed, rightSpeed);
 
+            // Enhanced telemetry for tuning
+            telemetry.addData("Distance Error", "%.2f in", error);
+            telemetry.addData("Heading Error", "%.2f°", Math.toDegrees(headingError));
+            telemetry.addData("Speed", "%.3f", speed);
+            telemetry.addData("Stable Count", "%d / %d", stableCount, MovementTest.STABLE_COUNTS_REQUIRED);
+            telemetry.addData("Status", stableCount > 0 ? "SETTLING..." : "MOVING");
+            telemetry.update();
+
+            previousSpeed = speed;
             sleep(10);
         }
 
         driveController.stopDrive();
+
+        // Brief settling period
+        sleep(100);
 
         // Final results
         driveController.updateOdometry();
@@ -178,10 +240,18 @@ public class PIDTuningTest extends LinearOpMode {
         double finalError = targetDistance - finalDistance;
         double finalHeadingError = normalizeAngle(startHeading - driveController.getHeading());
 
+        telemetry.addLine("=== RESULTS ===");
+        telemetry.addData("Target", "%.1f in", targetDistance);
+        telemetry.addData("Actual", "%.1f in", finalDistance);
+        telemetry.addData("Distance Error", "%.2f in", finalError);
+        telemetry.addData("Time", "%.2fs", timer.seconds());
         if (settled) {
             telemetry.addData("Settling", "%.2fs", settlingTime);
         }
         telemetry.addData("Accuracy", "%.1f%%", 100 * (1 - Math.abs(finalError) / targetDistance));
+        telemetry.addLine();
+        telemetry.addData("Final Heading Error", "%.2f°", Math.toDegrees(finalHeadingError));
+        telemetry.addData("Max Heading Error", "%.2f°", Math.toDegrees(maxHeadingError));
         telemetry.update();
     }
 
@@ -207,6 +277,9 @@ public class PIDTuningTest extends LinearOpMode {
         double settlingTime = 0;
         boolean settled = false;
 
+        // STABLE SETTLING TRACKING
+        int stableCount = 0;
+
         while (opModeIsActive()) {
             driveController.updateOdometry();
 
@@ -222,7 +295,17 @@ public class PIDTuningTest extends LinearOpMode {
                 settled = true;
             }
 
-            if (Math.abs(headingError) < toleranceRad) {
+            // STABLE EXIT CONDITION
+            boolean withinTolerance = Math.abs(headingError) < toleranceRad;
+
+            if (withinTolerance) {
+                stableCount++;
+            } else {
+                stableCount = 0;
+            }
+
+            // Exit when stable for required count
+            if (stableCount >= TurnTest.STABLE_COUNTS_REQUIRED) {
                 break;
             }
 
@@ -239,10 +322,18 @@ public class PIDTuningTest extends LinearOpMode {
 
             driveController.tankDrive(-power, power);
 
+            telemetry.addData("Heading Error", "%.2f°", Math.toDegrees(headingError));
+            telemetry.addData("Power", "%.3f", power);
+            telemetry.addData("Stable Count", "%d / %d", stableCount, TurnTest.STABLE_COUNTS_REQUIRED);
+            telemetry.update();
+
             sleep(10);
         }
 
         driveController.stopDrive();
+
+        // Brief settling period
+        sleep(100);
 
         driveController.updateOdometry();
         double finalHeading = driveController.getHeading();

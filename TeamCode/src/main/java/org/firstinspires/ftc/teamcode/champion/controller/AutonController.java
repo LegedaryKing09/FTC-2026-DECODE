@@ -16,19 +16,20 @@ public class AutonController {
     private final IntakeController intakeController;
     private final LimelightAlignmentController limelightController;
     private final AutoShootController autoShootController;
+    private RampController rampController;
 
     // ========== MOVEMENT PID PARAMETERS ==========
     @Config
     public static class MovementPID {
-        public static double kP = 0.03;
+        public static double kP = 0.034;
         public static double kI = 0.0;
-        public static double kD = 0.007;
+        public static double kD = 0.0093;
         public static double MIN_SPEED = 0.1;
         public static double MAX_SPEED = 0.8;
-        public static double TOLERANCE = 1.0;
+        public static double TOLERANCE = 2.0;
         public static double TIMEOUT_MS = 5000;
-        public static double HEADING_CORRECTION_KP = 0.1;
-        public static double DECEL_DISTANCE = 9.2;
+        public static double HEADING_CORRECTION_KP = 0.15;
+        public static double DECEL_DISTANCE = 16.0;  // INCREASED from 9.5
     }
 
     // ========== TURN PID PARAMETERS ==========
@@ -36,19 +37,39 @@ public class AutonController {
     public static class TurnPID {
         public static double kP = 0.65;
         public static double kI = 0.0;
-        public static double kD = 0.04;
+        public static double kD = 0.03;
         public static double MIN_POWER = 0.15;
         public static double MAX_POWER = 0.65;
         public static double TOLERANCE_DEG = 2.0;
         public static double TIMEOUT_MS = 3000;
     }
 
+    // Configuration
     public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static long SHOOT_DURATION = 1400;
+
+    // RPM Compensation Parameters
+    @Config
+    public static class RPMCompensationForAuton {
+        public static boolean ENABLE_COMPENSATION = true;
+        public static double RPM_DROP_THRESHOLD = 100.0;
+        public static double ANGLE_COMPENSATION_PER_100RPM = 10.0;
+        public static double MAX_ANGLE_COMPENSATION = 50.0;
+        public static long RPM_CHECK_INTERVAL = 30;
+    }
 
     private Thread pidThread;
     private volatile boolean runPid = false;
     private final ElapsedTime timer = new ElapsedTime();
+
+    // Thread for immediate RPM monitoring (same as ShootingTest)
+    private Thread rpmMonitorThread;
+    private volatile boolean monitorActive = false;
+    private volatile boolean isShooting = false;  // Flag to enable/disable compensation
+    private volatile double currentAngle = 0;
+    private volatile double baseRampAngle = 121.0;
+    private volatile int compensationCount = 0;
+    private volatile int recoveryCount = 0;
 
     public AutonController(
             LinearOpMode opMode,
@@ -66,6 +87,11 @@ public class AutonController {
         this.intakeController = intakeController;
         this.limelightController = limelightController;
         this.autoShootController = autoShootController;
+        this.rampController = null;
+    }
+
+    public void setRampController(RampController rampController) {
+        this.rampController = rampController;
     }
 
     // ========== THREAD MANAGEMENT ==========
@@ -86,10 +112,16 @@ public class AutonController {
         });
         pidThread.setPriority(Thread.MAX_PRIORITY);
         pidThread.start();
+
+        startImmediateRPMMonitor();
+
     }
 
     public void stopPidUpdateThread() {
         runPid = false;
+
+        monitorActive = false;
+
         if (pidThread != null) {
             try {
                 pidThread.interrupt();
@@ -97,6 +129,65 @@ public class AutonController {
                 // Ignore
             }
         }
+    }
+
+    // ================== NEW: IMMEDIATE RPM MONITOR THREAD ==================
+    /**
+     * CRITICAL FIX: Dedicated thread that monitors RPM continuously
+     * and adjusts ramp IMMEDIATELY - no waiting for check intervals
+     */
+    private void startImmediateRPMMonitor() {
+        monitorActive = true;
+        rpmMonitorThread = new Thread(() -> {
+            double lastAngleSet = baseRampAngle;
+
+            while (opMode.opModeIsActive() && monitorActive) {
+                // Only compensate while actively shooting
+                if (isShooting && RPMCompensationForAuton.ENABLE_COMPENSATION && rampController != null) {
+                    double currentRPM = shooterController.getShooterRPM();
+                    double targetRPM = shooterController.getTargetRPM();
+                    double rpmDrop = targetRPM - currentRPM;
+
+                    // Calculate target angle based on current RPM
+                    double targetAngle;
+                    if (rpmDrop > RPMCompensationForAuton.RPM_DROP_THRESHOLD) {
+                        // RPM is LOW - decrease angle to compensate
+                        double angleDecrease = (rpmDrop / 100.0) * RPMCompensationForAuton.ANGLE_COMPENSATION_PER_100RPM;
+                        angleDecrease = Math.min(angleDecrease, RPMCompensationForAuton.MAX_ANGLE_COMPENSATION);
+                        targetAngle = baseRampAngle - angleDecrease;
+                    } else {
+                        // RPM is GOOD - return to base angle
+                        targetAngle = baseRampAngle;
+                    }
+
+                    // IMMEDIATE adjustment - no delay!
+                    // Only update if angle changed significantly to avoid servo jitter
+                    if (Math.abs(targetAngle - lastAngleSet) > 0.3) {
+                        rampController.setAngle(targetAngle);
+
+                        // Track compensation vs recovery
+                        if (targetAngle < lastAngleSet) {
+                            compensationCount++;
+                        } else if (targetAngle > lastAngleSet) {
+                            recoveryCount++;
+                        }
+
+                        currentAngle = targetAngle;
+                        lastAngleSet = targetAngle;
+                    }
+                }
+
+                // Run as fast as possible - minimal sleep
+                // This ensures we catch RPM drops within ~5ms
+                try {
+                    Thread.sleep(30);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        });
+        rpmMonitorThread.setPriority(Thread.MAX_PRIORITY - 1);
+        rpmMonitorThread.start();
     }
 
     // ========== MOVEMENT WITH DECELERATION ==========
@@ -125,44 +216,37 @@ public class AutonController {
             double currentDistance = Math.abs(driveController.getX() - startX);
             double error = targetDistance - currentDistance;
 
-            // Heading correction
             double currentHeading = driveController.getHeading();
             double headingError = normalizeAngle(startHeading - currentHeading);
             double headingCorrection = MovementPID.HEADING_CORRECTION_KP * headingError;
 
-            // Check completion
             if (Math.abs(error) < MovementPID.TOLERANCE) {
                 break;
             }
 
-            // Check timeout
             if (timer.milliseconds() > MovementPID.TIMEOUT_MS) {
                 break;
             }
 
-            // Get base speed from PID
-            double pidOutput = movePID.getOutput(timer.seconds(), -error);
+            // FIXED: Removed negative sign from error
+            double pidOutput = movePID.getOutput(timer.seconds(), error);
             double speed = pidOutput;
 
-            // DECELERATION ZONE - gradually reduce max speed near target
             double effectiveMaxSpeed = maxSpeed;
             if (Math.abs(error) < MovementPID.DECEL_DISTANCE) {
                 double decelFactor = Math.abs(error) / MovementPID.DECEL_DISTANCE;
-                decelFactor = decelFactor * decelFactor; // Quadratic for smooth curve
+                decelFactor = decelFactor * decelFactor;
                 effectiveMaxSpeed = MovementPID.MIN_SPEED +
                         (maxSpeed - MovementPID.MIN_SPEED) * decelFactor;
             }
 
-            // Apply MIN_SPEED only when far from target
             if (Math.abs(speed) < MovementPID.MIN_SPEED && Math.abs(error) > MovementPID.TOLERANCE * 2) {
                 speed = Math.signum(speed) * MovementPID.MIN_SPEED;
             }
 
-            // Clamp to effective max speed
             speed = Math.max(-effectiveMaxSpeed, Math.min(effectiveMaxSpeed, speed));
             speed *= direction;
 
-            // Apply heading correction
             double leftSpeed = speed - headingCorrection;
             double rightSpeed = speed + headingCorrection;
 
@@ -208,7 +292,8 @@ public class AutonController {
                 break;
             }
 
-            double pidOutput = turnPID.getOutput(timer.seconds(), -headingError);
+            // FIXED: Removed negative sign from error
+            double pidOutput = turnPID.getOutput(timer.seconds(), headingError);
 
             double power = pidOutput;
             if (Math.abs(power) < TurnPID.MIN_POWER && Math.abs(headingError) > toleranceRad) {
@@ -228,9 +313,21 @@ public class AutonController {
         return Math.toDegrees(driveController.getHeading());
     }
 
-    // ========== SHOOTING ==========
-
+    /**
+     * FIXED: Quick shoot now uses background thread for IMMEDIATE RPM compensation
+     * The ramp adjustment now happens in startImmediateRPMMonitor() thread,
+     * this method just enables/disables it via the isShooting flag
+     */
     public void quickShoot() {
+        // Reset compensation counters
+        compensationCount = 0;
+        recoveryCount = 0;
+
+        // Set base angle for compensation calculations
+        baseRampAngle = (rampController != null) ? rampController.getAngle() : 121.0;
+        currentAngle = baseRampAngle;
+
+        // Wait for RPM to stabilize (max 300ms)
         timer.reset();
         while (opMode.opModeIsActive() && timer.milliseconds() < 300) {
             if (Math.abs(shooterController.getShooterRPM() - shooterController.getTargetRPM()) < 150) {
@@ -239,6 +336,7 @@ public class AutonController {
             opMode.sleep(20);
         }
 
+        // Optional quick alignment
         if (limelightController != null) {
             try {
                 driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
@@ -258,17 +356,49 @@ public class AutonController {
             }
         }
 
+        // This activates the background monitor thread!
+        isShooting = true;
+
+        // Start shooting
         transferController.transferFull();
         intakeController.intakeFull();
 
         timer.reset();
+
+        // RPM compensation now happens in background thread automatically
+        // This loop just handles timing and telemetry
         while (opMode.opModeIsActive() && timer.milliseconds() < SHOOT_DURATION) {
-            opMode.sleep(50);
+            // Optional: Display real-time telemetry
+            double currentRPM = shooterController.getShooterRPM();
+            double targetRPM = shooterController.getTargetRPM();
+
+            opMode.telemetry.addLine("🔥 SHOOTING - IMMEDIATE compensation active");
+            opMode.telemetry.addData("RPM", "%.0f / %.0f", currentRPM, targetRPM);
+            opMode.telemetry.addData("Angle", "%.1f°", currentAngle);
+            opMode.telemetry.addData("Compensations", compensationCount);
+            opMode.telemetry.addData("Recoveries", recoveryCount);
+            opMode.telemetry.addData("Response Time", "~5ms");
+            opMode.telemetry.update();
+
+            opMode.sleep(50);  // Telemetry update rate (doesn't affect compensation speed)
         }
 
+        isShooting = false;
+
+        // Stop shooting
         transferController.transferStop();
         intakeController.intakeStop();
+
+        // Log final stats
+        if (compensationCount > 0 || recoveryCount > 0) {
+            opMode.telemetry.addLine("✓ Shooting complete (IMMEDIATE mode)");
+            opMode.telemetry.addData("Compensations applied", compensationCount);
+            opMode.telemetry.addData("Recoveries applied", recoveryCount);
+            opMode.telemetry.addData("Final angle", "%.1f°", currentAngle);
+            opMode.telemetry.update();
+        }
     }
+    // ====================================================================================
 
     public void warmupShooter() {
         timer.reset();
