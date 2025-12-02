@@ -4,6 +4,7 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
+
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
@@ -14,7 +15,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import org.firstinspires.ftc.teamcode.champion.controller.RampController;
 
 @Config
-@Autonomous(name = "Basic Auton Fixed", group = "Competition")
+@Autonomous(name = "Basic Auton Running", group = "Competition")
 public class BasicAuton extends LinearOpMode {
     // Controllers
     SixWheelDriveController driveController;
@@ -26,35 +27,29 @@ public class BasicAuton extends LinearOpMode {
     RampController rampController;
     AutonController autonController;
 
-    public static double CONSTANT_SHOOTER_RPM = 2800.0;
-    public static double SECOND_SHOT_RPM = 2700.0;  // Lower RPM for second shot
-    public static double CONSTANT_RAMP_ANGLE = 121.0;
+    public static double CONSTANT_SHOOTER_RPM = 2700.0;
+    public static double CONSTANT_RAMP_ANGLE = 119.0;
     public static double MOVEMENT_SPEED = 0.6;
     public static double INTAKE_SPEED = 0.25;
 
     // ============ PATH PARAMETERS ============
-    public static double INITIAL_BACKWARD = 51.0;
-    public static double PATTERN_SCAN_ANGLE = -45.0;  // Turn right to face AprilTag directly
+    public static double INITIAL_BACKWARD = 40.0;
+    public static double PATTERN_SCAN_ANGLE = -67.0;
+    public static double ALIGNMENT_ANGLE = -45.0;
     public static double[] PATTERN_POSITION_DISTANCE = {
-            -35,  // PPG
-            -20.0,  // PGP
-            0.0     // GPP
+            -58.0 ,  // PPG
+            -34.0,  // PGP
+            -8.0   // GPP
     };
-    public static double LEFT_TURN_ANGLE = 90.0;      // Turn left to align with balls
-    public static double INTAKE_FORWARD = 30.0;       // Forward while intaking
-    public static double INTAKE_BACKWARD = 30.0;      // Backward after intake
-
-    public static double PPG_EXTRA_FORWARD = 20.0;    // Extra forward before turning to shoot (PPG)
-    public static double PGP_EXTRA_FORWARD = 8.0;     // Extra forward before turning to shoot (PGP)
-
-    // Return to shooting position
-    public static double SHOOT_HEADING = 0.0;         // Return to 0° for shooting
+    public static double LEFT_TURN_ANGLE = 90.0;
+    public static double INTAKE_FORWARD = 22.0;
+    public static double INTAKE_BACKWARD = 22.0;
+    public static double SHOOT_HEADING = 0.0;
 
     private final ElapsedTime globalTimer = new ElapsedTime();
 
     @Override
     public void runOpMode() {
-        // Fast initialization
         initializeRobot();
 
         waitForStart();
@@ -74,8 +69,10 @@ public class BasicAuton extends LinearOpMode {
         // Cleanup
         cleanup();
 
-        // Final telemetry
-        telemetry.addData("Complete", "%.1fs", globalTimer.seconds());
+        telemetry.addLine("=============================");
+        telemetry.addLine("✓ AUTONOMOUS COMPLETE");
+        telemetry.addLine("=============================");
+        telemetry.addData("Total Time", "%.1fs", globalTimer.seconds());
         telemetry.update();
     }
 
@@ -86,32 +83,39 @@ public class BasicAuton extends LinearOpMode {
         intakeController = new IntakeController(this);
         rampController = new RampController(this);
 
+        // Set initial ramp angle
         rampController.setAngle(CONSTANT_RAMP_ANGLE);
 
-        // Try to initialize Limelight (don't fail if not available)
+        // Try to initialize Limelight
         try {
             limelightController = new LimelightAlignmentController(this, driveController);
             limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
             autoShootController = new AutoShootController(this, driveController, shooterController,
                     intakeController, transferController, limelightController, rampController);
         } catch (Exception e) {
-          //continue without vision
+            telemetry.addLine("⚠ Vision system unavailable");
+            telemetry.update();
         }
 
         // Initialize AutonController
         autonController = new AutonController(this, driveController, transferController,
                 shooterController, intakeController, limelightController, autoShootController);
 
+        // CRITICAL: Set the RampController so real-time RPM compensation can work
+        autonController.setRampController(rampController);
+
     }
 
-    private void executeAutonomousSequence() {
-        // Move backward
-        autonController.moveRobot(-INITIAL_BACKWARD, MOVEMENT_SPEED);
 
-        // Quick warmup check (inline, no thread)
+
+    private void executeAutonomousSequence() {
+        //warm up the shooter
         autonController.warmupShooter();
 
-        // Shoot preloaded balls
+        // go back 40 inches
+        autonController.moveRobot(-INITIAL_BACKWARD, MOVEMENT_SPEED);
+
+        // Shoot preloaded balls (with REAL-TIME RPM compensation)
         autonController.quickShoot();
 
         // Turn and scan for pattern
@@ -120,12 +124,15 @@ public class BasicAuton extends LinearOpMode {
         // Pattern detection
         int patternIndex = autonController.detectPattern();
 
+        // 90 degrees to the balls alignment
+        autonController.turnToHeading(ALIGNMENT_ANGLE);
+
         // Move to appropriate line position based on pattern
         double positionDistance = PATTERN_POSITION_DISTANCE[patternIndex];
         autonController.moveRobot(positionDistance, MOVEMENT_SPEED);
 
-        // Turn left 90 degrees to align with balls
-        autonController.turnToHeading(PATTERN_SCAN_ANGLE+ LEFT_TURN_ANGLE);
+        // Turn left 90 degrees to intake
+        autonController.turnToHeading(ALIGNMENT_ANGLE + LEFT_TURN_ANGLE);
 
         // Go forward while intaking
         intakeController.intakeFull();
@@ -138,34 +145,21 @@ public class BasicAuton extends LinearOpMode {
         // Go backward
         autonController.moveRobot(-INTAKE_BACKWARD, MOVEMENT_SPEED);
 
-        // Pattern-specific repositioning
-        if (patternIndex == 0) {  // PPG pattern
-            autonController.turnToHeading(PATTERN_SCAN_ANGLE);
-            // Go forward extra inches before turning to shoot
-            autonController.moveRobot(PPG_EXTRA_FORWARD, MOVEMENT_SPEED);
-        }
+        //turn right 90 degrees
+        autonController.turnToHeading(ALIGNMENT_ANGLE);
 
-        if (patternIndex == 1) {  // PGP pattern
-            autonController.turnToHeading(PATTERN_SCAN_ANGLE);
-            // Go forward extra inches before turning to shoot
-            autonController.moveRobot(PGP_EXTRA_FORWARD, MOVEMENT_SPEED);
-        }
+        // move to shooting position
+        autonController.moveRobot(-positionDistance, MOVEMENT_SPEED);
 
-        // Turn to 0° heading for shooting
+        //turn for shooting
         autonController.turnToHeading(SHOOT_HEADING);
 
-        shooterController.setShooterRPM(SECOND_SHOT_RPM);
-        sleep(30);
-
-        // Shoot the balls we just intaked
+        // Shoot the balls we just intaked (with REAL-TIME RPM compensation)
         autonController.quickShoot();
     }
 
     private void cleanup() {
-        // Stop PID thread
         autonController.stopPidUpdateThread();
-
-        // Stop all motors
         shooterController.shooterStop();
         intakeController.intakeStop();
         transferController.transferStop();

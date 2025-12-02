@@ -289,10 +289,9 @@ public class SixWheelDriveController {
     }
 
     public void tankDriveVelocityNormalized(double leftPower, double rightPower) {
-        // Apply additional scaling for smoother velocity control
-        double velocityScale = 0.8;  // Reduce max velocity for better control
-        double leftVel = leftPower * VelocityParams.MAX_TICKS_PER_SEC * velocityScale;
-        double rightVel = rightPower * VelocityParams.MAX_TICKS_PER_SEC * velocityScale;
+        // FIXED: Removed velocity scaling - use full range as specified by PID
+        double leftVel = leftPower * VelocityParams.MAX_TICKS_PER_SEC;
+        double rightVel = rightPower * VelocityParams.MAX_TICKS_PER_SEC;
         tankDriveVelocity(leftVel, rightVel);
     }
 

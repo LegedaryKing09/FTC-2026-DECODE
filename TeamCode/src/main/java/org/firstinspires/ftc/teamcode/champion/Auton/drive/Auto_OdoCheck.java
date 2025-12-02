@@ -14,7 +14,7 @@ public class Auto_OdoCheck extends LinearOpMode {
         AutoTankDrive drive = new AutoTankDrive(hardwareMap, startPose, this.telemetry);
 
         // Initialize pinpoint
-//        drive.initializePinpoint(this, startPose);
+    //    drive.initializePinpoint(this, startPose);
 
         telemetry.addLine("====================================");
         telemetry.addLine("ODOMETRY CHECK MODE");
@@ -37,8 +37,8 @@ public class Auto_OdoCheck extends LinearOpMode {
             Pose2d pose = drive.pinpointLocalizer.getPose();
 
             telemetry.addData("Status", drive.getDeviceStatus());
-//            telemetry.addData("X (inches)", "%.2f", drive.pinpointLocalizer.getPosX(DistanceUnit.INCH));
-//            telemetry.addData("Y (inches)", "%.2f", drive.pinpointLocalizer.getPosY(DistanceUnit.INCH));
+       //     telemetry.addData("X (inches)", "%.2f", drive.pinpointLocalizer.getPosX(DistanceUnit.INCH));
+         //   telemetry.addData("Y (inches)", "%.2f", drive.pinpointLocalizer.getPosY(DistanceUnit.INCH));
             telemetry.addData("Heading (deg)", "%.1f", Math.toDegrees(pose.heading.toDouble()));
             telemetry.addLine("");
             telemetry.addLine("Push robot to test odometry!");
