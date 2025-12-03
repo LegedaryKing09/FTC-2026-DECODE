@@ -29,6 +29,16 @@ public class NewTeleop extends LinearOpMode {
     // Target AprilTag ID for turret alignment
     public static int TURRET_TARGET_TAG_ID = 20;
 
+    // Shooter target RPM (tunable via FTC Dashboard)
+    public static double SHOOTER_TARGET_RPM = 3000.0;
+
+    // Shooter RPM increment per button press
+    public static double SHOOTER_RPM_INCREMENT = 50.0;
+
+    // Shooter RPM limits
+    public static double SHOOTER_MIN_RPM = 0.0;
+    public static double SHOOTER_MAX_RPM = 6000.0;
+
     // Controllers
     private TurretController turret;
     private TurretAlignmentController turretAlignment;
@@ -130,7 +140,7 @@ public class NewTeleop extends LinearOpMode {
         }
 
         while (opModeIsActive()) {
-            // ========== EMERGENCY STOP ==========
+            // ========== REVERSE CONTROL ==========
             handleReverse();
 
             // ========== DRIVE CONTROL ==========
@@ -252,6 +262,11 @@ public class NewTeleop extends LinearOpMode {
             telemetry.addData("✗ Shooter", "NOT FOUND");
         }
         shooter = new NewShooterController(shooterMotor);
+
+        // Set initial target RPM from Dashboard-tunable value
+        if (shooter != null) {
+            shooter.setTargetRPM(SHOOTER_TARGET_RPM);
+        }
     }
 
     private void displayInitScreen() {
@@ -275,12 +290,12 @@ public class NewTeleop extends LinearOpMode {
         telemetry.addLine("  DPAD DOWN: -10° Angle");
         telemetry.addLine();
         telemetry.addLine("🎯 SHOOTER");
-        telemetry.addLine("  X: Increase RPM +100");
-        telemetry.addLine("  A: Decrease RPM -100");
+        telemetry.addLine("  X: Increase RPM +50");
+        telemetry.addLine("  A: Decrease RPM -50");
         telemetry.addLine("  Y: SHOOT (reach target RPM)");
         telemetry.addLine("  LT: Manual power (overrides)");
         telemetry.addLine();
-        telemetry.addLine("🛑 B: EMERGENCY STOP");
+        telemetry.addLine("🔄 B: REVERSE (Intake/Transfer/Uptake)");
         telemetry.addLine();
         telemetry.addLine("📦 SYSTEMS");
         telemetry.addLine("  RB: Intake Toggle");
@@ -292,23 +307,41 @@ public class NewTeleop extends LinearOpMode {
 
     /**
      * Reverse - B button
+     * Toggles reverse mode for intake, transfer, and uptake
      */
     private void handleReverse() {
         boolean currentB = gamepad1.b;
         if (currentB && !lastB) {
-            assert intake != null;
-            if (intake.reversed) intake.toggle();
-            else if (intake.isActive()) intake.reversed = true;
-            else {intake.reversed = true; intake.toggle();}
-            if (transfer.reversed) transfer.toggle();
-            else if (transfer.isActive()) transfer.reversed = true;
-            else {transfer.reversed = true; transfer.toggle();}
-            if (uptake.reversed) uptake.toggle();
-            else if (uptake.isActive()) uptake.reversed = true;
-            else {uptake.reversed = true; uptake.toggle();}
-            intake.update();
-            transfer.update();
-            uptake.update();
+            // Toggle reverse mode for all systems
+            if (intake != null) {
+                if (intake.reversed) {
+                    intake.reversed = false;
+                    if (intake.isActive()) intake.toggle(); // Turn off
+                } else {
+                    intake.reversed = true;
+                    if (!intake.isActive()) intake.toggle(); // Turn on in reverse
+                }
+            }
+
+            if (transfer != null) {
+                if (transfer.reversed) {
+                    transfer.reversed = false;
+                    if (transfer.isActive()) transfer.toggle();
+                } else {
+                    transfer.reversed = true;
+                    if (!transfer.isActive()) transfer.toggle();
+                }
+            }
+
+            if (uptake != null) {
+                if (uptake.reversed) {
+                    uptake.reversed = false;
+                    if (uptake.isActive()) uptake.toggle();
+                } else {
+                    uptake.reversed = true;
+                    if (!uptake.isActive()) uptake.toggle();
+                }
+            }
         }
         lastB = currentB;
     }
@@ -418,57 +451,69 @@ public class NewTeleop extends LinearOpMode {
         // Right Bumper - Intake toggle
         boolean currentRightBumper = gamepad1.right_bumper;
         if (currentRightBumper && !lastRightBumper) {
-            intake.reversed = false;
-            intake.toggle();
-            intake.update();
+            if (intake != null) {
+                intake.reversed = false;
+                intake.toggle();
+                intake.update();
+            }
         }
         lastRightBumper = currentRightBumper;
 
         // Right Trigger - Transfer toggle
         boolean currentRightTrigger = gamepad1.right_trigger > TRIGGER_THRESHOLD;
         if (currentRightTrigger && !lastRightTrigger) {
-            transfer.reversed = false;
-            transfer.toggle();
-            transfer.update();
+            if (transfer != null) {
+                transfer.reversed = false;
+                transfer.toggle();
+                transfer.update();
+            }
         }
         lastRightTrigger = currentRightTrigger;
 
         // Left Bumper - Uptake toggle
         boolean currentLeftBumper = gamepad1.left_bumper;
         if (currentLeftBumper && !lastLeftBumper) {
-            uptake.reversed = false;
-            uptake.toggle();
-            uptake.update();
+            if (uptake != null) {
+                uptake.reversed = false;
+                uptake.toggle();
+                uptake.update();
+            }
         }
         lastLeftBumper = currentLeftBumper;
     }
 
     /**
-     * Handle shooter control - X/A for RPM, Y for shoot
+     * Handle shooter control - X/A for RPM adjustment, Y for shoot toggle
      */
     private void handleShooterControl() {
-        // X Button - Increase target RPM
+        if (shooter == null) return;
+
+        // X Button - Increase target RPM by 50
         boolean currentX = gamepad1.x;
         if (currentX && !lastX) {
-            shooter.incrementTargetRPM();
+            SHOOTER_TARGET_RPM = Math.min(SHOOTER_TARGET_RPM + SHOOTER_RPM_INCREMENT, SHOOTER_MAX_RPM);
+            shooter.setTargetRPM(SHOOTER_TARGET_RPM);
         }
         lastX = currentX;
 
-        // A Button - Decrease target RPM
+        // A Button - Decrease target RPM by 50
         boolean currentA = gamepad1.a;
         if (currentA && !lastA) {
-            shooter.decrementTargetRPM();
+            SHOOTER_TARGET_RPM = Math.max(SHOOTER_TARGET_RPM - SHOOTER_RPM_INCREMENT, SHOOTER_MIN_RPM);
+            shooter.setTargetRPM(SHOOTER_TARGET_RPM);
         }
         lastA = currentA;
 
         // Y Button - Toggle shoot mode
         boolean currentY = gamepad1.y;
         if (currentY && !lastY) {
+            // Ensure target RPM is set before toggling shoot mode
+            shooter.setTargetRPM(SHOOTER_TARGET_RPM);
             shooter.toggleShoot();
         }
         lastY = currentY;
 
-        // Left Trigger - Manual control (overrides)
+        // Left Trigger - Manual control (overrides PID)
         double triggerValue = gamepad1.left_trigger;
         if (triggerValue > 0.1) {
             shooterManualMode = true;
@@ -479,15 +524,16 @@ public class NewTeleop extends LinearOpMode {
             shooter.setPower(0);
         }
 
+        // Update shooter PID control
         shooter.update();
     }
 
     private void updateAllSystems() {
         if (turret != null) turret.update();
         if (ramp != null) ramp.update();
-        intake.update();
-        transfer.update();
-        uptake.update();
+        if (intake != null) intake.update();
+        if (transfer != null) transfer.update();
+        if (uptake != null) uptake.update();
     }
 
     private void displayTelemetry() {
@@ -542,24 +588,28 @@ public class NewTeleop extends LinearOpMode {
         }
 
         // Shooter status
-        telemetry.addLine();
-        telemetry.addLine("═══ SHOOTER ═══");
-        String shootMode = shooter.isShootMode() ? "🟢 SHOOTING" : "IDLE";
-        if (shooterManualMode) shootMode = "🟡 MANUAL";
-        telemetry.addData("Mode", shootMode);
-        telemetry.addData("Current RPM", "%.0f", shooter.getRPM());
-        telemetry.addData("Target RPM", "%.0f", shooter.getTargetRPM());
-        telemetry.addData("Power", "%.2f", shooter.getCurrentPower());
+        if (shooter != null) {
+            telemetry.addLine();
+            telemetry.addLine("═══ SHOOTER ═══");
+            String shootMode = shooter.isShootMode() ? "🟢 SHOOTING" : "⚫ IDLE";
+            if (shooterManualMode) shootMode = "🟡 MANUAL";
+            telemetry.addData("Mode", shootMode);
+            telemetry.addData("Target RPM", "%.0f", SHOOTER_TARGET_RPM);
+            telemetry.addData("Current RPM", "%.0f", shooter.getRPM());
+            telemetry.addData("RPM Error", "%.0f", shooter.getRPMError());
+            telemetry.addData("At Target", shooter.isAtTargetRPM() ? "✓ YES" : "✗ NO");
+            telemetry.addData("Power", "%.2f", shooter.getCurrentPower());
+        }
 
         // Systems status
         telemetry.addLine();
         telemetry.addLine("═══ SYSTEMS ═══");
-        telemetry.addData("Intake (RB)", "%s", intake.isActive() ? "🟢 ON" : "⚫ OFF");
-        telemetry.addData("Transfer (RT)", "%s", transfer.isActive() ? "🟢 ON" : "⚫ OFF");
-        telemetry.addData("Uptake (LB)", "%s", uptake.isActive() ? "🟢 ON" : "⚫ OFF");
+        telemetry.addData("Intake (RB)", "%s", (intake != null && intake.isActive()) ? "🟢 ON" : "⚫ OFF");
+        telemetry.addData("Transfer (RT)", "%s", (transfer != null && transfer.isActive()) ? "🟢 ON" : "⚫ OFF");
+        telemetry.addData("Uptake (LB)", "%s", (uptake != null && uptake.isActive()) ? "🟢 ON" : "⚫ OFF");
 
         telemetry.addLine();
-        telemetry.addLine("DPAD L/R=Turret | U/D=Ramp | X/A=RPM | Y=Shoot");
+        telemetry.addLine("DPAD L/R=Turret | U/D=Ramp | X/A=RPM±50 | Y=Shoot");
 
         telemetry.update();
     }
