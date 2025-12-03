@@ -15,10 +15,10 @@ public class NewRampController {
     // PID Constants (tunable via FTC Dashboard)
     public static double Kp = 0.03;
     public static double Ki = 0.0;
-    public static double Kd = 0.004;
+    public static double Kd = 0.0;
 
     // Control parameters
-    public static double MAX_POWER = 0.5;           // Maximum servo power
+    public static double MAX_POWER = 0.1;           // Maximum servo power
     public static double ANGLE_TOLERANCE = 4.0;     // Degrees - when to stop
     public static double MIN_POWER = 0.05;          // Minimum power to overcome friction
     public static double TIMEOUT_SECONDS = 3.0;     // Timeout for moves
