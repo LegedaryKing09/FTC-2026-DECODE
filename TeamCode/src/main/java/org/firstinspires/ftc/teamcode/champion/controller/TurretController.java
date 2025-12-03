@@ -1,225 +1,394 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import com.acmerobotics.dashboard.config.Config;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-/**
- * Controller for turret with encoder feedback
- */
+@Config
 public class TurretController {
 
-    private CRServo turretServo;
-    private AnalogInput turretEncoder;
+    public static String TURRET_SERVO_NAME = "turret";
+    public static String TURRET_ANALOG_NAME = "turret_analog";
 
-    // Tracking variables
-    private double lastPosition = 0;
-    private double currentPosition = 0;
-    private double velocity = 0;
-    private double lastTime = 0;
-    private ElapsedTime runtime;
+    // PID Constants (tunable via FTC Dashboard)
+    public static double Kp = 0.03;
+    public static double Ki = 0.0;
+    public static double Kd = 0.0;
 
-    // Position control
-    private boolean positionMode = false;
-    private double targetPosition = 0;
+    // Control parameters
+    public static double MAX_POWER = 0.5;           // Maximum servo power
+    public static double ANGLE_TOLERANCE = 2.0;     // Degrees - when to stop
+    public static double MIN_POWER = 0.05;          // Minimum power to overcome friction
+    public static double TIMEOUT_SECONDS = 3.0;     // Timeout for moves
 
-    // Continuous rotation mode
-    private enum RotationMode {
-        NONE,
-        CLOCKWISE,
-        COUNTERCLOCKWISE
-    }
-    private RotationMode rotationMode = RotationMode.NONE;
+    // Constants for Axon mini servo with gear ratio
+    public static double VOLTAGE_TO_DEGREES = 360.0 / 3.3;
+    public static double GEAR_RATIO = 2.5;
 
-    // Constants
-    private static final double VOLTAGE_TO_DEGREES = 360.0 / 3.3;
-    private static final double GEAR_RATIO = 2.5;
-
-    // Tunable parameters
-    public double servoPower = 0.5;
-    public double positionTolerance = 2.0;
-    public double manualSpeed = 0.6;
-    public double joystickDeadband = 0.1;
+    // Preset positions
+    public static double FRONT_POSITION = 0.0;
+    public static double LEFT_POSITION = 36.0;
+    public static double BACK_POSITION = 72.0;
+    public static double RIGHT_POSITION = 108.0;
 
     // Limits
-    public double minAngle = 0.0;
-    public double maxAngle = 144.0;
-    public boolean enableLimits = false;
+    public static boolean ENABLE_LIMITS = true;
+    public static double MIN_ANGLE = 0.0;
+    public static double MAX_ANGLE = 144.0;
 
-    // Presets
-    public double frontPosition = 0.0;
-    public double leftPosition = 36.0;
-    public double backPosition = 72.0;
-    public double rightPosition = 108.0;
+    private final CRServo turretServo;
+    private final AnalogInput turretAnalog;
+    private final ElapsedTime runtime;
 
-    public TurretController(CRServo servo, AnalogInput encoder, ElapsedTime time) {
-        this.turretServo = servo;
-        this.turretEncoder = encoder;
-        this.runtime = time;
-        this.lastTime = time.seconds();
+    // PID state
+    private double targetAngle = 0;
+    private double integral = 0;
+    private double lastError = 0;
+    private double lastTime = 0;
+    private boolean pidActive = false;
+    private double moveStartTime = 0;
+
+    // Velocity tracking
+    private double lastAngle = 0;
+    private double lastVelocityTime = 0;
+    private double velocity = 0;
+
+    // Initialization state
+    private boolean isInitialized = false;
+    private static final double INIT_TARGET_ANGLE = 0.0;  // Target angle for initialization
+
+    public TurretController(LinearOpMode opMode) {
+        turretServo = opMode.hardwareMap.get(CRServo.class, TURRET_SERVO_NAME);
+        turretAnalog = opMode.hardwareMap.get(AnalogInput.class, TURRET_ANALOG_NAME);
+        runtime = new ElapsedTime();
+
+        lastAngle = getCurrentAngle();
+        lastTime = runtime.seconds();
+        lastVelocityTime = lastTime;
+        targetAngle = getCurrentAngle();
     }
 
     /**
-     * Update position from encoder
+     * Initialize turret to front position (0 degrees)
+     * Call this during initialization or at the start of autonomous/teleop
+     */
+    public void initialize() {
+        targetAngle = INIT_TARGET_ANGLE;
+        pidActive = true;
+        resetPID();
+        moveStartTime = runtime.seconds();
+        isInitialized = false;
+    }
+
+    /**
+     * Check if initialization is complete
+     */
+    public boolean isInitialized() {
+        return isInitialized;
+    }
+
+    /**
+     * Update method - handles PID control and velocity calculation
+     * MUST be called every loop!
      */
     public void update() {
-        if (turretEncoder == null) return;
+        // Update velocity
+        double currentTime = runtime.seconds();
+        double deltaTime = currentTime - lastVelocityTime;
 
-        double voltage = turretEncoder.getVoltage();
-        double servoPosition = voltage * VOLTAGE_TO_DEGREES;
-        currentPosition = servoPosition / GEAR_RATIO;
+        if (deltaTime > 0.1) {
+            double currentAngle = getCurrentAngle();
+            double deltaAngle = currentAngle - lastAngle;
 
-        // Calculate velocity
+            // Handle wraparound
+            if (deltaAngle > 180) deltaAngle -= 360;
+            if (deltaAngle < -180) deltaAngle += 360;
+
+            velocity = deltaAngle / deltaTime;
+            lastAngle = currentAngle;
+            lastVelocityTime = currentTime;
+        }
+
+        // Handle PID control
+        double power = 0;
+        if (pidActive) {
+            power = calculatePID();
+
+            // Check if target reached
+            double currentAngle = getCurrentAngle();
+            double error = getShortestAngleError(targetAngle, currentAngle);
+
+            if (Math.abs(error) < ANGLE_TOLERANCE) {
+                pidActive = false;
+                power = 0;
+                integral = 0;
+
+                // Mark as initialized if we were initializing
+                if (!isInitialized && Math.abs(targetAngle - INIT_TARGET_ANGLE) < ANGLE_TOLERANCE) {
+                    isInitialized = true;
+                }
+            }
+
+            // Check for timeout
+            if (currentTime - moveStartTime > TIMEOUT_SECONDS) {
+                pidActive = false;
+                power = 0;
+                integral = 0;
+            }
+        }
+
+        turretServo.setPower(power);
+    }
+
+    /**
+     * Calculate PID output
+     */
+    private double calculatePID() {
         double currentTime = runtime.seconds();
         double deltaTime = currentTime - lastTime;
 
-        if (deltaTime > 0) {
-            double deltaPosition = currentPosition - lastPosition;
+        if (deltaTime <= 0) return 0;
 
-            // Handle wraparound
-            if (deltaPosition > 180) deltaPosition -= 360;
-            else if (deltaPosition < -180) deltaPosition += 360;
+        double currentAngle = getCurrentAngle();
+        double error = getShortestAngleError(targetAngle, currentAngle);
 
-            velocity = deltaPosition / deltaTime;
+        // Proportional term
+        double P = Kp * error;
+
+        // Integral term (with anti-windup)
+        integral += error * deltaTime;
+        // Limit integral to prevent windup
+        double maxIntegral = MAX_POWER / (Ki + 0.0001); // Avoid division by zero
+        integral = Math.max(-maxIntegral, Math.min(maxIntegral, integral));
+        double I = Ki * integral;
+
+        // Derivative term
+        double derivative = (error - lastError) / deltaTime;
+        double D = Kd * derivative;
+
+        // Calculate total output
+        double output = P + I + D;
+
+        // Apply minimum power to overcome friction
+        if (Math.abs(output) > 0.01 && Math.abs(output) < MIN_POWER) {
+            output = Math.signum(output) * MIN_POWER;
         }
 
-        lastPosition = currentPosition;
+        // Apply limits if enabled
+        if (ENABLE_LIMITS) {
+            if (currentAngle <= MIN_ANGLE && output < 0) {
+                output = 0;
+                pidActive = false;
+            } else if (currentAngle >= MAX_ANGLE && output > 0) {
+                output = 0;
+                pidActive = false;
+            }
+        }
+
+        // Clamp output to max power
+        output = Math.max(-MAX_POWER, Math.min(MAX_POWER, output));
+
+        lastError = error;
         lastTime = currentTime;
+
+        return output;
     }
 
     /**
-     * Set target position for automatic control
+     * Calculate shortest angle error (handles wraparound)
      */
-    public void setTargetPosition(double target) {
-        targetPosition = target;
-        positionMode = true;
-        rotationMode = RotationMode.NONE; // Cancel rotation mode
+    private double getShortestAngleError(double target, double current) {
+        double error = target - current;
+
+        // Normalize to [-180, 180]
+        while (error > 180) error -= 360;
+        while (error < -180) error += 360;
+
+        return error;
     }
 
     /**
-     * Cancel automatic positioning
+     * Reset PID state
      */
-    public void cancelPositionMode() {
-        positionMode = false;
-        rotationMode = RotationMode.NONE;
+    private void resetPID() {
+        integral = 0;
+        lastError = 0;
+        lastTime = runtime.seconds();
     }
 
     /**
-     * Set continuous clockwise rotation
+     * Increment turret angle by specified degrees
      */
-    public void setClockwiseRotation() {
-        positionMode = false;
-        rotationMode = RotationMode.CLOCKWISE;
-    }
+    public void incrementAngle(double degrees) {
+        double newTarget = targetAngle + degrees;
 
-    /**
-     * Set continuous counterclockwise rotation
-     */
-    public void setCounterclockwiseRotation() {
-        positionMode = false;
-        rotationMode = RotationMode.COUNTERCLOCKWISE;
-    }
-
-    /**
-     * Stop continuous rotation
-     */
-    public void stopRotation() {
-        rotationMode = RotationMode.NONE;
-    }
-
-    /**
-     * Calculate power based on manual input, rotation mode, or position mode
-     */
-    public double calculatePower(double manualInput) {
-        double power = 0;
-
-        // Manual control has highest priority
-        if (Math.abs(manualInput) > joystickDeadband) {
-            positionMode = false;
-            rotationMode = RotationMode.NONE;
-            power = manualInput * manualSpeed;
-
-            // Apply soft limits
-            if (enableLimits) {
-                if (currentPosition <= minAngle && power < 0) power = 0;
-                else if (currentPosition >= maxAngle && power > 0) power = 0;
-            }
-        } else if (rotationMode != RotationMode.NONE) {
-            // Continuous rotation mode
-            switch (rotationMode) {
-                case CLOCKWISE:
-                    power = servoPower;
-                    break;
-                case COUNTERCLOCKWISE:
-                    power = -servoPower;
-                    break;
-            }
-
-            // Apply soft limits
-            if (enableLimits) {
-                if (currentPosition <= minAngle && power < 0) {
-                    power = 0;
-                    rotationMode = RotationMode.NONE;
-                } else if (currentPosition >= maxAngle && power > 0) {
-                    power = 0;
-                    rotationMode = RotationMode.NONE;
-                }
-            }
-        } else if (positionMode) {
-            // Position control mode
-            double error = targetPosition - currentPosition;
-
-            // Normalize error
-            while (error > 180) error -= 360;
-            while (error < -180) error += 360;
-
-            // Check if reached target
-            if (Math.abs(error) < positionTolerance) {
-                power = 0;
-                positionMode = false;
-            } else {
-                power = (error > 0) ? servoPower : -servoPower;
-            }
+        // Apply limits if enabled
+        if (ENABLE_LIMITS) {
+            newTarget = Math.max(MIN_ANGLE, Math.min(MAX_ANGLE, newTarget));
+        } else {
+            // Wrap target angle to [0, 360]
+            while (newTarget >= 360) newTarget -= 360;
+            while (newTarget < 0) newTarget += 360;
         }
 
-        return power;
+        targetAngle = newTarget;
+        pidActive = true;
+        resetPID();
+        moveStartTime = runtime.seconds();
     }
 
     /**
-     * Set the turret power
+     * Decrement turret angle by specified degrees
+     */
+    public void decrementAngle(double degrees) {
+        incrementAngle(-degrees);
+    }
+
+    /**
+     * Set absolute target angle
+     */
+    public void setTargetAngle(double angle) {
+        // Apply limits if enabled
+        if (ENABLE_LIMITS) {
+            angle = Math.max(MIN_ANGLE, Math.min(MAX_ANGLE, angle));
+        } else {
+            // Wrap target angle to [0, 360]
+            while (angle >= 360) angle -= 360;
+            while (angle < 0) angle += 360;
+        }
+
+        targetAngle = angle;
+        pidActive = true;
+        resetPID();
+        moveStartTime = runtime.seconds();
+    }
+
+    /**
+     * Move to front preset position
+     */
+    public void moveToFront() {
+        setTargetAngle(FRONT_POSITION);
+    }
+
+    /**
+     * Move to left preset position
+     */
+    public void moveToLeft() {
+        setTargetAngle(LEFT_POSITION);
+    }
+
+    /**
+     * Move to back preset position
+     */
+    public void moveToBack() {
+        setTargetAngle(BACK_POSITION);
+    }
+
+    /**
+     * Move to right preset position
+     */
+    public void moveToRight() {
+        setTargetAngle(RIGHT_POSITION);
+    }
+
+    /**
+     * Set continuous power to turret (for manual control, disables PID)
      */
     public void setPower(double power) {
-        if (turretServo != null) {
-            turretServo.setPower(power);
+        pidActive = false;
+        integral = 0;
+
+        // Apply limits if enabled and in manual mode
+        if (ENABLE_LIMITS) {
+            double currentAngle = getCurrentAngle();
+            if (currentAngle <= MIN_ANGLE && power < 0) power = 0;
+            else if (currentAngle >= MAX_ANGLE && power > 0) power = 0;
         }
+
+        turretServo.setPower(power);
     }
 
     /**
-     * Check if near a target position
+     * Stop the turret
      */
-    public boolean isNear(double target) {
-        double error = Math.abs(target - currentPosition);
-        if (error > 180) error = 360 - error;
-        return error < positionTolerance * 2;
+    public void stop() {
+        pidActive = false;
+        integral = 0;
+        turretServo.setPower(0);
     }
 
-    // Getters
-    public double getCurrentPosition() { return currentPosition; }
-    public double getVelocity() { return velocity; }
-    public boolean isPositionMode() { return positionMode; }
-    public boolean isRotating() { return rotationMode != RotationMode.NONE; }
-    public String getRotationMode() {
-        switch (rotationMode) {
-            case CLOCKWISE: return "CLOCKWISE";
-            case COUNTERCLOCKWISE: return "COUNTERCLOCKWISE";
-            default: return "NONE";
-        }
+    /**
+     * Check if PID is actively controlling
+     */
+    public boolean isMoving() {
+        return pidActive;
     }
-    public double getTargetPosition() { return targetPosition; }
-    public double getRawVoltage() {
-        return turretEncoder != null ? turretEncoder.getVoltage() : 0;
+
+    /**
+     * Check if target has been reached
+     */
+    public boolean atTarget() {
+        return !pidActive && Math.abs(getShortestAngleError(targetAngle, getCurrentAngle())) < ANGLE_TOLERANCE;
     }
-    public double getServoPosition() {
-        return getRawVoltage() * VOLTAGE_TO_DEGREES;
+
+    /**
+     * Get current angle from analog feedback (accounts for gear ratio)
+     */
+    public double getCurrentAngle() {
+        double voltage = turretAnalog.getVoltage();
+        double servoAngle = voltage * VOLTAGE_TO_DEGREES;
+        return servoAngle / GEAR_RATIO;
+    }
+
+    /**
+     * Get target angle
+     */
+    public double getTargetAngle() {
+        return targetAngle;
+    }
+
+    /**
+     * Get angle error
+     */
+    public double getAngleError() {
+        return getShortestAngleError(targetAngle, getCurrentAngle());
+    }
+
+    /**
+     * Get the current velocity in degrees per second
+     */
+    public double getVelocity() {
+        return velocity;
+    }
+
+    /**
+     * Get the raw voltage from analog feedback
+     */
+    public double getVoltage() {
+        return turretAnalog.getVoltage();
+    }
+
+    /**
+     * Get the servo angle (before gear ratio conversion)
+     */
+    public double getServoAngle() {
+        return turretAnalog.getVoltage() * VOLTAGE_TO_DEGREES;
+    }
+
+    /**
+     * Get the current servo power
+     */
+    public double getPower() {
+        return turretServo.getPower();
+    }
+
+    /**
+     * Check if turret is near a specified angle
+     */
+    public boolean isNear(double angle) {
+        double error = Math.abs(getShortestAngleError(angle, getCurrentAngle()));
+        return error < ANGLE_TOLERANCE * 2;
     }
 }

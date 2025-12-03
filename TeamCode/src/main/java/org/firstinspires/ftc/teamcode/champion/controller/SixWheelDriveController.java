@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.Range;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 
@@ -25,10 +26,10 @@ public class SixWheelDriveController {
     public static String LB_NAME = "lb";
     public static String RB_NAME = "rb";
 
-    private final DcMotorEx frontLeft;
-    private final DcMotorEx frontRight;
-    private final DcMotorEx backLeft;
-    private final DcMotorEx backRight;
+    private final DcMotorEx lf;
+    private final DcMotorEx rf;
+    private final DcMotorEx lb;
+    private final DcMotorEx rb;
 
     private final GoBildaPinpointDriver pinpoint;
     private final LinearOpMode linearOpMode;
@@ -102,17 +103,22 @@ public class SixWheelDriveController {
         this.linearOpMode = opMode;
         this.iterativeOpMode = null;
 
-        frontLeft = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
-        frontRight = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
-        backLeft = opMode.hardwareMap.get(DcMotorEx.class, LB_NAME);
-        backRight = opMode.hardwareMap.get(DcMotorEx.class, RB_NAME);
+        lf = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
+        rf = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
+        lb = opMode.hardwareMap.get(DcMotorEx.class, LB_NAME);
+        rb = opMode.hardwareMap.get(DcMotorEx.class, RB_NAME);
 
         pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
-        frontLeft.setDirection(DcMotor.Direction.FORWARD);
-        backLeft.setDirection(DcMotor.Direction.FORWARD);
-        frontRight.setDirection(DcMotor.Direction.REVERSE);
-        backRight.setDirection(DcMotor.Direction.FORWARD);
+        lf.setDirection(DcMotorSimple.Direction.FORWARD);
+        lb.setDirection(DcMotorSimple.Direction.FORWARD);
+        rf.setDirection(DcMotorSimple.Direction.REVERSE);
+        rb.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        lf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        lb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         setMotorsBrakeMode();
         configurePinpoint();
@@ -125,17 +131,22 @@ public class SixWheelDriveController {
         this.linearOpMode = null;
         this.iterativeOpMode = opMode;
 
-        frontLeft = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
-        frontRight = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
-        backLeft = opMode.hardwareMap.get(DcMotorEx.class, LB_NAME);
-        backRight = opMode.hardwareMap.get(DcMotorEx.class, RB_NAME);
+        lf = opMode.hardwareMap.get(DcMotorEx.class, LF_NAME);
+        rf = opMode.hardwareMap.get(DcMotorEx.class, RF_NAME);
+        lb = opMode.hardwareMap.get(DcMotorEx.class, LB_NAME);
+        rb = opMode.hardwareMap.get(DcMotorEx.class, RB_NAME);
 
         pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
-        frontLeft.setDirection(DcMotor.Direction.FORWARD);
-        backLeft.setDirection(DcMotor.Direction.FORWARD);
-        frontRight.setDirection(DcMotor.Direction.REVERSE);
-        backRight.setDirection(DcMotor.Direction.FORWARD);
+        lf.setDirection(DcMotorSimple.Direction.FORWARD);
+        lb.setDirection(DcMotorSimple.Direction.FORWARD);
+        rf.setDirection(DcMotorSimple.Direction.REVERSE);
+        rb.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        lf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        lb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         setMotorsBrakeMode();
         configurePinpoint();
@@ -164,20 +175,20 @@ public class SixWheelDriveController {
     }
 
     private void initializeVelocityControl() {
-        frontLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        frontRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        backLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        backRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        lf.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rf.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        lb.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rb.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        frontLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        frontRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        backLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        backRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        lf.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rf.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        lb.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rb.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        setMotorPIDF(frontLeft);
-        setMotorPIDF(frontRight);
-        setMotorPIDF(backLeft);
-        setMotorPIDF(backRight);
+        setMotorPIDF(lf);
+        setMotorPIDF(rf);
+        setMotorPIDF(lb);
+        setMotorPIDF(rb);
     }
 
     private void setMotorPIDF(DcMotorEx motor) {
@@ -256,10 +267,10 @@ public class SixWheelDriveController {
             leftPower /= maxPower;
             rightPower /= maxPower;
         }
-        frontLeft.setPower(leftPower);
-        backLeft.setPower(leftPower);
-        frontRight.setPower(rightPower);
-        backRight.setPower(rightPower);
+        lf.setPower(leftPower);
+        lb.setPower(leftPower);
+        rf.setPower(rightPower);
+        rb.setPower(rightPower);
     }
 
     public void stopDrive() {
@@ -282,10 +293,10 @@ public class SixWheelDriveController {
         rightVelocity = Range.clip(rightVelocity,
                 -VelocityParams.MAX_TICKS_PER_SEC, VelocityParams.MAX_TICKS_PER_SEC);
 
-        frontLeft.setVelocity(leftVelocity);
-        backLeft.setVelocity(leftVelocity);
-        frontRight.setVelocity(rightVelocity);
-        backRight.setVelocity(rightVelocity);
+        lf.setVelocity(leftVelocity);
+        lb.setVelocity(leftVelocity);
+        rf.setVelocity(rightVelocity);
+        rb.setVelocity(rightVelocity);
     }
 
     public void tankDriveVelocityNormalized(double leftPower, double rightPower) {
@@ -311,11 +322,11 @@ public class SixWheelDriveController {
     }
 
     public double getLeftVelocity() {
-        return (frontLeft.getVelocity() + backLeft.getVelocity()) / 2.0;
+        return (lf.getVelocity() + lb.getVelocity()) / 2.0;
     }
 
     public double getRightVelocity() {
-        return (frontRight.getVelocity() + backRight.getVelocity()) / 2.0;
+        return (rf.getVelocity() + rb.getVelocity()) / 2.0;
     }
 
     // === ODOMETRY METHODS ===
@@ -410,10 +421,10 @@ public class SixWheelDriveController {
     }
 
     private void setMotorsBrakeMode() {
-        frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        lf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        lb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
     public void setPosition(double x, double y, double heading) {
@@ -508,10 +519,10 @@ public class SixWheelDriveController {
             linearOpMode.telemetry.addData("Mode", currentDriveMode);
             linearOpMode.telemetry.addData("Speed Mode", isFastSpeedMode ? "FAST" : "SLOW");
             linearOpMode.telemetry.addLine();
-            linearOpMode.telemetry.addData("Front Left Power", String.format(Locale.US, "%.2f", frontLeft.getPower()));
-            linearOpMode.telemetry.addData("Front Right Power", String.format(Locale.US, "%.2f", frontRight.getPower()));
-            linearOpMode.telemetry.addData("Back Left Power", String.format(Locale.US, "%.2f", backLeft.getPower()));
-            linearOpMode.telemetry.addData("Back Right Power", String.format(Locale.US, "%.2f", backRight.getPower()));
+            linearOpMode.telemetry.addData("Front Left Power", String.format(Locale.US, "%.2f", lf.getPower()));
+            linearOpMode.telemetry.addData("Front Right Power", String.format(Locale.US, "%.2f", rf.getPower()));
+            linearOpMode.telemetry.addData("Back Left Power", String.format(Locale.US, "%.2f", lb.getPower()));
+            linearOpMode.telemetry.addData("Back Right Power", String.format(Locale.US, "%.2f", rb.getPower()));
 
             if (currentDriveMode == DriveMode.VELOCITY) {
                 linearOpMode.telemetry.addLine();
@@ -530,10 +541,10 @@ public class SixWheelDriveController {
         } else if (iterativeOpMode != null) {
             iterativeOpMode.telemetry.addLine("=== DRIVE STATUS ===");
             iterativeOpMode.telemetry.addData("Mode", currentDriveMode);
-            iterativeOpMode.telemetry.addData("Front Left", String.format(Locale.US, "%.2f", frontLeft.getPower()));
-            iterativeOpMode.telemetry.addData("Front Right", String.format(Locale.US, "%.2f", frontRight.getPower()));
-            iterativeOpMode.telemetry.addData("Back Left", String.format(Locale.US, "%.2f", backLeft.getPower()));
-            iterativeOpMode.telemetry.addData("Back Right", String.format(Locale.US, "%.2f", backRight.getPower()));
+            iterativeOpMode.telemetry.addData("Front Left", String.format(Locale.US, "%.2f", lf.getPower()));
+            iterativeOpMode.telemetry.addData("Front Right", String.format(Locale.US, "%.2f", rf.getPower()));
+            iterativeOpMode.telemetry.addData("Back Left", String.format(Locale.US, "%.2f", lb.getPower()));
+            iterativeOpMode.telemetry.addData("Back Right", String.format(Locale.US, "%.2f", rb.getPower()));
 
             if (currentDriveMode == DriveMode.VELOCITY) {
                 iterativeOpMode.telemetry.addLine();
@@ -553,13 +564,13 @@ public class SixWheelDriveController {
 
     public String getMotorPowers() {
         return String.format(Locale.US, "FL:%.2f FR:%.2f BL:%.2f BR:%.2f",
-                frontLeft.getPower(), frontRight.getPower(),
-                backLeft.getPower(), backRight.getPower());
+                lf.getPower(), rf.getPower(),
+                lb.getPower(), rb.getPower());
     }
 
     public String getMotorVelocities() {
         return String.format(Locale.US, "FL:%.0f FR:%.0f BL:%.0f BR:%.0f",
-                frontLeft.getVelocity(), frontRight.getVelocity(),
-                backLeft.getVelocity(), backRight.getVelocity());
+                lf.getVelocity(), rf.getVelocity(),
+                lb.getVelocity(), rb.getVelocity());
     }
 }
