@@ -53,18 +53,23 @@ public class DecemberTeleop extends LinearOpMode {
 
     private final ElapsedTime runtime = new ElapsedTime();
 
-    // Button debouncing
-    private boolean lastRightBumper = false;
-    private boolean lastRightTrigger = false;
-    private boolean lastLeftBumper = false;
-    private boolean lastY = false;
-    private boolean lastA = false;
-    private boolean lastB = false;
-    private boolean lastX = false;
-    private boolean lastDpadUp = false;
-    private boolean lastDpadDown = false;
-    private boolean lastDpadLeft = false;
-    private boolean lastDpadRight = false;
+    // Player 1
+    private boolean RightBumper1 = false;
+    private boolean LeftTrigger1 = false;
+    private boolean LeftBumper1 = false;
+    private boolean Y1 = false;
+    private boolean A1 = false;
+    private boolean B1 = false;
+    private boolean X1 = false;
+    private boolean DpadDown = false;
+
+    //Player 2
+    private boolean RightBumper2 = false;
+    private boolean RightTrigger2 = false;
+    private boolean LeftBumper2 = false;
+    private boolean Y2 = false;
+    private boolean A2 = false;
+    private boolean X2 = false;
 
     // Trigger threshold for transfer toggle
     private static final double TRIGGER_THRESHOLD = 0.5;
@@ -160,15 +165,14 @@ public class DecemberTeleop extends LinearOpMode {
             // ========== UPDATE ALL CONTROLLERS ==========
             updateAllSystems();
 
+            manualPowerToggle();
+
             // ========== TELEMETRY ==========
             displayTelemetry();
         }
     }
 
     private void initializeHardware() {
-        telemetry.addLine("═══════════════════════");
-        telemetry.addLine("  HARDWARE CHECK");
-        telemetry.addLine("═══════════════════════");
 
         // Initialize drive motors
         try {
@@ -268,7 +272,7 @@ public class DecemberTeleop extends LinearOpMode {
         }
     }
 
-    private void displayInitScreen() {
+    private void displayInitScreen() {//TODO UPDATE TELEMETRY
         telemetry.addLine();
         telemetry.addLine("═══════════════════════");
         telemetry.addLine("    🎮 CONTROLS");
@@ -309,8 +313,8 @@ public class DecemberTeleop extends LinearOpMode {
      * Toggles reverse mode for intake, transfer, and uptake
      */
     private void handleReverse() {
-        boolean currentB = gamepad1.b;
-        if (currentB && !lastB) {
+        float currentRT = gamepad1.right_trigger;
+        if (currentRT > 0.1 && !RightTrigger2) {//TODO MAKE THE TRIGGER BE AND ACTIVE VOMIT BUTTON
             // Toggle reverse mode for all systems
             if (intake != null) {
                 if (intake.reversed) {
@@ -341,16 +345,17 @@ public class DecemberTeleop extends LinearOpMode {
                     if (!uptake.isActive()) uptake.toggle();
                 }
             }
+        } else {
+            //TODO SET NORMAL VALUES WHEN NOT PRESSING TRIGGER
         }
-        lastB = currentB;
     }
 
     /**
-     * Handle drive controls - Left stick Y for forward/back, Right stick X for turning
+     * Driving
      */
     private void handleDriveControls() {
-        double rawDrive = -gamepad1.left_stick_y;
-        double rawTurn = gamepad1.right_stick_x;
+        double rawDrive = -gamepad2.left_stick_y;
+        double rawTurn = gamepad2.right_stick_x;
 
         // Apply sensitivity curve (exponent 2.0 for smoother low-speed control)
         double drive = applySensitivityCurve(rawDrive);
@@ -372,6 +377,30 @@ public class DecemberTeleop extends LinearOpMode {
         if (rb != null) rb.setPower(rightPower);
     }
 
+    private void manualPowerToggle() {
+        if (gamepad1.a && !A2) {
+            A2 = true;
+            uptake.toggle();
+        } else if (!gamepad1.a && A2) {
+            A2 = false;
+        }
+
+        if (gamepad1.x && !X2) {
+            X2 = true;
+            intake.toggle();
+        } else if (!gamepad1.x && X2) {
+            X2 = false;
+        }
+
+        if (gamepad1.y && !Y2) {
+            Y2 = true;
+            transfer.toggle();
+        } else if (!gamepad1.y && Y2) {
+            Y2 = false;
+        }
+
+    }
+
     /**
      * Apply sensitivity curve to input
      */
@@ -386,32 +415,27 @@ public class DecemberTeleop extends LinearOpMode {
      * Handle turret controls - Manual control or auto-alignment
      */
     private void handleTurretControls() {
+        double turretTurnVel = gamepad1.left_stick_x;
         if (turret == null) return;
 
-        // DPAD LEFT - Manual rotation left (increment angle)
-        boolean currentDpadLeft = gamepad1.dpad_left;
-        if (currentDpadLeft && !lastDpadLeft) {
+        if (turretTurnVel > 0 || turretTurnVel < 0) {
             manualTurretOverride = true;
-            if (turretAlignment != null) {
-                turretAlignment.stopAlignment();
-            }
-            turret.incrementAngle(TURRET_INCREMENT_DEGREES);
         }
-        lastDpadLeft = currentDpadLeft;
 
-        // DPAD RIGHT - Manual rotation right (decrement angle)
-        boolean currentDpadRight = gamepad1.dpad_right;
-        if (currentDpadRight && !lastDpadRight) {
-            manualTurretOverride = true;
-            if (turretAlignment != null) {
-                turretAlignment.stopAlignment();
-            }
+        if (gamepad1.dpad_down) { //TODO DPAD DOWN IS OVERRIDE DISABLE
+            manualTurretOverride = false;
+        }
+
+        if (turretTurnVel > 0) {
+            turret.incrementAngle(turretTurnVel);
+        } else {
             turret.decrementAngle(TURRET_INCREMENT_DEGREES);
         }
-        lastDpadRight = currentDpadRight;
 
         // If in manual mode and turret reached target, allow auto-align to resume
-        if (manualTurretOverride && turret.atTarget()) {
+        if (manualTurretOverride && turret.atTarget())//TODO CHECK IS AUTO ALLIGNMENT WORKS
+
+        {
             // Check if user wants to resume auto-align (could add a button for this)
             // For now, manual mode persists until alignment is explicitly restarted
         }
@@ -428,89 +452,86 @@ public class DecemberTeleop extends LinearOpMode {
     private void handleRampControls() {
         if (ramp == null) return;
 
-        // DPAD UP - Increase ramp angle by configured amount
-        boolean currentDpadUp = gamepad1.dpad_up;
-        if (currentDpadUp && !lastDpadUp) {
+        // Y = Ramp up
+        boolean currentY1 = gamepad1.y;
+        if (currentY1 && !Y1) {
             ramp.incrementAngle(RAMP_INCREMENT_DEGREES);
         }
-        lastDpadUp = currentDpadUp;
+        Y1 = currentY1;
 
-        // DPAD DOWN - Decrease ramp angle by configured amount
-        boolean currentDpadDown = gamepad1.dpad_down;
-        if (currentDpadDown && !lastDpadDown) {
+        // B = ramp down
+        boolean currentB = gamepad1.b;
+        if (currentB && !B1) {
             ramp.decrementAngle(RAMP_INCREMENT_DEGREES);
         }
-        lastDpadDown = currentDpadDown;
+        B1 = currentB;
     }
 
     /**
-     * Handle system toggles (gamepad1)
+     * Handle system toggles
      */
     private void handleSystemToggles() {
-        // Right Bumper - Intake toggle
-        boolean currentRightBumper = gamepad1.right_bumper;
-        if (currentRightBumper && !lastRightBumper) {
+        // Right Bumper gamepad 2 - Intake toggle
+        boolean currentRightBumper = gamepad2.right_bumper;
+        if (currentRightBumper && !RightBumper2) {
             if (intake != null) {
                 intake.reversed = false;
                 intake.toggle();
                 intake.update();
             }
         }
-        lastRightBumper = currentRightBumper;
+        RightBumper2 = currentRightBumper;
 
-        // Right Trigger - Transfer toggle
-        boolean currentRightTrigger = gamepad1.right_trigger > TRIGGER_THRESHOLD;
-        if (currentRightTrigger && !lastRightTrigger) {
+        // Both left bumpers toggle normal uptake and transfer
+        boolean currentLeftBumper1 = gamepad1.left_bumper;
+        boolean currentLeftBumper2 = gamepad2.left_bumper;
+        if ((currentLeftBumper1 && !LeftBumper2) || (currentLeftBumper2 && !LeftBumper2)) {
             if (transfer != null) {
                 transfer.reversed = false;
                 transfer.toggle();
                 transfer.update();
             }
-        }
-        lastRightTrigger = currentRightTrigger;
 
-        // Left Bumper - Uptake toggle
-        boolean currentLeftBumper = gamepad1.left_bumper;
-        if (currentLeftBumper && !lastLeftBumper) {
             if (uptake != null) {
                 uptake.reversed = false;
                 uptake.toggle();
                 uptake.update();
             }
         }
-        lastLeftBumper = currentLeftBumper;
+        LeftBumper1 = currentLeftBumper1;
+        LeftBumper2 = currentLeftBumper2;
     }
 
     /**
      * Handle shooter control - X/A for RPM adjustment, Y for shoot toggle
      */
-    private void handleShooterControl() {
+    private void handleShooterControl() {//TODO SET FAR AND CLOSE VALUES FOR A AND X
         if (shooter == null) return;
 
         // X Button - Increase target RPM by 50
         boolean currentX = gamepad1.x;
-        if (currentX && !lastX) {
+        if (currentX && !X1) {
             SHOOTER_TARGET_RPM = Math.min(SHOOTER_TARGET_RPM + SHOOTER_RPM_INCREMENT, SHOOTER_MAX_RPM);
             shooter.setTargetRPM(SHOOTER_TARGET_RPM);
         }
-        lastX = currentX;
+        X1 = currentX;
 
         // A Button - Decrease target RPM by 50
         boolean currentA = gamepad1.a;
-        if (currentA && !lastA) {
+        if (currentA && !A1) {
             SHOOTER_TARGET_RPM = Math.max(SHOOTER_TARGET_RPM - SHOOTER_RPM_INCREMENT, SHOOTER_MIN_RPM);
             shooter.setTargetRPM(SHOOTER_TARGET_RPM);
         }
-        lastA = currentA;
+        A1 = currentA;
 
         // Y Button - Toggle shoot mode
-        boolean currentY = gamepad1.y;
-        if (currentY && !lastY) {
+        boolean currentR1Bumper = gamepad1.right_bumper;
+        if (currentR1Bumper && !RightBumper1) {
             // Ensure target RPM is set before toggling shoot mode
             shooter.setTargetRPM(SHOOTER_TARGET_RPM);
             shooter.toggleShoot();
         }
-        lastY = currentY;
+        RightBumper1 = currentR1Bumper;
 
         // Left Trigger - Manual control (overrides PID)
         double triggerValue = gamepad1.left_trigger;
@@ -535,7 +556,7 @@ public class DecemberTeleop extends LinearOpMode {
         if (uptake != null) uptake.update();
     }
 
-    private void displayTelemetry() {
+    private void displayTelemetry() {//TODO CLEAN TELEMETRY AND ADD MODE VIEWER
         telemetry.addData("Runtime", "%.1f sec", runtime.seconds());
         telemetry.addData("Battery", "%.2f V", getBatteryVoltage());
 
