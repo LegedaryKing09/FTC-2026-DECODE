@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 @Config
 public class NewAutonController {
+
     private final LinearOpMode opMode;
     private final SixWheelDriveController driveController;
     private final NewTransferController transferController;
@@ -92,10 +93,6 @@ public class NewAutonController {
         this.movementPID = new MovementPIDController();
     }
 
-    /**
-     * Initialize the IMU with proper orientation
-     * Adjust LogoFacing and UsbFacing based on your Control Hub mounting
-     */
     private IMU initializeIMU(LinearOpMode opMode) {
         IMU imu = opMode.hardwareMap.get(IMU.class, "imu");
 

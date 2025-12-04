@@ -30,41 +30,40 @@ public class SimpleBasicAuton extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = 119.0;
 
     // Movement parameters (tunable via dashboard)
-    public static double DRIVE_POWER = 0.5;
-    public static double TURN_POWER = 0.4;
-    public static double INTAKE_POWER = 0.3;
+    public static double DRIVE_POWER = 0.2;
+    public static double TURN_POWER = 0.2;
+    public static double INTAKE_POWER = 0.2;
 
-    // Distance and timing parameters
-    public static long BACKWARD_TIME_MS = 3000;      // Time to go back 40 inches
-    public static long TURN_LEFT_TIME_MS = 1000;     // Time to turn 45 degrees left
-    public static long FORWARD_TIME_MS = 1500;       // Time to go forward 20 inches
-    public static long INTAKE_TIME_MS = 2000;        // Time to run intake
-    public static long BACKWARD_RETURN_TIME_MS = 1500; // Time to go back 20 inches
-    public static long TURN_RIGHT_TIME_MS = 1000;    // Time to turn 45 degrees right
+    // Distance parameters (in INCHES)
+    public static double BACKWARD_DISTANCE = 40.0;
+    public static double TURN_LEFT_ANGLE = 45.0;
+    public static double FORWARD_DISTANCE = 20.0;
+    public static double BACKWARD_RETURN_DISTANCE = 20.0;
+    public static double TURN_RIGHT_ANGLE = 45.0;
+
+    // Timing parameters
+    public static long INTAKE_TIME_MS = 2000;        // Time to run intake after driving forward
     public static long SHOOT_TIME_MS = 2000;         // Time to run transfer/uptake
+
+    // Encoder constants (from SixWheelDriveController)
+    private static final double TICKS_PER_REV = 751.8;
+    private static final double WHEEL_DIAMETER_INCHES = 2.83;
+    private static final double TICKS_PER_INCH = TICKS_PER_REV / (WHEEL_DIAMETER_INCHES * Math.PI);
+
+    // Turning constants
+    private static final double TRACK_WIDTH_INCHES = 11.5;
+    private static final double DEGREES_TO_INCHES = (TRACK_WIDTH_INCHES * Math.PI) / 360.0;
 
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
 
     // Thread for continuous shooter PID
     private Thread shooterThread;
-    private volatile boolean runShooter = false;
+    private volatile boolean runShooter =  false;
 
     @Override
     public void runOpMode() {
         initializeRobot();
-
-        telemetry.addLine("=============================");
-        telemetry.addLine("Ready to start!");
-        telemetry.addLine("This will test all systems:");
-        telemetry.addLine("- Drive backward");
-        telemetry.addLine("- Turn left");
-        telemetry.addLine("- Drive forward with intake");
-        telemetry.addLine("- Drive backward");
-        telemetry.addLine("- Turn right");
-        telemetry.addLine("- Test transfer/uptake");
-        telemetry.addLine("=============================");
-        telemetry.update();
 
         waitForStart();
         if (!opModeIsActive()) return;
@@ -76,9 +75,6 @@ public class SimpleBasicAuton extends LinearOpMode {
         shooterController.startShooting();
         startShooterThread();
 
-        // Wait for shooter to warm up
-        telemetry.addLine("Warming up shooter...");
-        telemetry.update();
         sleep(1000);
 
         // Execute autonomous sequence
@@ -87,30 +83,20 @@ public class SimpleBasicAuton extends LinearOpMode {
         // Cleanup
         cleanup();
 
-        telemetry.addLine("=============================");
-        telemetry.addLine("✓ AUTONOMOUS COMPLETE");
-        telemetry.addLine("=============================");
-        telemetry.addData("Total Time", "%.1fs", globalTimer.seconds());
-        telemetry.update();
     }
 
     private void initializeRobot() {
-        telemetry.addLine("═══════════════════════");
-        telemetry.addLine("  HARDWARE INITIALIZATION");
-        telemetry.addLine("═══════════════════════");
 
         // Initialize drive controller
         driveController = new SixWheelDriveController(this);
         driveController.setDriveMode(SixWheelDriveController.DriveMode.POWER);
-        telemetry.addData("✓ Drive", "OK");
 
         // Initialize intake
         DcMotor intakeMotor = null;
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-            telemetry.addData("✓ Intake", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Intake", "NOT FOUND");
+           //
         }
         intakeController = new NewIntakeController(intakeMotor);
 
@@ -118,9 +104,8 @@ public class SimpleBasicAuton extends LinearOpMode {
         DcMotor transferMotor = null;
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
-            telemetry.addData("✓ Transfer", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Transfer", "NOT FOUND");
+         //
         }
         transferController = new NewTransferController(transferMotor);
 
@@ -128,9 +113,8 @@ public class SimpleBasicAuton extends LinearOpMode {
         CRServo uptakeServo = null;
         try {
             uptakeServo = hardwareMap.get(CRServo.class, "uptake");
-            telemetry.addData("✓ Uptake", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Uptake", "NOT FOUND");
+         //
         }
         uptakeController = new UptakeController(uptakeServo);
 
@@ -138,9 +122,8 @@ public class SimpleBasicAuton extends LinearOpMode {
         DcMotor shooterMotor = null;
         try {
             shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
-            telemetry.addData("✓ Shooter", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Shooter", "NOT FOUND");
+           //
         }
         shooterController = new NewShooterController(shooterMotor);
 
@@ -148,9 +131,8 @@ public class SimpleBasicAuton extends LinearOpMode {
         try {
             rampController = new NewRampController(this);
             rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
-            telemetry.addData("✓ Ramp", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Ramp", "NOT FOUND");
+          //
         }
 
         telemetry.update();
@@ -159,43 +141,27 @@ public class SimpleBasicAuton extends LinearOpMode {
 
     private void executeAutonomousSequence() {
 
-        // Step 1: Go backward 40 inches
-        telemetry.addLine("=============================");
-        telemetry.addLine("Step 1: Going backward 40\"");
-        telemetry.addLine("=============================");
-        telemetry.update();
+        // Step 1: Go backward 40 inches (using encoders)
 
-        driveBackward(DRIVE_POWER, BACKWARD_TIME_MS);
+        driveDistance(-BACKWARD_DISTANCE, DRIVE_POWER);
         sleep(500);  // Brief pause between movements
 
-        // Step 2: Turn left 45 degrees
-        telemetry.addLine("=============================");
-        telemetry.addLine("Step 2: Turning left 45°");
-        telemetry.addLine("=============================");
-        telemetry.update();
+        // Step 2: Turn left 45 degrees (using encoders)
 
-        turnLeft(TURN_POWER, TURN_LEFT_TIME_MS);
+        turnAngle(-TURN_LEFT_ANGLE, TURN_POWER);
         sleep(500);
 
-        // Step 3: Go forward 20 inches with intake running
-        telemetry.addLine("=============================");
-        telemetry.addLine("Step 3: Forward 20\" + Intake");
-        telemetry.addLine("=============================");
-        telemetry.update();
-
+        // Step 3: Go forward 20 inches with intake running (using encoders)
         // Start intake
         intakeController.setState(true);
         intakeController.update();
 
-        driveForward(INTAKE_POWER, FORWARD_TIME_MS);
+        driveDistance(FORWARD_DISTANCE, INTAKE_POWER);
 
         // Keep intake running for a bit
         timer.reset();
         while (opModeIsActive() && timer.milliseconds() < INTAKE_TIME_MS) {
             intakeController.update();
-            telemetry.addLine("Intake running...");
-            telemetry.addData("Time", "%.1fs", timer.seconds());
-            telemetry.update();
             sleep(50);
         }
 
@@ -204,30 +170,17 @@ public class SimpleBasicAuton extends LinearOpMode {
         intakeController.update();
         sleep(500);
 
-        // Step 4: Go backward 20 inches
-        telemetry.addLine("=============================");
-        telemetry.addLine("Step 4: Going backward 20\"");
-        telemetry.addLine("=============================");
-        telemetry.update();
+        // Step 4: Go backward 20 inches (using encoders)
 
-        driveBackward(DRIVE_POWER, BACKWARD_RETURN_TIME_MS);
+        driveDistance(-BACKWARD_RETURN_DISTANCE, DRIVE_POWER);
         sleep(500);
 
-        // Step 5: Turn right 45 degrees
-        telemetry.addLine("=============================");
-        telemetry.addLine("Step 5: Turning right 45°");
-        telemetry.addLine("=============================");
-        telemetry.update();
+        // Step 5: Turn right 45 degrees (using encoders)
 
-        turnRight(TURN_POWER, TURN_RIGHT_TIME_MS);
+        turnAngle(TURN_RIGHT_ANGLE, TURN_POWER);
         sleep(500);
 
         // Step 6: Test transfer and uptake (shoot balls)
-        telemetry.addLine("=============================");
-        telemetry.addLine("Step 6: Testing Shoot System");
-        telemetry.addLine("=============================");
-        telemetry.update();
-
         // Start transfer and uptake
         transferController.setState(true);
         transferController.update();
@@ -248,11 +201,6 @@ public class SimpleBasicAuton extends LinearOpMode {
             double currentRPM = shooterController.getRPM();
             double targetRPM = shooterController.getTargetRPM();
 
-            telemetry.addLine("🔥 SHOOTING");
-            telemetry.addData("Shooter RPM", "%.0f / %.0f", currentRPM, targetRPM);
-            telemetry.addData("Time", "%.1fs", timer.seconds());
-            telemetry.update();
-
             sleep(50);
         }
 
@@ -267,70 +215,88 @@ public class SimpleBasicAuton extends LinearOpMode {
         intakeController.update();
     }
 
-    // ========== BASIC MOVEMENT METHODS ==========
+    // ========== ENCODER-BASED MOVEMENT METHODS ==========
+    private void driveDistance(double distanceInches, double power) {
+        // Calculate target encoder ticks
+        int targetTicks = (int) (Math.abs(distanceInches) * TICKS_PER_INCH);
 
-    private void driveForward(double power, long timeMs) {
+        // Determine direction
+        double direction = Math.signum(distanceInches);
+
+        // Update odometry to get starting position
+        driveController.updateOdometry();
+        double startX = driveController.getX();
+        double startY = driveController.getY();
+
         timer.reset();
-        while (opModeIsActive() && timer.milliseconds() < timeMs) {
-            driveController.tankDrive(power, power);
 
-            telemetry.addLine("Driving Forward");
-            telemetry.addData("Power", "%.2f", power);
-            telemetry.addData("Time", "%.1fs / %.1fs",
-                    timer.seconds(), timeMs / 1000.0);
-            telemetry.update();
+        while (opModeIsActive()) {
+            // Update odometry
+            driveController.updateOdometry();
+
+            // Calculate distance traveled
+            double deltaX = driveController.getX() - startX;
+            double deltaY = driveController.getY() - startY;
+            double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            // Check if we've reached the target
+            if (distanceTraveled >= Math.abs(distanceInches)) {
+                break;
+            }
+
+            // Apply power in the correct direction
+            driveController.tankDrive(power * direction, power * direction);
+
 
             sleep(20);
         }
+
         driveController.stopDrive();
+        sleep(100);  // Brief settling time
     }
 
-    private void driveBackward(double power, long timeMs) {
-        timer.reset();
-        while (opModeIsActive() && timer.milliseconds() < timeMs) {
-            driveController.tankDrive(-power, -power);
+    private void turnAngle(double angleDegrees, double power) {
+        // Update odometry to get starting heading
+        driveController.updateOdometry();
+        double startHeading = driveController.getHeadingDegrees();
+        double targetHeading = startHeading + angleDegrees;
 
-            telemetry.addLine("Driving Backward");
-            telemetry.addData("Power", "%.2f", power);
-            telemetry.addData("Time", "%.1fs / %.1fs",
-                    timer.seconds(), timeMs / 1000.0);
-            telemetry.update();
+        // Normalize target heading to -180 to 180
+        while (targetHeading > 180) targetHeading -= 360;
+        while (targetHeading < -180) targetHeading += 360;
+
+        // Determine turn direction
+        double direction = Math.signum(angleDegrees);
+
+        timer.reset();
+
+        while (opModeIsActive()) {
+            // Update odometry
+            driveController.updateOdometry();
+            double currentHeading = driveController.getHeadingDegrees();
+
+            // Calculate angle turned
+            double angleTurned = Math.abs(currentHeading - startHeading);
+
+            // Handle wraparound
+            if (angleTurned > 180) {
+                angleTurned = 360 - angleTurned;
+            }
+
+            // Check if we've reached the target
+            if (angleTurned >= Math.abs(angleDegrees)) {
+                break;
+            }
+
+            // Apply tank turn (positive = clockwise, negative = counterclockwise)
+            driveController.tankDrive(power * direction, -power * direction);
+            
 
             sleep(20);
         }
+
         driveController.stopDrive();
-    }
-
-    private void turnLeft(double power, long timeMs) {
-        timer.reset();
-        while (opModeIsActive() && timer.milliseconds() < timeMs) {
-            driveController.tankDrive(-power, power);
-
-            telemetry.addLine("Turning Left");
-            telemetry.addData("Power", "%.2f", power);
-            telemetry.addData("Time", "%.1fs / %.1fs",
-                    timer.seconds(), timeMs / 1000.0);
-            telemetry.update();
-
-            sleep(20);
-        }
-        driveController.stopDrive();
-    }
-
-    private void turnRight(double power, long timeMs) {
-        timer.reset();
-        while (opModeIsActive() && timer.milliseconds() < timeMs) {
-            driveController.tankDrive(power, -power);
-
-            telemetry.addLine("Turning Right");
-            telemetry.addData("Power", "%.2f", power);
-            telemetry.addData("Time", "%.1fs / %.1fs",
-                    timer.seconds(), timeMs / 1000.0);
-            telemetry.update();
-
-            sleep(20);
-        }
-        driveController.stopDrive();
+        sleep(100);  // Brief settling time
     }
 
     // ========== SHOOTER THREAD ==========

@@ -3,8 +3,10 @@ package org.firstinspires.ftc.teamcode.champion.tests;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
@@ -68,7 +70,18 @@ public class PIDTest extends LinearOpMode {
 
         // Initialize controllers
         driveController = new SixWheelDriveController(this);
-        turnPID = new TurnPIDController(driveController.getPinpoint().getIMU());
+
+        // Initialize IMU separately (Pinpoint doesn't expose getIMU())
+        IMU imu = hardwareMap.get(IMU.class, "imu");
+        IMU.Parameters imuParameters = new IMU.Parameters(
+                new RevHubOrientationOnRobot(
+                        RevHubOrientationOnRobot.LogoFacingDirection.UP,
+                        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
+                )
+        );
+        imu.initialize(imuParameters);
+
+        turnPID = new TurnPIDController(imu);
         movementPID = new MovementPIDController();
 
         displayControls();
