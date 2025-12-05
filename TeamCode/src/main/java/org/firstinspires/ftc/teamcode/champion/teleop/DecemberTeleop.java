@@ -4,7 +4,6 @@ import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -62,6 +61,8 @@ public class DecemberTeleop extends LinearOpMode {
     private boolean lastA2 = false;
     private boolean lastY2 = false;
     private boolean lastB2 = false;
+    private boolean lastDpadDown2 = false;
+    private boolean lastDpadUp2 = false;
     private boolean lastRightBumper2 = false;
 
     // Trigger threshold
@@ -424,8 +425,31 @@ public class DecemberTeleop extends LinearOpMode {
                 currentTargetRPM = 0;
             }
         }
+
+        // Dpad up button - rpm increment 50
+        boolean currentDpadUp2 = gamepad2.dpad_up;
+        if (currentDpadUp2 && !lastDpadUp2) {
+            if (shooter != null) {
+                shooter.setTargetRPM(shooter.getRPM() + 50);
+                currentTargetRPM = shooter.getRPM() + 50;
+                if (!shooter.isShootMode()) shooter.toggleShoot();
+            }
+        }
+        lastDpadUp2 = currentDpadUp2;
+
+        // Dpad down button - rpm decrement 50
+        boolean currentDpadDown2 = gamepad2.dpad_down;
+        if (currentDpadDown2 && !lastDpadDown2) {
+            if (shooter != null) {
+                shooter.setTargetRPM(shooter.getRPM() - 50);
+                currentTargetRPM = shooter.getRPM() - 50;
+                if (!shooter.isShootMode()) shooter.toggleShoot();
+            }
+        }
+        lastDpadUp2 = currentDpadDown2;
     }
     private void updateAllSystems() {
+
         if (turret != null) turret.update();
         if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.startAlignment();
         if (ramp != null) ramp.update();
