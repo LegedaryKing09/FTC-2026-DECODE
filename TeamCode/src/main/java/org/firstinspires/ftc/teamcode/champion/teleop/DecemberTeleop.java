@@ -342,98 +342,99 @@ public class DecemberTeleop extends LinearOpMode {
             double turretInput = gamepad2.left_stick_x;
             if (Math.abs(turretInput) > 0.1) {
                 double increment = turretInput * TURRET_SENSITIVITY;
-                if (turret.getCurrentAngle() <= 360 && turret.getCurrentAngle() >= 0){
-                if (increment > 0) {
-                    turret.turnToAngle(increment);
-                } else {
-                    turret.turnToAngle(-increment);
+                if (turret.getCurrentAngle() <= 360 && turret.getCurrentAngle() >= 0) {
+                    if (increment > 0) {
+                        turret.turnToAngle(increment);
+                    } else {
+                        turret.turnToAngle(-increment);
+                    }
                 }
             }
-        }
 
-        // X button - far preset
-        boolean currentX2 = gamepad2.x;
-        if (currentX2 && !lastX2) {
-            if (shooter != null) {
-                shooter.setTargetRPM(FAR_RPM);
-                currentTargetRPM = FAR_RPM;
-                if (!shooter.isShootMode()) shooter.toggleShoot();
+            // X button - far preset
+            boolean currentX2 = gamepad2.x;
+            if (currentX2 && !lastX2) {
+                if (shooter != null) {
+                    shooter.setTargetRPM(FAR_RPM);
+                    currentTargetRPM = FAR_RPM;
+                    if (!shooter.isShootMode()) shooter.toggleShoot();
+                }
+                if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
             }
-            if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
-        }
-        lastX2 = currentX2;
+            lastX2 = currentX2;
 
-        // A button - close preset
-        boolean currentA2 = gamepad2.a;
-        if (currentA2 && !lastA2) {
-            if (shooter != null) {
-                shooter.setTargetRPM(CLOSE_RPM);
-                currentTargetRPM = CLOSE_RPM;
-                if (!shooter.isShootMode()) shooter.toggleShoot();
+            // A button - close preset
+            boolean currentA2 = gamepad2.a;
+            if (currentA2 && !lastA2) {
+                if (shooter != null) {
+                    shooter.setTargetRPM(CLOSE_RPM);
+                    currentTargetRPM = CLOSE_RPM;
+                    if (!shooter.isShootMode()) shooter.toggleShoot();
+                }
+                if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
             }
-            if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
-        }
-        lastA2 = currentA2;
+            lastA2 = currentA2;
 
-        // Y button - increase ramp angle
-        boolean currentY2 = gamepad2.y;
-        if (currentY2 && !lastY2) {
-            if (ramp != null) ramp.incrementAngle(RAMP_INCREMENT_DEGREES);
-        }
-        lastY2 = currentY2;
-
-        // B button - decrease ramp angle
-        boolean currentB2 = gamepad2.b;
-        if (currentB2 && !lastB2) {
-            if (ramp != null) ramp.decrementAngle(RAMP_INCREMENT_DEGREES);
-        }
-        lastB2 = currentB2;
-
-        // Right bumper - TODO: turret auto shoot toggle
-        boolean currentRB2 = gamepad2.right_bumper;
-        if (currentRB2 && !lastRightBumper2) {
-            turretAlignment.startAlignment();
-        }
-        lastRightBumper2 = currentRB2;
-
-        // Right trigger - hold for uptake (press = on, release = off)
-        if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
-            if (uptake != null && !uptake.isActive()) {
-                uptake.reversed = false;
-                uptake.toggle();
-                uptakeFromTrigger = true;
+            // Y button - increase ramp angle
+            boolean currentY2 = gamepad2.y;
+            if (currentY2 && !lastY2) {
+                if (ramp != null) ramp.incrementAngle(RAMP_INCREMENT_DEGREES);
             }
-        } else {
-            if (uptakeFromTrigger && uptake != null && uptake.isActive()) {
-                uptake.toggle();
-                uptakeFromTrigger = false;
-            }
-        }
+            lastY2 = currentY2;
 
-        // Left trigger - hold to run shooter at 4800 RPM
-        if (gamepad2.left_trigger > TRIGGER_THRESHOLD) {
-            if (shooter != null) {
-                shooter.setTargetRPM(SHOOTER_RPM);
-                currentTargetRPM = SHOOTER_RPM;
-                if (!shooter.isShootMode()) shooter.toggleShoot();
-                shooterFromTrigger = true;
+            // B button - decrease ramp angle
+            boolean currentB2 = gamepad2.b;
+            if (currentB2 && !lastB2) {
+                if (ramp != null) ramp.decrementAngle(RAMP_INCREMENT_DEGREES);
             }
-        } else if (shooterFromTrigger) {
-            if (shooter != null) shooter.stopShooting();
-            shooterFromTrigger = false;
-            currentTargetRPM = 0;
+            lastB2 = currentB2;
+
+            // Right bumper - TODO: turret auto shoot toggle
+            boolean currentRB2 = gamepad2.right_bumper;
+            if (currentRB2 && !lastRightBumper2) {
+                turretAlignment.startAlignment();
+            }
+            lastRightBumper2 = currentRB2;
+
+            // Right trigger - hold for uptake (press = on, release = off)
+            if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
+                if (uptake != null && !uptake.isActive()) {
+                    uptake.reversed = false;
+                    uptake.toggle();
+                    uptakeFromTrigger = true;
+                }
+            } else {
+                if (uptakeFromTrigger && uptake != null && uptake.isActive()) {
+                    uptake.toggle();
+                    uptakeFromTrigger = false;
+                }
+            }
+
+            // Left trigger - hold to run shooter at 4800 RPM
+            if (gamepad2.left_trigger > TRIGGER_THRESHOLD) {
+                if (shooter != null) {
+                    shooter.setTargetRPM(SHOOTER_RPM);
+                    currentTargetRPM = SHOOTER_RPM;
+                    if (!shooter.isShootMode()) shooter.toggleShoot();
+                    shooterFromTrigger = true;
+                }
+            } else if (shooterFromTrigger) {
+                if (shooter != null) shooter.stopShooting();
+                shooterFromTrigger = false;
+                currentTargetRPM = 0;
+            }
         }
     }
-        private void updateAllSystems() {
-            if (turret != null) turret.update();
-            if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.startAlignment();
-            if (ramp != null) ramp.update();
-            if (intake != null) intake.update();
-            if (transfer != null) transfer.update();
-            if (uptake != null) uptake.update();
-            if (shooter != null) shooter.update();
-        }
-        private void displayTelemetry() {
+    private void updateAllSystems() {
+        if (turret != null) turret.update();
+        if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.startAlignment();
+        if (ramp != null) ramp.update();
+        if (intake != null) intake.update();
+        if (transfer != null) transfer.update();
+        if (uptake != null) uptake.update();
+        if (shooter != null) shooter.update();
+    }
+    private void displayTelemetry() {
         telemetry.addData("Runtime", "%.1f sec", runtime.seconds());
 
         // Drive
