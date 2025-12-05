@@ -14,7 +14,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.*;
 
 @Config
-@TeleOp(name = "December Teleop", group = "Competition")
 public class DecemberTeleop extends LinearOpMode {
 
     // Ramp angle increment (tunable via FTC Dashboard)
@@ -126,10 +125,10 @@ public class DecemberTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             // David's controls (gamepad1)
             handleDriveControls();
-            handleDavidControls();
+            handlePlayer1Controls();
 
             // Edward's controls (gamepad2)
-            handleEdwardControls();
+            handlePlayer2Controls();
 
             // Update all controllers
             updateAllSystems();
@@ -274,7 +273,7 @@ public class DecemberTeleop extends LinearOpMode {
      * Y - toggle transfer only
      * A - toggle uptake only
      */
-    private void handleDavidControls() {
+    private void handlePlayer1Controls() {
         // Right bumper - toggle intake mode (all wheels together)
         boolean currentRB1 = gamepad1.right_bumper;
         if (currentRB1 && !lastRightBumper1) {
@@ -353,7 +352,7 @@ public class DecemberTeleop extends LinearOpMode {
      * Right trigger - hold for uptake
      * Left trigger - run shooter at 4800 RPM
      */
-    private void handleEdwardControls() {
+    private void handlePlayer2Controls() {
         // Left stick X - turret control
         if (turret != null) {
             double turretInput = gamepad2.left_stick_x;
