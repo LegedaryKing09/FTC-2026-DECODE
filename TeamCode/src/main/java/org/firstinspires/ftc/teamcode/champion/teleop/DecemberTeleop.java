@@ -13,7 +13,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.*;
 
 @Config
-@TeleOp(name = "December Teleop", group = "Competition")
 public class DecemberTeleop extends LinearOpMode {
 
     // Ramp angle increment (tunable via FTC Dashboard)
@@ -30,7 +29,7 @@ public class DecemberTeleop extends LinearOpMode {
 
     // Shooter presets (tunable via FTC Dashboard)
     public static double CLOSE_RPM = 2800.0;
-    public static double FAR_RPM = 4100.0;
+    public static double FAR_RPM = 3100.0;
     public static double SHOOTER_RPM = 4800.0;
 
     // Ramp angle presets (adjust these based on testing)
@@ -54,7 +53,6 @@ public class DecemberTeleop extends LinearOpMode {
 
     // David's gamepad (gamepad1) button states
     private boolean lastRightBumper1 = false;
-    private boolean lastRightTrigger1 = false;
     private boolean lastX1 = false;
     private boolean lastY1 = false;
     private boolean lastA1 = false;
@@ -111,10 +109,10 @@ public class DecemberTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             // David's controls (gamepad1)
             handleDriveControls();
-            handleDavidControls();
+            handlePlayer1Controls();
 
             // Edward's controls (gamepad2)
-            handleEdwardControls();
+            handlePlayer2Controls();
 
             // Update all controllers
             updateAllSystems();
@@ -254,12 +252,12 @@ public class DecemberTeleop extends LinearOpMode {
     /**
      * David's controls (gamepad1):
      * Right bumper - toggle intake mode (intake + transfer + uptake)
-     * Right trigger - toggle vomit mode (reverse all)
+     * Right trigger - hold for vomit mode (reverse all)
      * X - toggle intake only
      * Y - toggle transfer only
      * A - toggle uptake only
      */
-    private void handleDavidControls() {
+    private void handlePlayer1Controls() {
         // Right bumper - toggle intake mode (all wheels together)
         boolean currentRB1 = gamepad1.right_bumper;
         if (currentRB1 && !lastRightBumper1) {
@@ -278,23 +276,23 @@ public class DecemberTeleop extends LinearOpMode {
         }
         lastRightBumper1 = currentRB1;
 
-        // Right trigger - toggle vomit mode (reverse all wheels)
-        boolean currentRT1 = gamepad1.right_trigger > TRIGGER_THRESHOLD;
-        if (currentRT1 && !lastRightTrigger1) {
-            vomitModeActive = !vomitModeActive;
-            intakeModeActive = false; // Disable intake mode when toggling vomit
-
-            if (vomitModeActive) {
+        // Right trigger - hold for vomit mode (press = on, release = off)
+        if (gamepad1.right_trigger > TRIGGER_THRESHOLD) {
+            if (!vomitModeActive) {
+                vomitModeActive = true;
+                intakeModeActive = false;
                 if (intake != null) { intake.reversed = true; if (!intake.isActive()) intake.toggle(); }
                 if (transfer != null) { transfer.reversed = true; if (!transfer.isActive()) transfer.toggle(); }
                 if (uptake != null) { uptake.reversed = true; if (!uptake.isActive()) uptake.toggle(); }
-            } else {
+            }
+        } else {
+            if (vomitModeActive) {
+                vomitModeActive = false;
                 if (intake != null && intake.isActive()) intake.toggle();
                 if (transfer != null && transfer.isActive()) transfer.toggle();
                 if (uptake != null && uptake.isActive()) uptake.toggle();
             }
         }
-        lastRightTrigger1 = currentRT1;
 
         // X button - toggle intake only
         boolean currentX1 = gamepad1.x;
@@ -338,12 +336,13 @@ public class DecemberTeleop extends LinearOpMode {
      * Right trigger - hold for uptake
      * Left trigger - run shooter at 4800 RPM
      */
-    private void handleEdwardControls() {
+    private void handlePlayer2Controls() {
         // Left stick X - turret control
         if (turret != null) {
             double turretInput = gamepad2.left_stick_x;
             if (Math.abs(turretInput) > 0.1) {
                 double increment = turretInput * TURRET_SENSITIVITY;
+                if (turret.getCurrentAngle() <= 360 && turret.getCurrentAngle() >= 0){
                 if (increment > 0) {
                     turret.turnToAngle(increment);
                 } else {
@@ -425,18 +424,16 @@ public class DecemberTeleop extends LinearOpMode {
             currentTargetRPM = 0;
         }
     }
-
-    private void updateAllSystems() {
-        if (turret != null) turret.update();
-        if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.startAlignment();
-        if (ramp != null) ramp.update();
-        if (intake != null) intake.update();
-        if (transfer != null) transfer.update();
-        if (uptake != null) uptake.update();
-        if (shooter != null) shooter.update();
-    }
-
-    private void displayTelemetry() {
+        private void updateAllSystems() {
+            if (turret != null) turret.update();
+            if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.startAlignment();
+            if (ramp != null) ramp.update();
+            if (intake != null) intake.update();
+            if (transfer != null) transfer.update();
+            if (uptake != null) uptake.update();
+            if (shooter != null) shooter.update();
+        }
+        private void displayTelemetry() {
         telemetry.addData("Runtime", "%.1f sec", runtime.seconds());
 
         // Drive

@@ -106,8 +106,6 @@ public class BasicAuton extends LinearOpMode {
 
     }
 
-
-
     private void executeAutonomousSequence() {
         //warm up the shooter
         autonController.warmupShooter();
