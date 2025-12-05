@@ -8,7 +8,6 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.*;
@@ -24,14 +23,14 @@ public class DecemberTeleop extends LinearOpMode {
     public static double TURRET_SENSITIVITY = 3.0;
 
     // Turret alignment enable/disable
-    public static boolean ENABLE_AUTO_ALIGNMENT = false;
+    public static boolean ENABLE_AUTO_ALIGNMENT = true;
 
     // Target AprilTag ID for turret alignment
     public static int TURRET_TARGET_TAG_ID = 20;
 
     // Shooter presets (tunable via FTC Dashboard)
     public static double CLOSE_RPM = 2800.0;
-    public static double FAR_RPM = 3100.0;
+    public static double FAR_RPM = 4100.0;
     public static double SHOOTER_RPM = 4800.0;
 
     // Ramp angle presets (adjust these based on testing)
@@ -99,16 +98,6 @@ public class DecemberTeleop extends LinearOpMode {
         waitForStart();
         runtime.reset();
 
-        // Initialize turret to 0 degrees at start
-        if (turret != null) {
-            turret.initialize();
-            ElapsedTime initTimer = new ElapsedTime();
-            while (!turret.isInitialized() && initTimer.seconds() < 3.0 && opModeIsActive()) {
-                turret.update();
-                sleep(20);
-            }
-        }
-
         // Initialize ramp to 0 degrees at start
         if (ramp != null) {
             ramp.initialize();
@@ -117,11 +106,6 @@ public class DecemberTeleop extends LinearOpMode {
                 ramp.update();
                 sleep(20);
             }
-        }
-
-        // Start turret auto-alignment if enabled
-        if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) {
-            turretAlignment.startAlignment();
         }
 
         while (opModeIsActive()) {
@@ -361,9 +345,9 @@ public class DecemberTeleop extends LinearOpMode {
             if (Math.abs(turretInput) > 0.1) {
                 double increment = turretInput * TURRET_SENSITIVITY;
                 if (increment > 0) {
-                    turret.incrementAngle(increment);
+                    turret.turnToAngle(increment);
                 } else {
-                    turret.decrementAngle(-increment);
+                    turret.turnToAngle(-increment);
                 }
             }
         }
@@ -409,7 +393,7 @@ public class DecemberTeleop extends LinearOpMode {
         // Right bumper - TODO: turret auto shoot toggle
         boolean currentRB2 = gamepad2.right_bumper;
         if (currentRB2 && !lastRightBumper2) {
-            // Placeholder for turret auto shoot toggle
+            turretAlignment.startAlignment();
         }
         lastRightBumper2 = currentRB2;
 
@@ -444,7 +428,7 @@ public class DecemberTeleop extends LinearOpMode {
 
     private void updateAllSystems() {
         if (turret != null) turret.update();
-        if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.update();
+        if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.startAlignment();
         if (ramp != null) ramp.update();
         if (intake != null) intake.update();
         if (transfer != null) transfer.update();
@@ -472,7 +456,6 @@ public class DecemberTeleop extends LinearOpMode {
         if (turret != null) {
             telemetry.addLine("═══ TURRET (Edward) ═══");
             telemetry.addData("Angle", "%.1f°", turret.getCurrentAngle());
-            telemetry.addData("Target", "%.1f°", turret.getTargetAngle());
         }
 
         // Ramp
