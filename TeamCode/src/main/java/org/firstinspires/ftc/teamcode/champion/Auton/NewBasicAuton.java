@@ -74,27 +74,19 @@ public class NewBasicAuton extends LinearOpMode {
 
         // Cleanup
         cleanup();
-
-        telemetry.addLine("=============================");
-        telemetry.addLine("✓ AUTONOMOUS COMPLETE");
-        telemetry.addLine("=============================");
-        telemetry.addData("Total Time", "%.1fs", globalTimer.seconds());
-        telemetry.update();
     }
 
     private void initializeRobot() {
 
         // Initialize drive controller
         driveController = new SixWheelDriveController(this);
-        telemetry.addData("✓ Drive", "OK");
 
         // Initialize intake
         DcMotor intakeMotor = null;
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-            telemetry.addData("✓ Intake", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Intake", "NOT FOUND");
+            //
         }
         intakeController = new NewIntakeController(intakeMotor);
 
@@ -102,19 +94,17 @@ public class NewBasicAuton extends LinearOpMode {
         DcMotor transferMotor = null;
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
-            telemetry.addData("✓ Transfer", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Transfer", "NOT FOUND");
+           //
         }
         transferController = new NewTransferController(transferMotor);
 
-        // Initialize uptake (NEW!)
+        // Initialize uptake
         CRServo uptakeServo = null;
         try {
             uptakeServo = hardwareMap.get(CRServo.class, "uptake");
-            telemetry.addData("✓ Uptake", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Uptake", "NOT FOUND");
+           //
         }
         uptakeController = new UptakeController(uptakeServo);
 
@@ -122,9 +112,8 @@ public class NewBasicAuton extends LinearOpMode {
         DcMotor shooterMotor = null;
         try {
             shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
-            telemetry.addData("✓ Shooter", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Shooter", "NOT FOUND");
+           //
         }
         shooterController = new NewShooterController(shooterMotor);
 
@@ -132,36 +121,31 @@ public class NewBasicAuton extends LinearOpMode {
         try {
             rampController = new NewRampController(this);
             rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
-            telemetry.addData("✓ Ramp", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Ramp", "NOT FOUND");
             rampController = null;
         }
 
-        // Try to initialize Limelight (teammate will fix issues)
         try {
             limelightController = new LimelightAlignmentController(this, driveController);
             limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
             autoShootController = new NewAutoShootController(this, driveController, shooterController,
                     intakeController, transferController, uptakeController, limelightController, rampController);
-            telemetry.addData("✓ Vision", "OK (teammate fixing)");
         } catch (Exception e) {
-            telemetry.addData("⚠ Vision", "unavailable (teammate fixing)");
             limelightController = null;
             autoShootController = null;
         }
 
-        // Initialize AutonController with NEW controllers
+        // Initialize AutonController
         autonController = new NewAutonController(
-                this,                   // LinearOpMode opMode
-                driveController,        // SixWheelDriveController driveController
-                transferController,     // NewTransferController transferController
-                uptakeController,       // UptakeController uptakeController
-                shooterController,      // NewShooterController shooterController
-                intakeController,       // NewIntakeController intakeController
-                limelightController,    // LimelightAlignmentController limelightController
-                autoShootController,    // NewAutoShootController autoShootController
-                rampController          // NewRampController rampController
+                this,
+                driveController,
+                transferController,
+                uptakeController,
+                shooterController,
+                intakeController,
+                limelightController,
+                autoShootController,
+                rampController
         );
 
         telemetry.update();
@@ -183,7 +167,6 @@ public class NewBasicAuton extends LinearOpMode {
 
         // Pattern detection
         int patternIndex = autonController.detectPattern();
-        telemetry.addData("Pattern Detected", patternIndex);
         telemetry.update();
 
         // Turn to alignment angle (90 degrees to the balls)
