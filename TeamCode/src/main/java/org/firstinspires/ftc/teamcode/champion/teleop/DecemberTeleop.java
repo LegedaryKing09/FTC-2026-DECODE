@@ -55,7 +55,6 @@ public class DecemberTeleop extends LinearOpMode {
 
     // David's gamepad (gamepad1) button states
     private boolean lastRightBumper1 = false;
-    private boolean lastRightTrigger1 = false;
     private boolean lastX1 = false;
     private boolean lastY1 = false;
     private boolean lastA1 = false;
@@ -270,7 +269,7 @@ public class DecemberTeleop extends LinearOpMode {
     /**
      * David's controls (gamepad1):
      * Right bumper - toggle intake mode (intake + transfer + uptake)
-     * Right trigger - toggle vomit mode (reverse all)
+     * Right trigger - hold for vomit mode (reverse all)
      * X - toggle intake only
      * Y - toggle transfer only
      * A - toggle uptake only
@@ -294,23 +293,23 @@ public class DecemberTeleop extends LinearOpMode {
         }
         lastRightBumper1 = currentRB1;
 
-        // Right trigger - toggle vomit mode (reverse all wheels)
-        boolean currentRT1 = gamepad1.right_trigger > TRIGGER_THRESHOLD;
-        if (currentRT1 && !lastRightTrigger1) {
-            vomitModeActive = !vomitModeActive;
-            intakeModeActive = false; // Disable intake mode when toggling vomit
-
-            if (vomitModeActive) {
+        // Right trigger - hold for vomit mode (press = on, release = off)
+        if (gamepad1.right_trigger > TRIGGER_THRESHOLD) {
+            if (!vomitModeActive) {
+                vomitModeActive = true;
+                intakeModeActive = false;
                 if (intake != null) { intake.reversed = true; if (!intake.isActive()) intake.toggle(); }
                 if (transfer != null) { transfer.reversed = true; if (!transfer.isActive()) transfer.toggle(); }
                 if (uptake != null) { uptake.reversed = true; if (!uptake.isActive()) uptake.toggle(); }
-            } else {
+            }
+        } else {
+            if (vomitModeActive) {
+                vomitModeActive = false;
                 if (intake != null && intake.isActive()) intake.toggle();
                 if (transfer != null && transfer.isActive()) transfer.toggle();
                 if (uptake != null && uptake.isActive()) uptake.toggle();
             }
         }
-        lastRightTrigger1 = currentRT1;
 
         // X button - toggle intake only
         boolean currentX1 = gamepad1.x;
