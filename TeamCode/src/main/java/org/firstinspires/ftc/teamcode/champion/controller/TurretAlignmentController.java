@@ -6,9 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
-import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
-import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import java.util.List;
 
@@ -22,7 +20,6 @@ public class TurretAlignmentController {
     private final LinearOpMode opMode;
     private final TurretController turretController;
     private final Limelight3A limelight;
-    private final FtcDashboard dashboard;
 
     // === TUNABLE PARAMETERS ===
 
@@ -57,7 +54,6 @@ public class TurretAlignmentController {
     private double currentTx = 0;
 
     // Alignment tracking
-    private int consecutiveAlignedFrames = 0;
     private final ElapsedTime alignmentTimer = new ElapsedTime();
     private double totalAlignmentTime = 0;
 
@@ -69,7 +65,6 @@ public class TurretAlignmentController {
     public TurretAlignmentController(LinearOpMode opMode, TurretController turretController) throws Exception {
         this.opMode = opMode;
         this.turretController = turretController;
-        this.dashboard = FtcDashboard.getInstance();
 
         try {
             this.limelight = opMode.hardwareMap.get(Limelight3A.class, "limelight");
@@ -89,7 +84,6 @@ public class TurretAlignmentController {
     public void startAlignment() {
         isActive = true;
         alignmentTimer.reset();
-        consecutiveAlignedFrames = 0;
 
         // Try to find target
         if (findTarget()) {
@@ -140,11 +134,6 @@ public class TurretAlignmentController {
                 break;
             }
 
-            // Display status
-            opMode.telemetry.addLine("=== TURRET ALIGNMENT ===");
-            opMode.telemetry.addData("TX", "%.2f°", currentTx);
-            opMode.telemetry.addData("Tolerance", "±%.1f°", AlignmentParams.TX_TOLERANCE_DEGREES);
-            opMode.telemetry.addData("Stable", "%d/%d", stableFrames, AlignmentParams.ALIGNED_FRAMES_REQUIRED);
 
             // Check if aligned
             if (Math.abs(currentTx) <= AlignmentParams.TX_TOLERANCE_DEGREES) {
@@ -306,59 +295,6 @@ public class TurretAlignmentController {
             case STOPPED:
                 break;
         }
-
-        sendDashboardData();
-    }
-
-    // === TELEMETRY ===
-
-    private void sendDashboardData() {
-        if (dashboard == null) return;
-
-        TelemetryPacket packet = new TelemetryPacket();
-
-        // State
-        packet.put("State", currentState.toString());
-        packet.put("Has_Target", hasTarget);
-
-        // TX alignment
-        packet.put("Current_TX", currentTx);
-        packet.put("Abs_TX", Math.abs(currentTx));
-        packet.put("TX_Error", Math.abs(currentTx));
-
-        // Turret status
-        turretController.update();
-        packet.put("Turret_Angle", turretController.getCurrentAngle());
-        packet.put("Turret_Power", turretController.getPower());
-        packet.put("Turret_Velocity", turretController.getVelocity());
-
-        // Timing
-        packet.put("Aligned_Frames", consecutiveAlignedFrames);
-        packet.put("Alignment_Time", alignmentTimer.seconds());
-        if (totalAlignmentTime > 0) {
-            packet.put("Total_Time", totalAlignmentTime);
-        }
-
-        dashboard.sendTelemetryPacket(packet);
-    }
-
-    public void displayTelemetry() {
-        opMode.telemetry.addLine("═══════════════════════");
-        opMode.telemetry.addLine("  TURRET ALIGNMENT");
-        opMode.telemetry.addLine("═══════════════════════");
-        opMode.telemetry.addLine();
-
-        opMode.telemetry.addLine(">>> TARGET TX <<<");
-        opMode.telemetry.addData("TX", "%.2f°", currentTx);
-        opMode.telemetry.addData("Abs TX", "%.2f°", Math.abs(currentTx));
-        opMode.telemetry.addData("Within Tolerance", Math.abs(currentTx) <= AlignmentParams.TX_TOLERANCE_DEGREES ? "YES" : "NO");
-        opMode.telemetry.addLine();
-
-        opMode.telemetry.addData("State", currentState);
-        opMode.telemetry.addData("Turret Angle", "%.2f°", turretController.getCurrentAngle());
-        opMode.telemetry.addData("Turret Power", "%.2f", turretController.getPower());
-
-        opMode.telemetry.update();
     }
 
     // === GETTERS ===

@@ -111,16 +111,6 @@ public class DecemberTeleop extends LinearOpMode {
         waitForStart();
         runtime.reset();
 
-        // Initialize turret to 0 degrees at start
-        if (turret != null) {
-            turret.initialize();
-            ElapsedTime initTimer = new ElapsedTime();
-            while (!turret.isInitialized() && initTimer.seconds() < 3.0 && opModeIsActive()) {
-                turret.update();
-                sleep(20);
-            }
-        }
-
         // Initialize ramp to 0 degrees at start
         if (ramp != null) {
             ramp.initialize();
@@ -129,11 +119,6 @@ public class DecemberTeleop extends LinearOpMode {
                 ramp.update();
                 sleep(20);
             }
-        }
-
-        // Start turret auto-alignment if enabled
-        if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) {
-            turretAlignment.startAlignment();
         }
 
         while (opModeIsActive()) {
@@ -385,13 +370,14 @@ public class DecemberTeleop extends LinearOpMode {
             double turretInput = gamepad2.left_stick_x;
             if (Math.abs(turretInput) > 0.1) {
                 double increment = turretInput * TURRET_SENSITIVITY;
-                if (increment > 0) {
-                    turret.incrementAngle(increment);
-                } else {
-                    turret.decrementAngle(-increment);
+                if (turret.getCurrentAngle() <= 360 && turret.getCurrentAngle() >= 0) {
+                    if (increment > 0) {
+                        turret.turnToAngle(increment);
+                    } else {
+                        turret.turnToAngle(-increment);
+                    }
                 }
             }
-        }
 
         // X button - far preset
         boolean currentX2 = gamepad2.x;
@@ -506,7 +492,7 @@ public class DecemberTeleop extends LinearOpMode {
             currentTargetRPM = 0;
         }
     }
-
+}
     /**
      * Check uptake switch for ball detection
      * When in intake mode and ball detected, stop uptake but keep intake/transfer running
@@ -537,7 +523,6 @@ public class DecemberTeleop extends LinearOpMode {
     }
 
     private void updateAllSystems() {
-        if (turret != null) turret.update();
         if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.update();
         if (ramp != null) ramp.update();
         if (intake != null) intake.update();
