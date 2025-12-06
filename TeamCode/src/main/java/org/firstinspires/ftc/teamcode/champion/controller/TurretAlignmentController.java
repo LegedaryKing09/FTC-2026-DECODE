@@ -25,9 +25,9 @@ public class TurretAlignmentController {
 
     @Config
     public static class AlignmentParams {
-        public static double TX_TOLERANCE_DEGREES = 1.0;
+        public static double TX_TOLERANCE_DEGREES = 2.0;
         public static long ALIGNMENT_TIMEOUT_MS = 3000;
-        public static int ALIGNED_FRAMES_REQUIRED = 5;
+        public static int ALIGNED_FRAMES_REQUIRED = 3;
         public static double SETTLING_TIME_MS = 100;
         public static double TURN_POWER = 1.0;
     }
@@ -235,19 +235,24 @@ public class TurretAlignmentController {
                 return;
             }
 
-            // Stop while counting stable frames
-            turretController.stop();
-        } else {
-            // Reset stable counter if we drift
-            stableFrames = 0;
-
-            // Determine turn direction and apply power
-            double power = (currentTx > 0) ? AlignmentParams.TURN_POWER : -AlignmentParams.TURN_POWER;
-            turretController.setPower(power);
-
-            opMode.telemetry.addData("Aligning - Power", "%.2f", power);
-            opMode.telemetry.addData("TX Error", "%.2f°", currentTx);
+            // Continue turning even when within tolerance until we hit required frames
+            // This prevents rapid start-stop that prevents the turret from moving
         }
+
+        // Always reset stable counter if outside tolerance
+        if (Math.abs(currentTx) > AlignmentParams.TX_TOLERANCE_DEGREES) {
+            stableFrames = 0;
+        }
+
+        // Determine turn direction and apply power (always turn unless fully aligned)
+        // TX is positive when target is RIGHT, negative when LEFT
+        // We need to turn in the OPPOSITE direction (negative power = turn left toward negative TX)
+        double power = (currentTx > 0) ? -AlignmentParams.TURN_POWER : AlignmentParams.TURN_POWER;
+        turretController.setPower(power);
+
+        opMode.telemetry.addData("Aligning - Power", "%.2f", power);
+        opMode.telemetry.addData("TX Error", "%.2f°", currentTx);
+        opMode.telemetry.addData("Stable Frames", "%d/%d", stableFrames, AlignmentParams.ALIGNED_FRAMES_REQUIRED);
 
         opMode.telemetry.update();
     }
@@ -257,7 +262,7 @@ public class TurretAlignmentController {
         if (!findTarget()) return;
 
         if (Math.abs(currentTx) > AlignmentParams.TX_TOLERANCE_DEGREES) {
-            double power = (currentTx > 0) ? AlignmentParams.TURN_POWER : -AlignmentParams.TURN_POWER;
+            double power = (currentTx > 0) ? -AlignmentParams.TURN_POWER : AlignmentParams.TURN_POWER;
             turretController.setPower(power);
         } else {
             turretController.stop();
