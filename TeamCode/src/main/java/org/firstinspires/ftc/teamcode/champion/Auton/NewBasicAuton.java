@@ -167,6 +167,7 @@ public class NewBasicAuton extends LinearOpMode {
 
         // Pattern detection
         int patternIndex = autonController.detectPattern();
+        telemetry.addData("Pattern Detected", patternIndex);
         telemetry.update();
 
         // Turn to alignment angle (90 degrees to the balls)

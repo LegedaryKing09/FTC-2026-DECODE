@@ -131,11 +131,6 @@ public class AutonController {
         }
     }
 
-    // ================== NEW: IMMEDIATE RPM MONITOR THREAD ==================
-    /**
-     * CRITICAL FIX: Dedicated thread that monitors RPM continuously
-     * and adjusts ramp IMMEDIATELY - no waiting for check intervals
-     */
     private void startImmediateRPMMonitor() {
         monitorActive = true;
         rpmMonitorThread = new Thread(() -> {
@@ -313,11 +308,7 @@ public class AutonController {
         return Math.toDegrees(driveController.getHeading());
     }
 
-    /**
-     * FIXED: Quick shoot now uses background thread for IMMEDIATE RPM compensation
-     * The ramp adjustment now happens in startImmediateRPMMonitor() thread,
-     * this method just enables/disables it via the isShooting flag
-     */
+
     public void quickShoot() {
         // Reset compensation counters
         compensationCount = 0;
