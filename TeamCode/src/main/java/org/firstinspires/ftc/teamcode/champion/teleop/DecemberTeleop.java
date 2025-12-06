@@ -449,8 +449,6 @@ public class DecemberTeleop extends LinearOpMode {
         lastDpadUp2 = currentDpadDown2;
     }
     private void updateAllSystems() {
-
-        if (turret != null) turret.update();
         if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.startAlignment();
         if (ramp != null) ramp.update();
         if (intake != null) intake.update();
