@@ -199,10 +199,10 @@ public class NewRampController {
     }
 
     /**
-     * Increment ramp angle by specified degrees
+     * Increment ramp angle by specified degrees (increases angle)
      */
     public void incrementAngle(double degrees) {
-        targetAngle = getCurrentAngle() - degrees;
+        targetAngle = getCurrentAngle() + degrees;  // FIXED: now ADDS degrees
 
         // Wrap target angle to [0, 360]
         while (targetAngle >= 360) targetAngle -= 360;
@@ -214,10 +214,10 @@ public class NewRampController {
     }
 
     /**
-     * Decrement ramp angle by specified degrees
+     * Decrement ramp angle by specified degrees (decreases angle)
      */
     public void decrementAngle(double degrees) {
-        incrementAngle(-degrees);
+        incrementAngle(-degrees);  // Now correctly subtracts
     }
 
     /**

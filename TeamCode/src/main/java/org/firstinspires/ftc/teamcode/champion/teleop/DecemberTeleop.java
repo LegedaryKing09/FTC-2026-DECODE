@@ -14,6 +14,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.*;
 
 @Config
+@TeleOp(name = "December Teleop", group = "Competition")
 public class DecemberTeleop extends LinearOpMode {
 
     // Ramp angle increment (tunable via FTC Dashboard)
@@ -33,6 +34,9 @@ public class DecemberTeleop extends LinearOpMode {
     public static double FAR_RPM = 3100.0;
     public static double SHOOTER_RPM = 4800.0;
 
+    // RPM manual adjustment increment (tunable via FTC Dashboard)
+    public static double RPM_INCREMENT = 50.0;
+
     // Ramp angle presets (adjust these based on testing)
     public static double CLOSE_RAMP_ANGLE = 25.0;
     public static double FAR_RAMP_ANGLE = 30.0;
@@ -50,6 +54,10 @@ public class DecemberTeleop extends LinearOpMode {
     private DcMotor lf, lb;
     private DcMotor rf, rb;
 
+    // Uptake ball detection switch
+    private AnalogInput uptakeSwitch;
+    public static double UPTAKE_SWITCH_THRESHOLD = 0.3;  // Voltage threshold for ball detection
+
     private final ElapsedTime runtime = new ElapsedTime();
 
     // David's gamepad (gamepad1) button states
@@ -64,6 +72,9 @@ public class DecemberTeleop extends LinearOpMode {
     private boolean lastY2 = false;
     private boolean lastB2 = false;
     private boolean lastRightBumper2 = false;
+    private boolean lastLeftBumper2 = false;
+    private boolean lastDpadUp2 = false;
+    private boolean lastDpadDown2 = false;
 
     // Trigger threshold
     private static final double TRIGGER_THRESHOLD = 0.5;
@@ -73,6 +84,9 @@ public class DecemberTeleop extends LinearOpMode {
 
     // Vomit mode state (reverse all wheels)
     private boolean vomitModeActive = false;
+
+    // Track if uptake was stopped by ball detection switch
+    private boolean uptakeStoppedBySwitch = false;
 
     // Track if shooter is running from left trigger
     private boolean shooterFromTrigger = false;
@@ -125,10 +139,13 @@ public class DecemberTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             // David's controls (gamepad1)
             handleDriveControls();
-            handlePlayer1Controls();
+            handleDavidControls();
 
             // Edward's controls (gamepad2)
-            handlePlayer2Controls();
+            handleEdwardControls();
+
+            // Check uptake ball detection switch
+            //checkUptakeSwitch();
 
             // Update all controllers
             updateAllSystems();
@@ -221,6 +238,14 @@ public class DecemberTeleop extends LinearOpMode {
         }
         uptake = new UptakeController(uptakeServo);
 
+        // Initialize uptake ball detection switch
+        try {
+            uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
+            telemetry.addData("✓ Uptake Switch", "OK");
+        } catch (Exception e) {
+            telemetry.addData("✗ Uptake Switch", "NOT FOUND");
+        }
+
         // Initialize shooter
         DcMotor shooterMotor = null;
         try {
@@ -273,7 +298,7 @@ public class DecemberTeleop extends LinearOpMode {
      * Y - toggle transfer only
      * A - toggle uptake only
      */
-    private void handlePlayer1Controls() {
+    private void handleDavidControls() {
         // Right bumper - toggle intake mode (all wheels together)
         boolean currentRB1 = gamepad1.right_bumper;
         if (currentRB1 && !lastRightBumper1) {
@@ -348,22 +373,22 @@ public class DecemberTeleop extends LinearOpMode {
      * A - close preset (RPM + ramp)
      * Y - increase ramp angle
      * B - decrease ramp angle
+     * Dpad Up - increase target RPM
+     * Dpad Down - decrease target RPM
      * Right bumper - (placeholder for turret auto shoot toggle)
      * Right trigger - hold for uptake
      * Left trigger - run shooter at 4800 RPM
      */
-    private void handlePlayer2Controls() {
+    private void handleEdwardControls() {
         // Left stick X - turret control
         if (turret != null) {
             double turretInput = gamepad2.left_stick_x;
             if (Math.abs(turretInput) > 0.1) {
                 double increment = turretInput * TURRET_SENSITIVITY;
-                if (turret.getCurrentAngle() <= 360 && turret.getCurrentAngle() >= 0){
                 if (increment > 0) {
-                    turret.setPower(increment);
+                    turret.incrementAngle(increment);
                 } else {
-                    turret.setPower(-increment);
-                }
+                    turret.decrementAngle(-increment);
                 }
             }
         }
@@ -406,12 +431,52 @@ public class DecemberTeleop extends LinearOpMode {
         }
         lastB2 = currentB2;
 
+        // Dpad Up - increase target RPM
+        boolean currentDpadUp2 = gamepad2.dpad_up;
+        if (currentDpadUp2 && !lastDpadUp2) {
+            if (shooter != null) {
+                currentTargetRPM += RPM_INCREMENT;
+                if (currentTargetRPM > NewShooterController.MAX_RPM) {
+                    currentTargetRPM = NewShooterController.MAX_RPM;
+                }
+                shooter.setTargetRPM(currentTargetRPM);
+            }
+        }
+        lastDpadUp2 = currentDpadUp2;
+
+        // Dpad Down - decrease target RPM
+        boolean currentDpadDown2 = gamepad2.dpad_down;
+        if (currentDpadDown2 && !lastDpadDown2) {
+            if (shooter != null) {
+                currentTargetRPM -= RPM_INCREMENT;
+                if (currentTargetRPM < NewShooterController.MIN_RPM) {
+                    currentTargetRPM = NewShooterController.MIN_RPM;
+                }
+                shooter.setTargetRPM(currentTargetRPM);
+            }
+        }
+        lastDpadDown2 = currentDpadDown2;
+
         // Right bumper - TODO: turret auto shoot toggle
         boolean currentRB2 = gamepad2.right_bumper;
         if (currentRB2 && !lastRightBumper2) {
             // Placeholder for turret auto shoot toggle
         }
         lastRightBumper2 = currentRB2;
+
+        // Left bumper - toggle shooter at current target RPM (set by d-pad)
+        boolean currentLB2 = gamepad2.left_bumper;
+        if (currentLB2 && !lastLeftBumper2) {
+            if (shooter != null) {
+                if (shooter.isShootMode()) {
+                    shooter.stopShooting();
+                } else {
+                    shooter.setTargetRPM(currentTargetRPM);
+                    shooter.startShooting();
+                }
+            }
+        }
+        lastLeftBumper2 = currentLB2;
 
         // Right trigger - hold for uptake (press = on, release = off)
         if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
@@ -442,6 +507,35 @@ public class DecemberTeleop extends LinearOpMode {
         }
     }
 
+    /**
+     * Check uptake switch for ball detection
+     * When in intake mode and ball detected, stop uptake but keep intake/transfer running
+     */
+    private void checkUptakeSwitch() {
+        if (uptakeSwitch == null || uptake == null) return;
+
+        boolean ballDetected = uptakeSwitch.getVoltage() > UPTAKE_SWITCH_THRESHOLD;
+
+        // Only auto-stop uptake during intake mode
+        if (intakeModeActive) {
+            if (ballDetected && !uptakeStoppedBySwitch) {
+                // Ball detected - stop uptake, keep intake and transfer running
+                if (uptake.isActive()) uptake.toggle();
+                uptakeStoppedBySwitch = true;
+            } else if (!ballDetected && uptakeStoppedBySwitch) {
+                // Ball removed - restart uptake if still in intake mode
+                if (!uptake.isActive()) {
+                    uptake.reversed = false;
+                    uptake.toggle();
+                }
+                uptakeStoppedBySwitch = false;
+            }
+        } else {
+            // Reset flag when not in intake mode
+            uptakeStoppedBySwitch = false;
+        }
+    }
+
     private void updateAllSystems() {
         if (turret != null) turret.update();
         if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.update();
@@ -467,6 +561,10 @@ public class DecemberTeleop extends LinearOpMode {
         telemetry.addData("Intake", (intake != null && intake.isActive()) ? "ON" : "OFF");
         telemetry.addData("Transfer", (transfer != null && transfer.isActive()) ? "ON" : "OFF");
         telemetry.addData("Uptake", (uptake != null && uptake.isActive()) ? "ON" : "OFF");
+        if (uptakeSwitch != null) {
+            boolean ballDetected = uptakeSwitch.getVoltage() > UPTAKE_SWITCH_THRESHOLD;
+            telemetry.addData("Ball Detected", ballDetected ? "YES" : "NO");
+        }
 
         // Turret
         if (turret != null) {
