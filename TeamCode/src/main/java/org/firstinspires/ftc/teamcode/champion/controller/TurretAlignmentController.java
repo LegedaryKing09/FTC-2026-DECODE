@@ -94,6 +94,8 @@ public class TurretAlignmentController {
             currentState = AlignmentState.ALIGNING;
             opMode.telemetry.addLine("=== TURRET ALIGNMENT STARTED ===");
             opMode.telemetry.addData("Initial TX", "%.2f°", currentTx);
+            opMode.telemetry.addData("Target Tag ID", targetTagId);
+            opMode.telemetry.addData("State", currentState);
             opMode.telemetry.update();
         } else {
             currentState = AlignmentState.SEARCHING;
@@ -184,6 +186,9 @@ public class TurretAlignmentController {
             return;
         }
 
+        opMode.telemetry.addData("Alignment State", currentState);
+        opMode.telemetry.addData("Is Active", isActive);
+
         switch (currentState) {
             case ALIGNING:
                 updateAlignment();
@@ -195,6 +200,9 @@ public class TurretAlignmentController {
                 maintainAlignment();
                 break;
             case TARGET_LOST:
+                opMode.telemetry.addLine("⚠️ TARGET LOST - Press LB to retry");
+                turretController.stop();
+                break;
             case STOPPED:
                 break;
         }
@@ -292,12 +300,6 @@ public class TurretAlignmentController {
                             hasTarget = true;
                             break;
                         }
-                }
-                try {
-                    sleep(20);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return false;
                 }
             }
 
