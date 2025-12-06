@@ -365,15 +365,20 @@ public class DecemberTeleop extends LinearOpMode {
      * Left trigger - run shooter at 4800 RPM
      */
     private void handleEdwardControls() {
-        // Left stick X - turret control
+        // Left stick X - turret control (only if not in alignment mode)
         if (turret != null) {
-            double turretInput = gamepad2.left_stick_x;
-            if (Math.abs(turretInput) > 0.1) {
-                // Joystick is being pushed - set turret power
-                turret.setPower(turretInput);
+            // Don't allow manual control while alignment is active
+            if (turretAlignment != null && turretAlignment.getState() != TurretAlignmentController.AlignmentState.STOPPED) {
+                // Alignment is active - skip manual joystick control
             } else {
-                // Joystick is in neutral - stop turret immediately
-                turret.setPower(0);
+                double turretInput = gamepad2.left_stick_x;
+                if (Math.abs(turretInput) > 0.1) {
+                    // Joystick is being pushed - set turret power
+                    turret.setPower(turretInput);
+                } else {
+                    // Joystick is in neutral - stop turret immediately
+                    turret.setPower(0);
+                }
             }
 
             // X button - far preset
@@ -452,10 +457,15 @@ public class DecemberTeleop extends LinearOpMode {
             }
             lastRightBumper2 = currentRB2;
 
-            // Left bumper - toggle shooter at current target RPM (set by d-pad)
+            // Left bumper - start alignment, or stop if already aligning
             boolean currentLB2 = gamepad2.left_bumper;
             if (currentLB2 && !lastLeftBumper2) {
-                turretAlignment.startAlignment();
+                if (turretAlignment.getState() == TurretAlignmentController.AlignmentState.STOPPED) {
+                    turretAlignment.startAlignment();
+                } else {
+                    // If already aligning, stop it
+                    turretAlignment.stopAlignment();
+                }
             }
             lastLeftBumper2 = currentLB2;
 
