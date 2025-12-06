@@ -27,6 +27,11 @@ public class SimpleTurretAlignmentController {
     private boolean isRunning = false;
     private double lastTx = 0;
 
+    // Debug info
+    private int lastValidReadings = 0;
+    private int lastTotalFiducials = 0;
+    private boolean lastResultValid = false;
+
     public SimpleTurretAlignmentController(LinearOpMode opMode, TurretController turretController) throws Exception {
         this.opMode = opMode;
         this.turretController = turretController;
@@ -76,6 +81,10 @@ public class SimpleTurretAlignmentController {
             turretController.stop();
             opMode.telemetry.addLine("❌ No target found");
             opMode.telemetry.addData("Last TX", "%.2f°", lastTx);
+            opMode.telemetry.addData("Valid Readings", "%d/5", lastValidReadings);
+            opMode.telemetry.addData("Total Fiducials", lastTotalFiducials);
+            opMode.telemetry.addData("Result Valid", lastResultValid);
+            opMode.telemetry.addData("Target Tag ID", TARGET_TAG_ID);
             return;
         }
 
@@ -104,7 +113,7 @@ public class SimpleTurretAlignmentController {
     /**
      * Get TX value from limelight for the target AprilTag
      * Returns null if target not found
-     * EXACT COPY from TurretAlignmentController.findTarget()
+     * Takes multiple readings for better accuracy (same as LimelightAlignmentController)
      */
     private Double getTargetTx() {
         if (limelight == null) {
@@ -112,25 +121,49 @@ public class SimpleTurretAlignmentController {
         }
 
         try {
+            // Take multiple readings for better accuracy (same as LimelightAlignmentController)
+            double sumTx = 0;
             int validReadings = 0;
-            double tx = 0;
+            int totalFiducials = 0;
+            boolean anyResultValid = false;
 
-            LLResult result = limelight.getLatestResult();
-            if (result != null && result.isValid()) {
-                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
-                for (LLResultTypes.FiducialResult fiducial : fiducials) {
-                    if (fiducial.getFiducialId() == TARGET_TAG_ID) {
-                        tx = fiducial.getTargetXDegrees();
-                        validReadings++;
-                        break;
+            for (int i = 0; i < 5; i++) {
+                LLResult result = limelight.getLatestResult();
+                if (result != null && result.isValid()) {
+                    anyResultValid = true;
+                    List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+                    if (fiducials != null) {
+                        totalFiducials = Math.max(totalFiducials, fiducials.size());
+
+                        for (LLResultTypes.FiducialResult fiducial : fiducials) {
+                            if (fiducial.getFiducialId() == TARGET_TAG_ID) {
+                                sumTx += fiducial.getTargetXDegrees();
+                                validReadings++;
+                                break;
+                            }
+                        }
                     }
+                }
+
+                try {
+                    Thread.sleep(20);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
                 }
             }
 
+            // Store debug info
+            lastValidReadings = validReadings;
+            lastTotalFiducials = totalFiducials;
+            lastResultValid = anyResultValid;
+
             if (validReadings > 0) {
-                return -tx;  // Invert TX sign (same as LimelightAlignmentController)
+                double avgTx = sumTx / validReadings;
+                return -avgTx;  // Invert TX sign (same as LimelightAlignmentController)
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            opMode.telemetry.addData("Exception", e.getMessage());
         }
 
         return null;
