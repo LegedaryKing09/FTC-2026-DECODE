@@ -536,6 +536,7 @@ public class DecemberTeleop extends LinearOpMode {
         if (transfer != null) transfer.update();
         if (uptake != null) uptake.update();
         if (shooter != null) shooter.update();
+        if (turretAlignment != null) turretAlignment.update();
     }
 
     private void displayTelemetry() {

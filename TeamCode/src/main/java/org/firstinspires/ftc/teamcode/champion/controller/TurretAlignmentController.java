@@ -56,6 +56,8 @@ public class TurretAlignmentController {
     // Alignment tracking
     private final ElapsedTime alignmentTimer = new ElapsedTime();
     private double totalAlignmentTime = 0;
+    private int stableFrames = 0;
+    private long alignmentStartTime = 0;
 
     // Search state
     private final ElapsedTime searchTimer = new ElapsedTime();
@@ -84,26 +86,18 @@ public class TurretAlignmentController {
     public void startAlignment() {
         isActive = true;
         alignmentTimer.reset();
+        stableFrames = 0;
+        alignmentStartTime = System.currentTimeMillis();
 
         // Try to find target
         if (findTarget()) {
+            currentState = AlignmentState.ALIGNING;
             opMode.telemetry.addLine("=== TURRET ALIGNMENT STARTED ===");
             opMode.telemetry.addData("Initial TX", "%.2f°", currentTx);
             opMode.telemetry.update();
-
-            // Execute alignment
-            try {
-                turnTurretToAlignWithTarget();
-                currentState = AlignmentState.ALIGNED;
-                totalAlignmentTime = alignmentTimer.seconds();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                currentState = AlignmentState.STOPPED;
-            }
         } else {
             currentState = AlignmentState.SEARCHING;
             searchTimer.reset();
-
             opMode.telemetry.addLine("Target not found - starting search");
             opMode.telemetry.update();
         }
@@ -180,6 +174,82 @@ public class TurretAlignmentController {
         }
 
         turretController.stop();
+    }
+
+    /**
+     * Update method - call this every loop cycle to perform non-blocking alignment
+     */
+    public void update() {
+        if (!isActive || currentState == AlignmentState.STOPPED) {
+            return;
+        }
+
+        switch (currentState) {
+            case ALIGNING:
+                updateAlignment();
+                break;
+            case SEARCHING:
+                executeSearch();
+                break;
+            case ALIGNED:
+                maintainAlignment();
+                break;
+            case TARGET_LOST:
+            case STOPPED:
+                break;
+        }
+    }
+
+    /**
+     * Perform one iteration of alignment logic (non-blocking)
+     */
+    private void updateAlignment() {
+        // Check timeout
+        if (System.currentTimeMillis() - alignmentStartTime > AlignmentParams.ALIGNMENT_TIMEOUT_MS) {
+            opMode.telemetry.addLine("⚠️ Alignment timeout");
+            opMode.telemetry.update();
+            stopAlignment();
+            return;
+        }
+
+        // Get current TX reading
+        if (!findTarget()) {
+            opMode.telemetry.addLine("⚠️ Lost target");
+            opMode.telemetry.update();
+            currentState = AlignmentState.TARGET_LOST;
+            turretController.stop();
+            return;
+        }
+
+        // Check if aligned
+        if (Math.abs(currentTx) <= AlignmentParams.TX_TOLERANCE_DEGREES) {
+            stableFrames++;
+            opMode.telemetry.addLine("✓ Within tolerance");
+
+            if (stableFrames >= AlignmentParams.ALIGNED_FRAMES_REQUIRED) {
+                opMode.telemetry.addLine("✓✓✓ ALIGNED! ✓✓✓");
+                opMode.telemetry.update();
+                turretController.stop();
+                currentState = AlignmentState.ALIGNED;
+                totalAlignmentTime = alignmentTimer.seconds();
+                return;
+            }
+
+            // Stop while counting stable frames
+            turretController.stop();
+        } else {
+            // Reset stable counter if we drift
+            stableFrames = 0;
+
+            // Determine turn direction and apply power
+            double power = (currentTx > 0) ? AlignmentParams.TURN_POWER : -AlignmentParams.TURN_POWER;
+            turretController.setPower(power);
+
+            opMode.telemetry.addData("Aligning - Power", "%.2f", power);
+            opMode.telemetry.addData("TX Error", "%.2f°", currentTx);
+        }
+
+        opMode.telemetry.update();
     }
 
     public void maintainAlignment() {
