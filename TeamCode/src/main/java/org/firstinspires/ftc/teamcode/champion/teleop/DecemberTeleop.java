@@ -368,17 +368,13 @@ public class DecemberTeleop extends LinearOpMode {
     private void handleEdwardControls() {
         // Left stick X - turret control
         if (turret != null) {
-            boolean turretWasMoving = false;
             double turretInput = gamepad2.left_stick_x;
             if (Math.abs(turretInput) > 0.1) {
-                if (turret.getCurrentAngle() <= 360 && turret.getCurrentAngle() >= 0) {
-                    turret.setPower(turretInput);
-                    turretWasMoving = true;
-                }
-            } else if (turretWasMoving) {//TODO check if this works. It has to get power to 0 only so that It doesnt override other set powers
-                // Only set power to 0 once when joystick returns to neutral
+                // Joystick is being pushed - set turret power
+                turret.setPower(turretInput);
+            } else {
+                // Joystick is in neutral - stop turret immediately
                 turret.setPower(0);
-                turretWasMoving = false;
             }
 
             // X button - far preset
