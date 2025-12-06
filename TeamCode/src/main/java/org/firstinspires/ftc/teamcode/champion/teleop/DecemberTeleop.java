@@ -30,8 +30,8 @@ public class DecemberTeleop extends LinearOpMode {
     public static int TURRET_TARGET_TAG_ID = 20;
 
     // Shooter presets (tunable via FTC Dashboard)
-    public static double CLOSE_RPM = 2800.0;
-    public static double FAR_RPM = 3100.0;
+    public static double CLOSE_RPM = 3650.0;
+    public static double FAR_RPM = 4600.0;
     public static double SHOOTER_RPM = 4800.0;
 
     // RPM manual adjustment increment (tunable via FTC Dashboard)
@@ -443,10 +443,10 @@ public class DecemberTeleop extends LinearOpMode {
             }
             lastDpadDown2 = currentDpadDown2;
 
-            // Right bumper - TODO: turret auto shoot toggle
+            // Right bumper
             boolean currentRB2 = gamepad2.right_bumper;
             if (currentRB2 && !lastRightBumper2) {
-                // Placeholder for turret auto shoot toggle
+                turretAlignment.align(TURRET_TARGET_TAG_ID);
             }
             lastRightBumper2 = currentRB2;
 
@@ -526,7 +526,6 @@ public class DecemberTeleop extends LinearOpMode {
     }
 
     private void updateAllSystems() {
-        if (turretAlignment != null && ENABLE_AUTO_ALIGNMENT) turretAlignment.startAlignment();
         if (ramp != null) ramp.update();
         if (intake != null) intake.update();
         if (transfer != null) transfer.update();
