@@ -128,7 +128,7 @@ public class SimpleTurretAlignmentController {
             }
 
             if (validReadings > 0) {
-                return tx;
+                return -tx;  // Invert TX sign (same as LimelightAlignmentController)
             }
         } catch (Exception ignored) {
         }
