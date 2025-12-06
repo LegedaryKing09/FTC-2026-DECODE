@@ -155,7 +155,7 @@ public class TurretAlignmentController {
                 stableFrames = 0;
 
                 // Determine turn direction and apply power
-                double power = (currentTx > 0) ? AlignmentParams.TURN_POWER : -AlignmentParams.TURN_POWER;
+                double power = (currentTx > 0) ? -AlignmentParams.TURN_POWER : AlignmentParams.TURN_POWER;
                 turretController.setPower(power);
 
                 opMode.telemetry.addData("Power", "%.2f", power);

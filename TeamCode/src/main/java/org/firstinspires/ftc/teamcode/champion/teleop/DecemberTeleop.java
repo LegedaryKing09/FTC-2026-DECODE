@@ -23,9 +23,6 @@ public class DecemberTeleop extends LinearOpMode {
     // Turret control sensitivity
     public static double TURRET_SENSITIVITY = 3.0;
 
-    // Turret alignment enable/disable
-    public static boolean ENABLE_AUTO_ALIGNMENT = false;
-
     // Target AprilTag ID for turret alignment
     public static int TURRET_TARGET_TAG_ID = 20;
 
@@ -38,8 +35,8 @@ public class DecemberTeleop extends LinearOpMode {
     public static double RPM_INCREMENT = 50.0;
 
     // Ramp angle presets (adjust these based on testing)
-    public static double CLOSE_RAMP_ANGLE = 25.0;
-    public static double FAR_RAMP_ANGLE = 30.0;
+    public static double CLOSE_RAMP_ANGLE = 171.0;
+    public static double FAR_RAMP_ANGLE = 92.0;
 
     // Controllers
     private TurretController turret;
@@ -97,6 +94,8 @@ public class DecemberTeleop extends LinearOpMode {
     // Track if uptake is running from Edward's right trigger
     private boolean uptakeFromTrigger = false;
 
+    private boolean isShooting = false;
+
     @Override
     public void runOpMode() {
         FtcDashboard dashboard = FtcDashboard.getInstance();
@@ -130,7 +129,7 @@ public class DecemberTeleop extends LinearOpMode {
             handleEdwardControls();
 
             // Check uptake ball detection switch
-            checkUptakeSwitch();
+            if(!isShooting) {checkUptakeSwitch();}
 
             // Update all controllers
             updateAllSystems();
@@ -287,6 +286,7 @@ public class DecemberTeleop extends LinearOpMode {
         // Right bumper - toggle intake mode (all wheels together)
         boolean currentRB1 = gamepad1.right_bumper;
         if (currentRB1 && !lastRightBumper1) {
+            isShooting = false;
             intakeModeActive = !intakeModeActive;
             vomitModeActive = false; // Disable vomit when toggling intake mode
 
@@ -446,21 +446,19 @@ public class DecemberTeleop extends LinearOpMode {
             // Right bumper
             boolean currentRB2 = gamepad2.right_bumper;
             if (currentRB2 && !lastRightBumper2) {
-                turretAlignment.align(TURRET_TARGET_TAG_ID);
+                isShooting = true;
+                intakeModeActive = false;
+                vomitModeActive = false;
+                intake.toggle();
+                transfer.toggle();
+                uptake.toggle();
             }
             lastRightBumper2 = currentRB2;
 
             // Left bumper - toggle shooter at current target RPM (set by d-pad)
             boolean currentLB2 = gamepad2.left_bumper;
             if (currentLB2 && !lastLeftBumper2) {
-                if (shooter != null) {
-                    if (shooter.isShootMode()) {
-                        shooter.stopShooting();
-                    } else {
-                        shooter.setTargetRPM(currentTargetRPM);
-                        shooter.startShooting();
-                    }
-                }
+                turretAlignment.startAlignment();
             }
             lastLeftBumper2 = currentLB2;
 
