@@ -368,10 +368,12 @@ public class DecemberTeleop extends LinearOpMode {
         // Left stick X - turret control
         if (turret != null) {
             double turretInput = gamepad2.left_stick_x;
-            if (Math.abs(turretInput) != 0) {
-                if (turret.getCurrentAngle() <= 360 && turret.getCurrentAngle() >= 0) {
-                    turret.setPower(turretInput);
-                }
+            if (Math.abs(turretInput) > 0.1) {
+                // Joystick is being pushed - set turret power
+                turret.setPower(turretInput);
+            } else {
+                // Joystick is in neutral - stop turret immediately
+                turret.setPower(0);
             }
 
             // X button - far preset
