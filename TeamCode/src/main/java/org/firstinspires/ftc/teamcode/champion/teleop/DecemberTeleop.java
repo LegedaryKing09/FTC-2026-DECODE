@@ -40,7 +40,7 @@ public class DecemberTeleop extends LinearOpMode {
 
     // Controllers
     private TurretController turret;
-    private TurretAlignmentController turretAlignment;
+    private SimpleTurretAlignmentController turretAlignment;
     private NewIntakeController intake;
     private NewTransferController transfer;
     private UptakeController uptake;
@@ -177,8 +177,8 @@ public class DecemberTeleop extends LinearOpMode {
 
         // Initialize turret alignment controller
         try {
-            turretAlignment = new TurretAlignmentController(this, turret);
-            turretAlignment.setTargetTag(TURRET_TARGET_TAG_ID);
+            turretAlignment = new SimpleTurretAlignmentController(this, turret);
+            SimpleTurretAlignmentController.TARGET_TAG_ID = TURRET_TARGET_TAG_ID;
             telemetry.addData("✓ Turret Alignment", "OK");
         } catch (Exception e) {
             telemetry.addData("✗ Turret Alignment", "NOT FOUND: " + e.getMessage());
@@ -368,7 +368,7 @@ public class DecemberTeleop extends LinearOpMode {
         // Left stick X - turret control (only if not in alignment mode)
         if (turret != null) {
             // Don't allow manual control while alignment is active
-            boolean alignmentActive = (turretAlignment != null && turretAlignment.getState() != TurretAlignmentController.AlignmentState.STOPPED);
+            boolean alignmentActive = (turretAlignment != null && turretAlignment.isRunning());
 
             if (!alignmentActive) {
                 double turretInput = gamepad2.left_stick_x;
@@ -462,11 +462,12 @@ public class DecemberTeleop extends LinearOpMode {
         // Left bumper - start alignment, or stop if already aligning
         boolean currentLB2 = gamepad2.left_bumper;
         if (currentLB2 && !lastLeftBumper2) {
-            if (turretAlignment.getState() == TurretAlignmentController.AlignmentState.STOPPED) {
-                turretAlignment.startAlignment();
-            } else {
-                // If already aligning, stop it
-                turretAlignment.stopAlignment();
+            if (turretAlignment != null) {
+                if (turretAlignment.isRunning()) {
+                    turretAlignment.stop();
+                } else {
+                    turretAlignment.start();
+                }
             }
         }
         lastLeftBumper2 = currentLB2;
