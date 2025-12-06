@@ -31,6 +31,7 @@ public class SimpleTurretAlignmentController {
     private int lastValidReadings = 0;
     private int lastTotalFiducials = 0;
     private boolean lastResultValid = false;
+    private String lastSeenTagIds = "";
 
     public SimpleTurretAlignmentController(LinearOpMode opMode, TurretController turretController) throws Exception {
         this.opMode = opMode;
@@ -85,6 +86,7 @@ public class SimpleTurretAlignmentController {
             opMode.telemetry.addData("Total Fiducials", lastTotalFiducials);
             opMode.telemetry.addData("Result Valid", lastResultValid);
             opMode.telemetry.addData("Target Tag ID", TARGET_TAG_ID);
+            opMode.telemetry.addData("Seen Tag IDs", lastSeenTagIds.isEmpty() ? "none" : lastSeenTagIds);
             return;
         }
 
@@ -126,6 +128,7 @@ public class SimpleTurretAlignmentController {
             int validReadings = 0;
             int totalFiducials = 0;
             boolean anyResultValid = false;
+            StringBuilder seenIds = new StringBuilder();
 
             for (int i = 0; i < 5; i++) {
                 LLResult result = limelight.getLatestResult();
@@ -134,6 +137,14 @@ public class SimpleTurretAlignmentController {
                     List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
                     if (fiducials != null) {
                         totalFiducials = Math.max(totalFiducials, fiducials.size());
+
+                        // Log all visible tag IDs for debugging
+                        if (i == 0 && fiducials.size() > 0) {
+                            for (LLResultTypes.FiducialResult fid : fiducials) {
+                                if (seenIds.length() > 0) seenIds.append(", ");
+                                seenIds.append(fid.getFiducialId());
+                            }
+                        }
 
                         for (LLResultTypes.FiducialResult fiducial : fiducials) {
                             if (fiducial.getFiducialId() == TARGET_TAG_ID) {
@@ -157,6 +168,7 @@ public class SimpleTurretAlignmentController {
             lastValidReadings = validReadings;
             lastTotalFiducials = totalFiducials;
             lastResultValid = anyResultValid;
+            lastSeenTagIds = seenIds.toString();
 
             if (validReadings > 0) {
                 double avgTx = sumTx / validReadings;
