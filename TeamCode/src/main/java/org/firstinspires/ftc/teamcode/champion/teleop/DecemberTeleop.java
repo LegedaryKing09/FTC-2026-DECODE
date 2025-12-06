@@ -369,13 +369,8 @@ public class DecemberTeleop extends LinearOpMode {
         if (turret != null) {
             double turretInput = gamepad2.left_stick_x;
             if (Math.abs(turretInput) > 0.1) {
-                double increment = turretInput * TURRET_SENSITIVITY;
                 if (turret.getCurrentAngle() <= 360 && turret.getCurrentAngle() >= 0) {
-                    if (increment > 0) {
-                        turret.turnToAngle(increment);
-                    } else {
-                        turret.turnToAngle(-increment);
-                    }
+                    turret.setPower(turretInput);
                 }
             }
 
