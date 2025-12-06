@@ -155,7 +155,7 @@ public class TurretAlignmentController {
                 stableFrames = 0;
 
                 // Determine turn direction and apply power
-                double power = (currentTx > 0) ? -AlignmentParams.TURN_POWER : AlignmentParams.TURN_POWER;
+                double power = (currentTx > 0) ? AlignmentParams.TURN_POWER : -AlignmentParams.TURN_POWER;
                 turretController.setPower(power);
 
                 opMode.telemetry.addData("Power", "%.2f", power);
@@ -205,25 +205,19 @@ public class TurretAlignmentController {
         }
 
         try {
-            // Take multiple readings for better accuracy
-            double sumTx = 0;
             int validReadings = 0;
 
-            for (int i = 0; i < 5; i++) {
-                LLResult result = limelight.getLatestResult();
-                if (result != null && result.isValid()) {
-                    List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
-
-                    for (LLResultTypes.FiducialResult fiducial : fiducials) {
+            LLResult result = limelight.getLatestResult();
+            if (result != null && result.isValid()) {
+                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+                for (LLResultTypes.FiducialResult fiducial : fiducials) {
                         if (fiducial.getFiducialId() == targetTagId) {
-                            sumTx += fiducial.getTargetXDegrees();
+                            currentTx = fiducial.getTargetXDegrees();
                             validReadings++;
                             hasTarget = true;
                             break;
                         }
-                    }
                 }
-
                 try {
                     sleep(20);
                 } catch (InterruptedException e) {
@@ -233,12 +227,9 @@ public class TurretAlignmentController {
             }
 
             if (validReadings > 0) {
-                currentTx = sumTx / validReadings;
-                currentTx = -currentTx;  // Invert TX sign
                 hasTarget = true;
                 return true;
             }
-
         } catch (Exception ignored) {
         }
 

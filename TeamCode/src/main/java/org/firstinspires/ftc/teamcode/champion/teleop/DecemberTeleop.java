@@ -130,7 +130,7 @@ public class DecemberTeleop extends LinearOpMode {
             handleEdwardControls();
 
             // Check uptake ball detection switch
-            if(!isShooting) {checkUptakeSwitch();}
+            checkUptakeSwitch();
 
             // Update all controllers
             updateAllSystems();
@@ -140,7 +140,7 @@ public class DecemberTeleop extends LinearOpMode {
         }
     }
 
-    private void initializeHardware() {
+    public void initializeHardware() {
         // Initialize drive motors
         try {
             lf = hardwareMap.get(DcMotor.class, "lf");
@@ -246,7 +246,7 @@ public class DecemberTeleop extends LinearOpMode {
      * Drive controls - David (gamepad1)
      * Left stick Y = forward/backward, Right stick X = rotation
      */
-    private void handleDriveControls() {
+    public void handleDriveControls() {
         double rawDrive = -gamepad1.left_stick_y;
         double rawTurn = gamepad1.right_stick_x;
 
@@ -564,8 +564,8 @@ public class DecemberTeleop extends LinearOpMode {
      * When in intake mode and ball detected, stop uptake but keep intake/transfer running
      * Switch is pressed down (ball present) when voltage drops BELOW threshold
      */
-    private void checkUptakeSwitch() {
-        if (uptakeSwitch == null || uptake == null) return;
+    public void checkUptakeSwitch() {
+        if (uptakeSwitch == null || uptake == null || isShooting) return;
 
         // FIXED: Ball detected when voltage is BELOW threshold (switch pressed down)
         boolean ballDetected = uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
