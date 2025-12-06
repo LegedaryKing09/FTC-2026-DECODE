@@ -104,6 +104,7 @@ public class SimpleTurretAlignmentController {
     /**
      * Get TX value from limelight for the target AprilTag
      * Returns null if target not found
+     * EXACT COPY from TurretAlignmentController.findTarget()
      */
     private Double getTargetTx() {
         if (limelight == null) {
@@ -111,17 +112,25 @@ public class SimpleTurretAlignmentController {
         }
 
         try {
+            int validReadings = 0;
+            double tx = 0;
+
             LLResult result = limelight.getLatestResult();
             if (result != null && result.isValid()) {
                 List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
                 for (LLResultTypes.FiducialResult fiducial : fiducials) {
                     if (fiducial.getFiducialId() == TARGET_TAG_ID) {
-                        return fiducial.getTargetXDegrees();
+                        tx = fiducial.getTargetXDegrees();
+                        validReadings++;
+                        break;
                     }
                 }
             }
-        } catch (Exception e) {
-            opMode.telemetry.addData("Limelight Error", e.getMessage());
+
+            if (validReadings > 0) {
+                return tx;
+            }
+        } catch (Exception ignored) {
         }
 
         return null;
