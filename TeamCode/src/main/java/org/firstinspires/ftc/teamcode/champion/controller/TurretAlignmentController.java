@@ -10,12 +10,11 @@ import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import java.util.Locale;
 import java.util.List;
 
 /**
- * Turret-based AprilTag alignment using the new TurretController
- * Identifies AprilTag and rotates turret towards it
+ * Simplified Turret-based AprilTag alignment
+ * Turns at fixed power until TX is within tolerance
  */
 @Config
 public class TurretAlignmentController {
@@ -29,16 +28,17 @@ public class TurretAlignmentController {
 
     @Config
     public static class AlignmentParams {
-        public static double ANGLE_TOLERANCE_DEGREES = 2.0;  // Match TurretController tolerance
-        public static long ALIGNMENT_TIMEOUT_MS = 3000;      // Match TurretController timeout
+        public static double TX_TOLERANCE_DEGREES = 1.0;
+        public static long ALIGNMENT_TIMEOUT_MS = 3000;
         public static int ALIGNED_FRAMES_REQUIRED = 5;
         public static double SETTLING_TIME_MS = 100;
+        public static double TURN_POWER = 1.0;
     }
 
     @Config
     public static class TargetSearch {
         public static boolean ENABLE_SEARCH = true;
-        public static double SEARCH_SPEED = 0.3;
+        public static double SEARCH_POWER = 0.3;
         public static long MAX_SEARCH_TIME_MS = 5000;
     }
 
@@ -54,10 +54,7 @@ public class TurretAlignmentController {
     // Target tracking
     private int targetTagId = 20;
     private boolean hasTarget = false;
-    private double initialTx = 0;
-    private double initialTurretPosition = 0;
-    private double targetTurretPosition = 0;
-    private boolean targetTurretPositionCalculated = false;
+    private double currentTx = 0;
 
     // Alignment tracking
     private int consecutiveAlignedFrames = 0;
@@ -66,7 +63,6 @@ public class TurretAlignmentController {
 
     // Search state
     private final ElapsedTime searchTimer = new ElapsedTime();
-    private double searchStartAngle = 0;
 
     // === INITIALIZATION ===
 
@@ -77,7 +73,7 @@ public class TurretAlignmentController {
 
         try {
             this.limelight = opMode.hardwareMap.get(Limelight3A.class, "limelight");
-            this.limelight.pipelineSwitch(0);
+            this.limelight.pipelineSwitch(1);
             this.limelight.start();
         } catch (Exception e) {
             throw new Exception("Failed to initialize Limelight: " + e.getMessage());
@@ -92,34 +88,27 @@ public class TurretAlignmentController {
 
     public void startAlignment() {
         isActive = true;
-        targetTurretPositionCalculated = false;
         alignmentTimer.reset();
-
-        // Update turret position
-        turretController.update();
-        initialTurretPosition = turretController.getCurrentAngle();
-
-        opMode.telemetry.addLine("=== TURRET ALIGNMENT STARTED ===");
-        opMode.telemetry.addData("Initial Turret", "%.2f°", initialTurretPosition);
+        consecutiveAlignedFrames = 0;
 
         // Try to find target
         if (findTarget()) {
-            // Calculate target turret position from initial tx
-            targetTurretPosition = normalizeTurretAngle(initialTurretPosition + initialTx);
-            targetTurretPositionCalculated = true;
-
-            opMode.telemetry.addData("Initial TX", "%.2f°", initialTx);
-            opMode.telemetry.addData("Target Turret", "%.2f°", targetTurretPosition);
+            opMode.telemetry.addLine("=== TURRET ALIGNMENT STARTED ===");
+            opMode.telemetry.addData("Initial TX", "%.2f°", currentTx);
             opMode.telemetry.update();
 
-            // Use TurretController's built-in PID to move to target
-            turretController.setTargetAngle(targetTurretPosition);
-            currentState = AlignmentState.ALIGNING;
-            consecutiveAlignedFrames = 0;
+            // Execute alignment
+            try {
+                turnTurretToAlignWithTarget();
+                currentState = AlignmentState.ALIGNED;
+                totalAlignmentTime = alignmentTimer.seconds();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                currentState = AlignmentState.STOPPED;
+            }
         } else {
             currentState = AlignmentState.SEARCHING;
             searchTimer.reset();
-            searchStartAngle = initialTurretPosition;
 
             opMode.telemetry.addLine("Target not found - starting search");
             opMode.telemetry.update();
@@ -127,8 +116,72 @@ public class TurretAlignmentController {
     }
 
     /**
-     * Stop alignment
+     * Turn turret until TX is within tolerance
+     * This is a BLOCKING method that returns when aligned or timeout
+     * @noinspection BusyWait
      */
+    private void turnTurretToAlignWithTarget() throws InterruptedException {
+        long startTime = System.currentTimeMillis();
+        int stableFrames = 0;
+
+        while (opMode.opModeIsActive()) {
+            // Check timeout
+            if (System.currentTimeMillis() - startTime > AlignmentParams.ALIGNMENT_TIMEOUT_MS) {
+                opMode.telemetry.addLine("⚠️ Alignment timeout");
+                opMode.telemetry.update();
+                break;
+            }
+
+            // Get current TX reading
+            if (!findTarget()) {
+                opMode.telemetry.addLine("⚠️ Lost target");
+                opMode.telemetry.update();
+                currentState = AlignmentState.TARGET_LOST;
+                break;
+            }
+
+            // Display status
+            opMode.telemetry.addLine("=== TURRET ALIGNMENT ===");
+            opMode.telemetry.addData("TX", "%.2f°", currentTx);
+            opMode.telemetry.addData("Tolerance", "±%.1f°", AlignmentParams.TX_TOLERANCE_DEGREES);
+            opMode.telemetry.addData("Stable", "%d/%d", stableFrames, AlignmentParams.ALIGNED_FRAMES_REQUIRED);
+
+            // Check if aligned
+            if (Math.abs(currentTx) <= AlignmentParams.TX_TOLERANCE_DEGREES) {
+                stableFrames++;
+                opMode.telemetry.addLine("✓ Within tolerance");
+
+                if (stableFrames >= AlignmentParams.ALIGNED_FRAMES_REQUIRED) {
+                    opMode.telemetry.addLine("✓✓✓ ALIGNED! ✓✓✓");
+                    opMode.telemetry.update();
+                    turretController.stop();
+                    sleep((long)AlignmentParams.SETTLING_TIME_MS);
+                    break;
+                }
+
+                // Stop while counting stable frames
+                turretController.stop();
+            } else {
+                // Reset stable counter if we drift
+                stableFrames = 0;
+
+                // Determine turn direction and apply power
+                double power = (currentTx > 0) ? AlignmentParams.TURN_POWER : -AlignmentParams.TURN_POWER;
+                turretController.setPower(power);
+
+                opMode.telemetry.addData("Power", "%.2f", power);
+            }
+
+            opMode.telemetry.update();
+
+            // Loop timing (50Hz)
+            sleep(20);
+        }
+
+        // Ensure stopped
+        turretController.stop();
+    }
+
     public void stopAlignment() {
         isActive = false;
         currentState = AlignmentState.STOPPED;
@@ -140,146 +193,19 @@ public class TurretAlignmentController {
         turretController.stop();
     }
 
-    /**
-     * Main update method - call this in your main loop
-     */
-    public void update() {
-        if (!isActive) return;
-
-        turretController.update();
-
-        switch (currentState) {
-            case ALIGNING:
-                updateAligning();
-                break;
-            case SEARCHING:
-                updateSearching();
-                break;
-            case ALIGNED:
-                maintainAlignment();
-                break;
-            case TARGET_LOST:
-            case STOPPED:
-                break;
-        }
-
-        sendDashboardData();
-    }
-
-    /**
-     * Update when aligning to target
-     */
-    private void updateAligning() {
-        // Check if TurretController reached the target
-        if (turretController.atTarget()) {
-            consecutiveAlignedFrames++;
-
-            if (consecutiveAlignedFrames >= AlignmentParams.ALIGNED_FRAMES_REQUIRED) {
-                currentState = AlignmentState.ALIGNED;
-                totalAlignmentTime = alignmentTimer.seconds();
-
-                opMode.telemetry.addLine("✓✓✓ ALIGNED! ✓✓✓");
-                opMode.telemetry.update();
-            }
-        } else {
-            consecutiveAlignedFrames = 0;
-        }
-
-        // Check for timeout
-        if (alignmentTimer.milliseconds() > AlignmentParams.ALIGNMENT_TIMEOUT_MS) {
-            opMode.telemetry.addLine("⚠️ Alignment timeout");
-            opMode.telemetry.update();
-            currentState = AlignmentState.TARGET_LOST;
-            turretController.stop();
-        }
-    }
-
-    /**
-     * Update when searching for target
-     */
-    private void updateSearching() {
-        if (!TargetSearch.ENABLE_SEARCH) {
-            currentState = AlignmentState.TARGET_LOST;
-            turretController.stop();
-            return;
-        }
-
-        if (searchTimer.milliseconds() > TargetSearch.MAX_SEARCH_TIME_MS) {
-            currentState = AlignmentState.TARGET_LOST;
-            turretController.stop();
-            return;
-        }
-
-        // Try to find target during search
-        if (findTarget()) {
-            // Found target!
-            turretController.update();
-            initialTurretPosition = turretController.getCurrentAngle();
-
-            targetTurretPosition = normalizeTurretAngle(initialTurretPosition + initialTx);
-            targetTurretPositionCalculated = true;
-            hasTarget = true;
-
-            // Start alignment using TurretController
-            turretController.setTargetAngle(targetTurretPosition);
-            currentState = AlignmentState.ALIGNING;
-            consecutiveAlignedFrames = 0;
-            return;
-        }
-
-        // Continue searching - slow rotation
-        turretController.setPower(TargetSearch.SEARCH_SPEED);
-    }
-
-    /**
-     * Maintain alignment (fine adjustments if needed)
-     */
     public void maintainAlignment() {
-        if (!targetTurretPositionCalculated) return;
+        // Continuously check and adjust if needed
+        if (!findTarget()) return;
 
-        // TurretController's update() already maintains the target position
-        // We just need to check if we've drifted too far
-        double currentError = Math.abs(turretController.getAngleError());
-
-        if (currentError > AlignmentParams.ANGLE_TOLERANCE_DEGREES * 2) {
-            // Lost alignment, restart
-            currentState = AlignmentState.ALIGNING;
-            consecutiveAlignedFrames = 0;
-            turretController.setTargetAngle(targetTurretPosition);
+        if (Math.abs(currentTx) > AlignmentParams.TX_TOLERANCE_DEGREES) {
+            double power = (currentTx > 0) ? AlignmentParams.TURN_POWER : -AlignmentParams.TURN_POWER;
+            turretController.setPower(power);
+        } else {
+            turretController.stop();
         }
     }
 
     // === HELPER METHODS ===
-
-    /**
-     * Normalize angle to turret limits
-     */
-    private double normalizeTurretAngle(double angle) {
-        // First normalize to -180 to 180
-        while (angle > 180) angle -= 360;
-        while (angle < -180) angle += 360;
-
-        // Then clamp to turret limits
-        if (TurretController.ENABLE_LIMITS) {
-            angle = Math.max(TurretController.MIN_ANGLE,
-                    Math.min(TurretController.MAX_ANGLE, angle));
-        }
-
-        return angle;
-    }
-
-    /**
-     * Calculate the smallest angle difference between two angles (in degrees)
-     */
-    private double angleDifferenceDegrees(double currentDegrees, double targetDegrees) {
-        double diff = targetDegrees - currentDegrees;
-
-        // Normalize to [-180, 180]
-        while (diff > 180) diff -= 360;
-        while (diff < -180) diff += 360;
-
-        return diff;
-    }
 
     /**
      * Find the target AprilTag and read its TX value
@@ -318,8 +244,8 @@ public class TurretAlignmentController {
             }
 
             if (validReadings > 0) {
-                initialTx = sumTx / validReadings;
-                initialTx = -initialTx;  // Invert TX sign
+                currentTx = sumTx / validReadings;
+                currentTx = -currentTx;  // Invert TX sign
                 hasTarget = true;
                 return true;
             }
@@ -329,6 +255,59 @@ public class TurretAlignmentController {
 
         hasTarget = false;
         return false;
+    }
+
+    private void executeSearch() {
+        if (!TargetSearch.ENABLE_SEARCH) {
+            currentState = AlignmentState.TARGET_LOST;
+            turretController.stop();
+            return;
+        }
+
+        if (searchTimer.milliseconds() > TargetSearch.MAX_SEARCH_TIME_MS) {
+            currentState = AlignmentState.TARGET_LOST;
+            turretController.stop();
+            return;
+        }
+
+        // Try to find target during search
+        if (findTarget()) {
+            hasTarget = true;
+
+            try {
+                turnTurretToAlignWithTarget();
+                currentState = AlignmentState.ALIGNED;
+                totalAlignmentTime = alignmentTimer.seconds();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                currentState = AlignmentState.STOPPED;
+            }
+            return;
+        }
+
+        // Continue searching - slow rotation
+        turretController.setPower(TargetSearch.SEARCH_POWER);
+    }
+
+    public void align(int targetTagId) {
+        if (!isActive) return;
+
+        this.targetTagId = targetTagId;
+
+        switch (currentState) {
+            case SEARCHING:
+                executeSearch();
+                break;
+            case ALIGNED:
+                maintainAlignment();
+                break;
+            case ALIGNING:
+            case TARGET_LOST:
+            case STOPPED:
+                break;
+        }
+
+        sendDashboardData();
     }
 
     // === TELEMETRY ===
@@ -341,22 +320,17 @@ public class TurretAlignmentController {
         // State
         packet.put("State", currentState.toString());
         packet.put("Has_Target", hasTarget);
-        packet.put("Target_Calculated", targetTurretPositionCalculated);
 
-        // Angles
-        double currentAngle = turretController.getCurrentAngle();
-        packet.put("Initial_Turret", initialTurretPosition);
-        packet.put("Current_Turret", currentAngle);
-        packet.put("Target_Turret", targetTurretPosition);
-        packet.put("Initial_TX", initialTx);
+        // TX alignment
+        packet.put("Current_TX", currentTx);
+        packet.put("Abs_TX", Math.abs(currentTx));
+        packet.put("TX_Error", Math.abs(currentTx));
 
-        if (targetTurretPositionCalculated) {
-            double error = angleDifferenceDegrees(currentAngle, targetTurretPosition);
-            packet.put("Angle_Error", error);
-        }
-
-        // Power
+        // Turret status
+        turretController.update();
+        packet.put("Turret_Angle", turretController.getCurrentAngle());
         packet.put("Turret_Power", turretController.getPower());
+        packet.put("Turret_Velocity", turretController.getVelocity());
 
         // Timing
         packet.put("Aligned_Frames", consecutiveAlignedFrames);
@@ -374,13 +348,15 @@ public class TurretAlignmentController {
         opMode.telemetry.addLine("═══════════════════════");
         opMode.telemetry.addLine();
 
-        opMode.telemetry.addLine(">>> INITIAL TX ANGLE <<<");
-        opMode.telemetry.addData("TX", "%.2f°", initialTx);
+        opMode.telemetry.addLine(">>> TARGET TX <<<");
+        opMode.telemetry.addData("TX", "%.2f°", currentTx);
+        opMode.telemetry.addData("Abs TX", "%.2f°", Math.abs(currentTx));
+        opMode.telemetry.addData("Within Tolerance", Math.abs(currentTx) <= AlignmentParams.TX_TOLERANCE_DEGREES ? "YES" : "NO");
         opMode.telemetry.addLine();
 
         opMode.telemetry.addData("State", currentState);
-        opMode.telemetry.addData("Current Angle", "%.2f°", turretController.getCurrentAngle());
-        opMode.telemetry.addData("Target Angle", "%.2f°", targetTurretPosition);
+        opMode.telemetry.addData("Turret Angle", "%.2f°", turretController.getCurrentAngle());
+        opMode.telemetry.addData("Turret Power", "%.2f", turretController.getPower());
 
         opMode.telemetry.update();
     }
@@ -404,28 +380,18 @@ public class TurretAlignmentController {
     }
 
     public double getTargetError() {
-        if (!targetTurretPositionCalculated) return 999;
-        return Math.abs(angleDifferenceDegrees(turretController.getCurrentAngle(), targetTurretPosition));
+        return Math.abs(currentTx);
     }
 
     public double getTotalAlignmentTime() {
         return totalAlignmentTime;
     }
 
-    public void displayAlignmentWithInitialAngle() {
-        opMode.telemetry.addLine("╔═══════════════════════╗");
-        opMode.telemetry.addLine("║ TURRET ALIGNMENT      ║");
-        opMode.telemetry.addLine("╚═══════════════════════╝");
-        opMode.telemetry.addLine();
+    public double getCurrentTurretAngle() {
+        return turretController.getCurrentAngle();
+    }
 
-        opMode.telemetry.addLine(">>> INITIAL TX ANGLE <<<");
-        opMode.telemetry.addData("TX", String.format(Locale.US, "%.2f°", initialTx));
-        opMode.telemetry.addLine();
-
-        opMode.telemetry.addData("State", currentState);
-        opMode.telemetry.addData("Current", String.format(Locale.US, "%.2f°", turretController.getCurrentAngle()));
-        opMode.telemetry.addData("Target", String.format(Locale.US, "%.2f°", targetTurretPosition));
-
-        opMode.telemetry.update();
+    public double getCurrentTx() {
+        return currentTx;
     }
 }
