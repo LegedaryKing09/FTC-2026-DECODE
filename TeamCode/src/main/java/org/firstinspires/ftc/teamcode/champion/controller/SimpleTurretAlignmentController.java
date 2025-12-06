@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.hardware.limelightvision.LLStatus;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.acmerobotics.dashboard.config.Config;
 import java.util.List;
@@ -32,6 +33,7 @@ public class SimpleTurretAlignmentController {
     private int lastTotalFiducials = 0;
     private boolean lastResultValid = false;
     private String lastSeenTagIds = "";
+    private String limelightStatus = "Unknown";
 
     public SimpleTurretAlignmentController(LinearOpMode opMode, TurretController turretController) throws Exception {
         this.opMode = opMode;
@@ -87,6 +89,7 @@ public class SimpleTurretAlignmentController {
             opMode.telemetry.addData("Result Valid", lastResultValid);
             opMode.telemetry.addData("Target Tag ID", TARGET_TAG_ID);
             opMode.telemetry.addData("Seen Tag IDs", lastSeenTagIds.isEmpty() ? "none" : lastSeenTagIds);
+            opMode.telemetry.addData("Limelight Status", limelightStatus);
             return;
         }
 
@@ -123,6 +126,15 @@ public class SimpleTurretAlignmentController {
         }
 
         try {
+            // Get Limelight status first
+            try {
+                LLStatus status = limelight.getStatus();
+                limelightStatus = String.format("Pipeline:%d FPS:%.0f",
+                    status.getPipelineIndex(), status.getFps());
+            } catch (Exception e) {
+                limelightStatus = "Error: " + e.getMessage();
+            }
+
             // Take multiple readings for better accuracy (same as LimelightAlignmentController)
             double sumTx = 0;
             int validReadings = 0;
