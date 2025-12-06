@@ -41,8 +41,36 @@ public class SimpleTurretAlignmentController {
 
         try {
             this.limelight = opMode.hardwareMap.get(Limelight3A.class, "limelight");
-            this.limelight.pipelineSwitch(1);
+
+            // Start the Limelight first
             this.limelight.start();
+
+            // Wait for Limelight to initialize before switching pipeline
+            try {
+                Thread.sleep(500); // Give Limelight time to start
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            // Now switch to pipeline 1 (AprilTag detection)
+            this.limelight.pipelineSwitch(1);
+
+            // Wait for pipeline switch to complete
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            // Verify the pipeline switched
+            try {
+                LLStatus status = this.limelight.getStatus();
+                opMode.telemetry.addData("Limelight Init", "Pipeline:%d FPS:%.0f",
+                    status.getPipelineIndex(), status.getFps());
+            } catch (Exception e) {
+                opMode.telemetry.addData("Limelight Init", "Status check failed");
+            }
+
         } catch (Exception e) {
             throw new Exception("Failed to initialize Limelight: " + e.getMessage());
         }
@@ -129,8 +157,22 @@ public class SimpleTurretAlignmentController {
             // Get Limelight status first
             try {
                 LLStatus status = limelight.getStatus();
-                limelightStatus = String.format("Pipeline:%d FPS:%.0f",
-                    status.getPipelineIndex(), status.getFps());
+                int currentPipeline = status.getPipelineIndex();
+                double fps = status.getFps();
+
+                limelightStatus = String.format("Pipeline:%d FPS:%.0f", currentPipeline, fps);
+
+                // Warn if pipeline is wrong
+                if (currentPipeline != 1) {
+                    limelightStatus += " ⚠️WRONG!";
+                    // Try to switch back to pipeline 1
+                    limelight.pipelineSwitch(1);
+                }
+
+                // Warn if FPS is 0
+                if (fps == 0) {
+                    limelightStatus += " ❌NO STREAM";
+                }
             } catch (Exception e) {
                 limelightStatus = "Error: " + e.getMessage();
             }
