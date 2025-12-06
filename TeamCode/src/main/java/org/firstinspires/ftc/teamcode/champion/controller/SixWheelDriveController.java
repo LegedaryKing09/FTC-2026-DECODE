@@ -95,7 +95,7 @@ public class SixWheelDriveController {
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
 
-        public static double POSITION_SMOOTHING_FACTOR = 0.1;
+        public static double POSITION_SMOOTHING_FACTOR = 0.9;
     }
 
     // Constructor for LinearOpMode

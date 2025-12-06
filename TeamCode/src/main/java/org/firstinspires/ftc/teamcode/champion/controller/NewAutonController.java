@@ -18,8 +18,6 @@ public class NewAutonController {
     private final LimelightAlignmentController limelightController;
     private final NewAutoShootController autoShootController;
     private final NewRampController rampController;
-
-    // NEW: Proven PID controllers
     private final TurnPIDController turnPID;
     private final MovementPIDController movementPID;
 
@@ -86,8 +84,6 @@ public class NewAutonController {
         this.autoShootController = autoShootController;
         this.rampController = rampController;
 
-        // Initialize proven PID controllers
-        // Get and initialize IMU (Control Hub's built-in IMU used by Pinpoint)
         IMU imu = initializeIMU(opMode);
         this.turnPID = new TurnPIDController(imu);
         this.movementPID = new MovementPIDController();
@@ -96,8 +92,6 @@ public class NewAutonController {
     private IMU initializeIMU(LinearOpMode opMode) {
         IMU imu = opMode.hardwareMap.get(IMU.class, "imu");
 
-        // Configure IMU orientation based on Control Hub mounting
-        // ADJUST THESE VALUES based on your robot's Control Hub orientation!
         IMU.Parameters parameters = new IMU.Parameters(
                 new RevHubOrientationOnRobot(
                         RevHubOrientationOnRobot.LogoFacingDirection.UP,      // Logo facing direction
@@ -110,7 +104,6 @@ public class NewAutonController {
         return imu;
     }
 
-    // ========== THREAD MANAGEMENT ==========
 
     public void startPidUpdateThread() {
         if (pidThread != null && pidThread.isAlive()) return;
@@ -190,11 +183,6 @@ public class NewAutonController {
         rpmMonitorThread.start();
     }
 
-    // ========== MOVEMENT WITH PROVEN PID ==========
-
-    /**
-     * Move robot using proven MovementPIDController
-     */
     public void moveRobot(double distanceInches, double maxSpeed) {
         driveController.updateOdometry();
         double startX = driveController.getX();
@@ -250,11 +238,6 @@ public class NewAutonController {
         driveController.stopDrive();
     }
 
-    // ========== TURN WITH PROVEN PID ==========
-
-    /**
-     * Turn to heading using proven TurnPIDController
-     */
     public void turnToHeading(double targetDegrees) {
         // Set target
         turnPID.setTarget(targetDegrees);
@@ -291,9 +274,6 @@ public class NewAutonController {
         return turnPID.getCurrentHeading();
     }
 
-    /**
-     * Quick shoot with IMMEDIATE RPM compensation
-     */
     public void quickShoot() {
         compensationCount = 0;
         recoveryCount = 0;
@@ -339,10 +319,6 @@ public class NewAutonController {
 
         uptakeController.setState(true);
         uptakeController.update();
-
-        intakeController.setState(true);
-        intakeController.update();
-
         timer.reset();
 
         // Monitor during shooting
@@ -354,7 +330,7 @@ public class NewAutonController {
             double currentRPM = shooterController.getRPM();
             double targetRPM = shooterController.getTargetRPM();
 
-            opMode.telemetry.addLine("🔥 SHOOTING");
+            opMode.telemetry.addLine("SHOOTING");
             opMode.telemetry.addData("RPM", "%.0f / %.0f", currentRPM, targetRPM);
             opMode.telemetry.addData("Angle", "%.1f°", currentAngle);
             opMode.telemetry.addData("Compensations", compensationCount);

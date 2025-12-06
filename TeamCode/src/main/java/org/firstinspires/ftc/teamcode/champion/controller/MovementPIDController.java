@@ -10,20 +10,15 @@ public class MovementPIDController {
     public static double kP = 0.034;
     public static double kI = 0.0;
     public static double kD = 0.0093;
-
     private double integral = 0;
     private double previousError = 0;
     private double targetDistance = 0;
     private long lastTime = 0;
 
-    // Integral windup protection
+    // For KI
     public static double MAX_INTEGRAL = 2.0;
-
-    // Output clamping
     public static double MAX_OUTPUT = 1.0;
     public static double MIN_OUTPUT = -1.0;
-
-    // Minimum speed to overcome friction
     public static double MIN_SPEED = 0.1;
 
     // Deceleration distance (start slowing down when this close to target)
@@ -32,9 +27,6 @@ public class MovementPIDController {
     public MovementPIDController() {
     }
 
-    /**
-     * Set the target distance in inches
-     */
     public void setTarget(double distanceInches) {
         targetDistance = distanceInches;
         integral = 0;
@@ -42,15 +34,8 @@ public class MovementPIDController {
         lastTime = System.nanoTime();
     }
 
-    /**
-     * Call this every loop to get the motor power output
-     *
-     * @param currentDistance - current distance traveled (inches)
-     * @return power value (-1.0 to 1.0)
-     */
     public double update(double currentDistance) {
         double error = targetDistance - currentDistance;
-
         long now = System.nanoTime();
         double dt = (now - lastTime) / 1_000_000_000.0; // convert to seconds
         lastTime = now;
@@ -90,31 +75,18 @@ public class MovementPIDController {
         return output;
     }
 
-    /**
-     * Check if robot is within tolerance of target distance
-     */
     public boolean isFinished(double currentDistance, double toleranceInches) {
         double error = targetDistance - currentDistance;
         return Math.abs(error) < toleranceInches;
     }
-
-    /**
-     * Get the current error (target - current)
-     */
     public double getError(double currentDistance) {
         return targetDistance - currentDistance;
     }
 
-    /**
-     * Get the target distance
-     */
     public double getTargetDistance() {
         return targetDistance;
     }
 
-    /**
-     * Reset the controller (clears integral, error history)
-     */
     public void reset() {
         integral = 0;
         previousError = 0;

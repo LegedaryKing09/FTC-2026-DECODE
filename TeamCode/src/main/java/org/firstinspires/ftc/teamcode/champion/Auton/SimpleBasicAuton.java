@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
@@ -21,7 +22,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 @Config
 @Autonomous(name = "Simple Basic Auton", group = "Testing")
 public class SimpleBasicAuton extends LinearOpMode {
-    // testing forward/backward movement, turning, intake, transfer, uptake, shooter 
+    // testing forward/backward movement, turning, intake, transfer, uptake, shooter
     // later have to test limelight alignment, shooting, ramp adjustment according to the shooter power drop
     SixWheelDriveController driveController;
     NewTransferController transferController;
@@ -31,16 +32,16 @@ public class SimpleBasicAuton extends LinearOpMode {
     NewRampController rampController;
     LimelightAlignmentController limelightController;
     NewAutoShootController autoShootController;
+    NewAutonController autonController;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 2700.0;
+    public static double CONSTANT_SHOOTER_RPM = 2800.0;
     public static double CONSTANT_RAMP_ANGLE = 119.0;
 
     // Movement parameters (tunable via dashboard)
     public static double DRIVE_POWER = 0.2;
-    public static double TURN_POWER = 0.2;
+    public static double TURN_POWER = 0.5;
     public static double INTAKE_POWER = 0.2;
-
     // Distance parameters (in INCHES)
     public static double BACKWARD_DISTANCE = 40.0;
     public static double TURN_LEFT_ANGLE = 45.0;
@@ -140,6 +141,7 @@ public class SimpleBasicAuton extends LinearOpMode {
             //
         }
 
+        // Initialize limelight
         try {
             limelightController = new LimelightAlignmentController(this, driveController);
             limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
@@ -150,9 +152,25 @@ public class SimpleBasicAuton extends LinearOpMode {
             autoShootController = null;
         }
 
+        // Initialize autoncontroller
+        autonController = new NewAutonController(
+                this,
+                driveController,
+                transferController,
+                uptakeController,
+                shooterController,
+                intakeController,
+                limelightController,
+                autoShootController,
+                rampController
+        );
+
         telemetry.update();
         sleep(1000);
+
     }
+
+
 
     private void executeAutonomousSequence() {
         // Step 1: Go backward 40 inches (using encoders)
@@ -245,19 +263,13 @@ public class SimpleBasicAuton extends LinearOpMode {
         telemetry.update();
     }
 
-    // ========== ENCODER-BASED MOVEMENT METHODS ==========
-
     private void driveDistance(double distanceInches, double power) {
-        // Calculate target encoder ticks
-        int targetTicks = (int) (Math.abs(distanceInches) * TICKS_PER_INCH);
-
         // Determine direction
         double direction = Math.signum(distanceInches);
 
         // Update odometry to get starting position
         driveController.updateOdometry();
         double startX = driveController.getX();
-        double startY = driveController.getY();
 
         timer.reset();
 
@@ -266,9 +278,7 @@ public class SimpleBasicAuton extends LinearOpMode {
             driveController.updateOdometry();
 
             // Calculate distance traveled
-            double deltaX = driveController.getX() - startX;
-            double deltaY = driveController.getY() - startY;
-            double distanceTraveled = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            double distanceTraveled = Math.abs(driveController.getX() - startX);
 
             // Check if we've reached the target
             if (distanceTraveled >= Math.abs(distanceInches)) {
@@ -277,8 +287,6 @@ public class SimpleBasicAuton extends LinearOpMode {
 
             // Timeout check (10 seconds)
             if (timer.seconds() > 10.0) {
-                telemetry.addLine("⚠️ Drive timeout!");
-                telemetry.update();
                 break;
             }
 
@@ -288,21 +296,19 @@ public class SimpleBasicAuton extends LinearOpMode {
             // Show progress
             telemetry.addData("Target", "%.1f in", Math.abs(distanceInches));
             telemetry.addData("Current", "%.1f in", distanceTraveled);
-            telemetry.addData("Heading", "%.1f°", driveController.getHeadingDegrees());
             telemetry.update();
 
             sleep(20);
         }
-
         driveController.stopDrive();
         sleep(100);  // Brief settling time
     }
     private void turnAngle(double angleDegrees, double power) {
         // Update odometry to get starting heading
-        double currentHeading = driveController.getHeadingDegrees();;
+        double currentHeading = driveController.getHeadingDegrees();
+        double startHeading = driveController.getHeadingDegrees();
         boolean targetIsGreater = false;
         driveController.updateOdometry();
-        double startHeading = driveController.getHeadingDegrees();
         double targetHeading = startHeading + angleDegrees;
 
         // Normalize target heading to -180 to 180
@@ -310,7 +316,6 @@ public class SimpleBasicAuton extends LinearOpMode {
         while (targetHeading < -180) targetHeading += 360;
 
         timer.reset();
-
         if(targetHeading > currentHeading) {
             targetIsGreater = true;
         } else {
@@ -334,8 +339,6 @@ public class SimpleBasicAuton extends LinearOpMode {
 
             // Timeout check (5 seconds)
             if (timer.seconds() > 5.0) {
-                telemetry.addLine("⚠️ Turn timeout!");
-                telemetry.update();
                 break;
             }
 

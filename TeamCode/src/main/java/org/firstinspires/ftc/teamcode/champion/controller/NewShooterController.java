@@ -5,9 +5,6 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-/**
- * Controller for shooter motor with target RPM control using PID
- */
 @Config
 public class NewShooterController {
 

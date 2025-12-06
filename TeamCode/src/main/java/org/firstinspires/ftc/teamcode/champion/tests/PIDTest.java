@@ -63,11 +63,6 @@ public class PIDTest extends LinearOpMode {
         FtcDashboard dashboard = FtcDashboard.getInstance();
         telemetry = new MultipleTelemetry(telemetry, dashboard.getTelemetry());
 
-        telemetry.addLine("╔═══════════════════════════════╗");
-        telemetry.addLine("║  PROVEN PID CONTROLLERS TEST  ║");
-        telemetry.addLine("╚═══════════════════════════════╝");
-        telemetry.update();
-
         // Initialize controllers
         driveController = new SixWheelDriveController(this);
 
@@ -108,7 +103,7 @@ public class PIDTest extends LinearOpMode {
         // Emergency stop
         if (gamepad1.start) {
             driveController.stopDrive();
-            telemetry.addLine("🛑 EMERGENCY STOP");
+            telemetry.addLine("EMERGENCY STOP");
             telemetry.update();
             sleep(500);
             return;
@@ -117,7 +112,7 @@ public class PIDTest extends LinearOpMode {
         // Reset odometry
         if (gamepad1.left_bumper) {
             driveController.resetOdometry();
-            telemetry.addLine("♻️ Odometry reset");
+            telemetry.addLine(" Odometry reset");
             telemetry.update();
             sleep(300);
             return;
@@ -160,12 +155,9 @@ public class PIDTest extends LinearOpMode {
         }
     }
 
-    /**
-     * Test movement using proven MovementPIDController
-     */
     private void testMovement(double targetDistance, String testName) {
         telemetry.clear();
-        telemetry.addLine("🔄 Testing: " + testName);
+        telemetry.addLine("Testing: " + testName);
         telemetry.update();
 
         double startX = driveController.getX();
@@ -210,7 +202,7 @@ public class PIDTest extends LinearOpMode {
             driveController.tankDriveVelocityNormalized(leftSpeed, rightSpeed);
 
             telemetry.clear();
-            telemetry.addLine("🔄 MOVING");
+            telemetry.addLine("MOVING");
             telemetry.addData("Target", "%.1f in", Math.abs(targetDistance));
             telemetry.addData("Current", "%.1f in", currentDistance);
             telemetry.addData("Error", "%.1f in", movementPID.getError(currentDistance));
@@ -228,12 +220,9 @@ public class PIDTest extends LinearOpMode {
         displayTestResult();
     }
 
-    /**
-     * Test turning using proven TurnPIDController
-     */
     private void testTurn(double angleDegrees, String testName) {
         telemetry.clear();
-        telemetry.addLine("🔄 Testing: " + testName);
+        telemetry.addLine("Testing: " + testName);
         telemetry.update();
 
         double startHeading = turnPID.getCurrentHeading();
@@ -261,7 +250,7 @@ public class PIDTest extends LinearOpMode {
             driveController.tankDrive(-power, power);
 
             telemetry.clear();
-            telemetry.addLine("🔄 TURNING");
+            telemetry.addLine("TURNING");
             telemetry.addData("Target", "%.1f°", targetHeading);
             telemetry.addData("Current", "%.1f°", turnPID.getCurrentHeading());
             telemetry.addData("Error", "%.1f°", turnPID.getError());
