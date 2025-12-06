@@ -56,7 +56,7 @@ public class DecemberTeleop extends LinearOpMode {
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
-    public static double UPTAKE_SWITCH_THRESHOLD = 0.3;  // Voltage threshold for ball detection
+    public static double UPTAKE_SWITCH_THRESHOLD = 1.5;  // Voltage threshold for ball detection
 
     private final ElapsedTime runtime = new ElapsedTime();
 
@@ -130,7 +130,7 @@ public class DecemberTeleop extends LinearOpMode {
             handleEdwardControls();
 
             // Check uptake ball detection switch
-            //checkUptakeSwitch();
+            checkUptakeSwitch();
 
             // Update all controllers
             updateAllSystems();
@@ -497,11 +497,13 @@ public class DecemberTeleop extends LinearOpMode {
     /**
      * Check uptake switch for ball detection
      * When in intake mode and ball detected, stop uptake but keep intake/transfer running
+     * Switch is pressed down (ball present) when voltage drops BELOW threshold
      */
     private void checkUptakeSwitch() {
         if (uptakeSwitch == null || uptake == null) return;
 
-        boolean ballDetected = uptakeSwitch.getVoltage() > UPTAKE_SWITCH_THRESHOLD;
+        // FIXED: Ball detected when voltage is BELOW threshold (switch pressed down)
+        boolean ballDetected = uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
 
         // Only auto-stop uptake during intake mode
         if (intakeModeActive) {
@@ -548,7 +550,7 @@ public class DecemberTeleop extends LinearOpMode {
         telemetry.addData("Transfer", (transfer != null && transfer.isActive()) ? "ON" : "OFF");
         telemetry.addData("Uptake", (uptake != null && uptake.isActive()) ? "ON" : "OFF");
         if (uptakeSwitch != null) {
-            boolean ballDetected = uptakeSwitch.getVoltage() > UPTAKE_SWITCH_THRESHOLD;
+            boolean ballDetected = uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
             telemetry.addData("Ball Detected", ballDetected ? "YES" : "NO");
         }
 
