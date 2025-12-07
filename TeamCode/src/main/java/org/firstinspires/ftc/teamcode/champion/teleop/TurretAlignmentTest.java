@@ -122,7 +122,9 @@ public class TurretAlignmentTest extends LinearOpMode {
             telemetry.addData("Running", alignment.isRunning() ? "YES" : "NO");
             telemetry.addData("Target Tag ID", SimpleTurretAlignmentController.TARGET_TAG_ID);
             telemetry.addData("Tolerance", "%.1f°", SimpleTurretAlignmentController.TOLERANCE_DEGREES);
-            telemetry.addData("Turn Power", "%.2f", SimpleTurretAlignmentController.TURN_POWER);
+            telemetry.addData("Max Power", "%.2f", SimpleTurretAlignmentController.MAX_TURN_POWER);
+            telemetry.addData("Min Power", "%.2f", SimpleTurretAlignmentController.MIN_TURN_POWER);
+            telemetry.addData("Slowdown At", "%.1f°", SimpleTurretAlignmentController.SLOWDOWN_THRESHOLD);
         }
 
         telemetry.addLine();
