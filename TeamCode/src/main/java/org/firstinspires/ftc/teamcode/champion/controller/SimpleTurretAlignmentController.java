@@ -34,6 +34,7 @@ public class SimpleTurretAlignmentController {
     private boolean lastResultValid = false;
     private String lastSeenTagIds = "";
     private String limelightStatus = "Unknown";
+    private String debugRawData = "";
 
     public SimpleTurretAlignmentController(LinearOpMode opMode, TurretController turretController) throws Exception {
         this.opMode = opMode;
@@ -118,6 +119,9 @@ public class SimpleTurretAlignmentController {
             opMode.telemetry.addData("Target Tag ID", TARGET_TAG_ID);
             opMode.telemetry.addData("Seen Tag IDs", lastSeenTagIds.isEmpty() ? "none" : lastSeenTagIds);
             opMode.telemetry.addData("Limelight Status", limelightStatus);
+            if (!debugRawData.isEmpty()) {
+                opMode.telemetry.addData("Raw Debug", debugRawData);
+            }
             return;
         }
 
@@ -186,6 +190,21 @@ public class SimpleTurretAlignmentController {
 
             for (int i = 0; i < 5; i++) {
                 LLResult result = limelight.getLatestResult();
+
+                // Debug: Log raw result data on first iteration
+                if (i == 0) {
+                    if (result == null) {
+                        debugRawData = "LLResult=null";
+                    } else if (!result.isValid()) {
+                        debugRawData = String.format("Invalid result (tx=%.2f ty=%.2f)",
+                            result.getTx(), result.getTy());
+                    } else {
+                        List<LLResultTypes.FiducialResult> fids = result.getFiducialResults();
+                        debugRawData = String.format("Valid, Fiducials=%d",
+                            fids != null ? fids.size() : -1);
+                    }
+                }
+
                 if (result != null && result.isValid()) {
                     anyResultValid = true;
                     List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
