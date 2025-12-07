@@ -38,8 +38,8 @@ public class AutonFarRed extends LinearOpMode {
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 4600.0;
-    public static double CONSTANT_RAMP_ANGLE = 92.0;
+    public static double CONSTANT_SHOOTER_RPM = 5200.0;
+    public static double CONSTANT_RAMP_ANGLE = 80.0;
 
     // Movement parameters (tunable via dashboard)
     public static double DRIVE_POWER = 0.5;
