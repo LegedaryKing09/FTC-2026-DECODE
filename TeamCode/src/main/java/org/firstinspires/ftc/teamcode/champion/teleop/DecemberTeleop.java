@@ -43,7 +43,7 @@ public class DecemberTeleop extends LinearOpMode {
 
     // Controllers
     private TurretController turret;
-    private SimpleTurretAlignmentController turretAlignment;
+    private TurretAlignmentController turretAlignment;
     private NewIntakeController intake;
     private NewTransferController transfer;
     private UptakeController uptake;
@@ -177,8 +177,8 @@ public class DecemberTeleop extends LinearOpMode {
 
         // Initialize turret alignment controller
         try {
-            turretAlignment = new SimpleTurretAlignmentController(this, turret);
-            SimpleTurretAlignmentController.TARGET_TAG_ID = TURRET_TARGET_TAG_ID;
+            turretAlignment = new TurretAlignmentController(this, turret);
+            TurretAlignmentController.TARGET_TAG_ID = TURRET_TARGET_TAG_ID;
             telemetry.addData("✓ Turret Alignment", "OK");
         } catch (Exception e) {
             telemetry.addData("✗ Turret Alignment", "NOT FOUND: " + e.getMessage());
@@ -639,7 +639,7 @@ public class DecemberTeleop extends LinearOpMode {
                 boolean aligning = turretAlignment.isRunning();
                 telemetry.addData("Auto-Align", aligning ? "ACTIVE" : "OFF");
                 if (aligning) {
-                    telemetry.addData("Target Tag", SimpleTurretAlignmentController.TARGET_TAG_ID);
+                    telemetry.addData("Target Tag", TurretAlignmentController.TARGET_TAG_ID);
                 }
             }
         }

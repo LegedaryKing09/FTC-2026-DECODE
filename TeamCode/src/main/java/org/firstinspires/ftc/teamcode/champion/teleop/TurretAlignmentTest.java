@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.SimpleTurretAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 
 @Config
@@ -15,7 +15,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 public class TurretAlignmentTest extends LinearOpMode {
 
     private TurretController turret;
-    private SimpleTurretAlignmentController alignment;
+    private TurretAlignmentController alignment;
 
     private final ElapsedTime runtime = new ElapsedTime();
 
@@ -42,7 +42,7 @@ public class TurretAlignmentTest extends LinearOpMode {
 
         // Initialize alignment controller
         try {
-            alignment = new SimpleTurretAlignmentController(this, turret);
+            alignment = new TurretAlignmentController(this, turret);
             telemetry.addData("✓ Alignment", "OK");
         } catch (Exception e) {
             telemetry.addData("✗ Alignment", "FAILED: " + e.getMessage());
@@ -120,11 +120,11 @@ public class TurretAlignmentTest extends LinearOpMode {
         if (alignment != null) {
             telemetry.addLine("═══ ALIGNMENT ═══");
             telemetry.addData("Running", alignment.isRunning() ? "YES" : "NO");
-            telemetry.addData("Target Tag ID", SimpleTurretAlignmentController.TARGET_TAG_ID);
-            telemetry.addData("Tolerance", "%.1f°", SimpleTurretAlignmentController.TOLERANCE_DEGREES);
-            telemetry.addData("Max Power", "%.2f", SimpleTurretAlignmentController.MAX_TURN_POWER);
-            telemetry.addData("Min Power", "%.2f", SimpleTurretAlignmentController.MIN_TURN_POWER);
-            telemetry.addData("Slowdown At", "%.1f°", SimpleTurretAlignmentController.SLOWDOWN_THRESHOLD);
+            telemetry.addData("Target Tag ID", TurretAlignmentController.TARGET_TAG_ID);
+            telemetry.addData("Tolerance", "%.1f°", TurretAlignmentController.TOLERANCE_DEGREES);
+            telemetry.addData("Max Power", "%.2f", TurretAlignmentController.MAX_TURN_POWER);
+            telemetry.addData("Min Power", "%.2f", TurretAlignmentController.MIN_TURN_POWER);
+            telemetry.addData("Slowdown At", "%.1f°", TurretAlignmentController.SLOWDOWN_THRESHOLD);
         }
 
         telemetry.addLine();

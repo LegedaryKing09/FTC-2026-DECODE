@@ -1,18 +1,18 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
-import static java.lang.Thread.sleep;
+import android.annotation.SuppressLint;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.hardware.limelightvision.LLStatus;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.acmerobotics.dashboard.config.Config;
-import com.qualcomm.robotcore.util.ElapsedTime;
 import java.util.List;
 
 /**
- * Simplified Turret-based AprilTag alignment
- * Turns at fixed power until TX is within tolerance
+ * Simplified Turret Alignment Controller
+ * Simple, straightforward logic - just turn toward the target
  */
 @Config
 public class TurretAlignmentController {
@@ -21,48 +21,28 @@ public class TurretAlignmentController {
     private final TurretController turretController;
     private final Limelight3A limelight;
 
-    // === TUNABLE PARAMETERS ===
+    // Tunable parameters via FTC Dashboard
+    public static double TOLERANCE_DEGREES = 2.0;
+    public static double MAX_TURN_POWER = 0.5;      // Maximum power (was TURN_POWER)
+    public static double MIN_TURN_POWER = 0.35;       // Minimum power that still moves turret
+    public static double PROPORTIONAL_GAIN = 0.10;  // Multiplier for error (power = error * gain)
+    public static boolean USE_PROPORTIONAL = true;  // If true, use P control; if false, use linear interpolation
+    public static double SLOWDOWN_THRESHOLD = 20.0;  // Start slowing down within this many degrees
+    public static int TARGET_TAG_ID = 20;
 
-    @Config
-    public static class AlignmentParams {
-        public static double TX_TOLERANCE_DEGREES = 2.0;
-        public static long ALIGNMENT_TIMEOUT_MS = 3000;
-        public static int ALIGNED_FRAMES_REQUIRED = 3;
-        public static double SETTLING_TIME_MS = 100;
-        public static double TURN_POWER = 1.0;
-    }
+    // State
+    private boolean isRunning = false;
+    private double lastTx = 0;
 
-    @Config
-    public static class TargetSearch {
-        public static boolean ENABLE_SEARCH = true;
-        public static double SEARCH_POWER = 0.3;
-        public static long MAX_SEARCH_TIME_MS = 5000;
-    }
 
-    // === STATE VARIABLES ===
 
-    public enum AlignmentState {
-        ALIGNING, ALIGNED, TARGET_LOST, SEARCHING, STOPPED
-    }
-
-    private AlignmentState currentState = AlignmentState.STOPPED;
-    private boolean isActive = false;
-
-    // Target tracking
-    private int targetTagId = 20;
-    private boolean hasTarget = false;
-    private double currentTx = 0;
-
-    // Alignment tracking
-    private final ElapsedTime alignmentTimer = new ElapsedTime();
-    private double totalAlignmentTime = 0;
-    private int stableFrames = 0;
-    private long alignmentStartTime = 0;
-
-    // Search state
-    private final ElapsedTime searchTimer = new ElapsedTime();
-
-    // === INITIALIZATION ===
+    // Debug info
+    private int lastValidReadings = 0;
+    private int lastTotalFiducials = 0;
+    private boolean lastResultValid = false;
+    private String lastSeenTagIds = "";
+    private String limelightStatus = "Unknown";
+    private String debugRawData = "";
 
     public TurretAlignmentController(LinearOpMode opMode, TurretController turretController) throws Exception {
         this.opMode = opMode;
@@ -70,332 +50,253 @@ public class TurretAlignmentController {
 
         try {
             this.limelight = opMode.hardwareMap.get(Limelight3A.class, "limelight");
-            this.limelight.pipelineSwitch(1);
+
+            // Start the Limelight first
             this.limelight.start();
+
+            // Wait for Limelight to initialize before switching pipeline
+            try {
+                Thread.sleep(500); // Give Limelight time to start
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            // Now switch to pipeline 1 (AprilTag detection)
+            this.limelight.pipelineSwitch(1);
+
+            // Wait for pipeline switch to complete
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            // Verify the pipeline switched
+            try {
+                LLStatus status = this.limelight.getStatus();
+                opMode.telemetry.addData("Limelight Init", "Pipeline:%d FPS:%.0f",
+                    status.getPipelineIndex(), status.getFps());
+            } catch (Exception e) {
+                opMode.telemetry.addData("Limelight Init", "Status check failed");
+            }
+
         } catch (Exception e) {
             throw new Exception("Failed to initialize Limelight: " + e.getMessage());
         }
     }
 
-    // === PUBLIC API ===
-
-    public void setTargetTag(int tagId) {
-        this.targetTagId = tagId;
-    }
-
-    public void startAlignment() {
-        isActive = true;
-        alignmentTimer.reset();
-        stableFrames = 0;
-        alignmentStartTime = System.currentTimeMillis();
-
-        // Try to find target
-        if (findTarget()) {
-            currentState = AlignmentState.ALIGNING;
-            opMode.telemetry.addLine("=== TURRET ALIGNMENT STARTED ===");
-            opMode.telemetry.addData("Initial TX", "%.2f°", currentTx);
-            opMode.telemetry.addData("Target Tag ID", targetTagId);
-            opMode.telemetry.addData("State", currentState);
-            opMode.telemetry.update();
-        } else {
-            currentState = AlignmentState.SEARCHING;
-            searchTimer.reset();
-            opMode.telemetry.addLine("Target not found - starting search");
-            opMode.telemetry.update();
-        }
-    }
-
     /**
-     * Turn turret until TX is within tolerance
-     * This is a BLOCKING method that returns when aligned or timeout
-     * @noinspection BusyWait
+     * Start alignment
      */
-    private void turnTurretToAlignWithTarget() throws InterruptedException {
-        long startTime = System.currentTimeMillis();
-        int stableFrames = 0;
-
-        while (opMode.opModeIsActive()) {
-            // Check timeout
-            if (System.currentTimeMillis() - startTime > AlignmentParams.ALIGNMENT_TIMEOUT_MS) {
-                opMode.telemetry.addLine("⚠️ Alignment timeout");
-                opMode.telemetry.update();
-                break;
-            }
-
-            // Get current TX reading
-            if (!findTarget()) {
-                opMode.telemetry.addLine("⚠️ Lost target");
-                opMode.telemetry.update();
-                currentState = AlignmentState.TARGET_LOST;
-                break;
-            }
-
-
-            // Check if aligned
-            if (Math.abs(currentTx) <= AlignmentParams.TX_TOLERANCE_DEGREES) {
-                stableFrames++;
-                opMode.telemetry.addLine("✓ Within tolerance");
-
-                if (stableFrames >= AlignmentParams.ALIGNED_FRAMES_REQUIRED) {
-                    opMode.telemetry.addLine("✓✓✓ ALIGNED! ✓✓✓");
-                    opMode.telemetry.update();
-                    turretController.stop();
-                    sleep((long)AlignmentParams.SETTLING_TIME_MS);
-                    break;
-                }
-
-                // Stop while counting stable frames
-                turretController.stop();
-            } else {
-                // Reset stable counter if we drift
-                stableFrames = 0;
-
-                // Determine turn direction and apply power
-                double power = (currentTx > 0) ? AlignmentParams.TURN_POWER : -AlignmentParams.TURN_POWER;
-                turretController.setPower(power);
-
-                opMode.telemetry.addData("Power", "%.2f", power);
-            }
-
-            opMode.telemetry.update();
-
-            // Loop timing (50Hz)
-            sleep(20);
-        }
-
-        // Ensure stopped
-        turretController.stop();
-    }
-
-    public void stopAlignment() {
-        isActive = false;
-        currentState = AlignmentState.STOPPED;
-
-        if (alignmentTimer.seconds() > 0) {
-            totalAlignmentTime = alignmentTimer.seconds();
-        }
-
-        turretController.stop();
-    }
-
-    /**
-     * Update method - call this every loop cycle to perform non-blocking alignment
-     */
-    public void update() {
-        if (!isActive || currentState == AlignmentState.STOPPED) {
-            return;
-        }
-
-        opMode.telemetry.addData("Alignment State", currentState);
-        opMode.telemetry.addData("Is Active", isActive);
-
-        switch (currentState) {
-            case ALIGNING:
-                updateAlignment();
-                break;
-            case SEARCHING:
-                executeSearch();
-                break;
-            case ALIGNED:
-                maintainAlignment();
-                break;
-            case TARGET_LOST:
-                opMode.telemetry.addLine("⚠️ TARGET LOST - Press LB to retry");
-                turretController.stop();
-                break;
-            case STOPPED:
-                break;
-        }
-    }
-
-    /**
-     * Perform one iteration of alignment logic (non-blocking)
-     */
-    private void updateAlignment() {
-        // Check timeout
-        if (System.currentTimeMillis() - alignmentStartTime > AlignmentParams.ALIGNMENT_TIMEOUT_MS) {
-            opMode.telemetry.addLine("⚠️ Alignment timeout");
-            opMode.telemetry.update();
-            stopAlignment();
-            return;
-        }
-
-        // Get current TX reading
-        if (!findTarget()) {
-            opMode.telemetry.addLine("⚠️ Lost target");
-            opMode.telemetry.update();
-            currentState = AlignmentState.TARGET_LOST;
-            turretController.stop();
-            return;
-        }
-
-        // Check if aligned
-        if (Math.abs(currentTx) <= AlignmentParams.TX_TOLERANCE_DEGREES) {
-            stableFrames++;
-            opMode.telemetry.addLine("✓ Within tolerance");
-
-            if (stableFrames >= AlignmentParams.ALIGNED_FRAMES_REQUIRED) {
-                opMode.telemetry.addLine("✓✓✓ ALIGNED! ✓✓✓");
-                opMode.telemetry.update();
-                turretController.stop();
-                currentState = AlignmentState.ALIGNED;
-                totalAlignmentTime = alignmentTimer.seconds();
-                return;
-            }
-
-            // Continue turning even when within tolerance until we hit required frames
-            // This prevents rapid start-stop that prevents the turret from moving
-        }
-
-        // Always reset stable counter if outside tolerance
-        if (Math.abs(currentTx) > AlignmentParams.TX_TOLERANCE_DEGREES) {
-            stableFrames = 0;
-        }
-
-        // Determine turn direction and apply power (always turn unless fully aligned)
-        // TX is positive when target is RIGHT, negative when LEFT
-        // We need to turn in the OPPOSITE direction (negative power = turn left toward negative TX)
-        double power = (currentTx > 0) ? -AlignmentParams.TURN_POWER : AlignmentParams.TURN_POWER;
-        turretController.setPower(power);
-
-        opMode.telemetry.addData("Aligning - Power", "%.2f", power);
-        opMode.telemetry.addData("TX Error", "%.2f°", currentTx);
-        opMode.telemetry.addData("Stable Frames", "%d/%d", stableFrames, AlignmentParams.ALIGNED_FRAMES_REQUIRED);
-
+    public void start() {
+        isRunning = true;
+        opMode.telemetry.addLine("🎯 Alignment Started");
         opMode.telemetry.update();
     }
 
-    public void maintainAlignment() {
-        // Continuously check and adjust if needed
-        if (!findTarget()) return;
-
-        if (Math.abs(currentTx) > AlignmentParams.TX_TOLERANCE_DEGREES) {
-            double power = (currentTx > 0) ? -AlignmentParams.TURN_POWER : AlignmentParams.TURN_POWER;
-            turretController.setPower(power);
-        } else {
-            turretController.stop();
-        }
+    /**
+     * Stop alignment
+     */
+    public void stop() {
+        isRunning = false;
+        turretController.stop();
+        opMode.telemetry.addLine("⏹ Alignment Stopped");
+        opMode.telemetry.update();
     }
 
-    // === HELPER METHODS ===
+    /**
+     * Update - call this every loop
+     * Simple logic: read limelight, turn toward target if found
+     */
+    public void update() {
+        if (!isRunning) {
+            return;
+        }
+
+        // Try to find the AprilTag
+        Double tx = getTargetTx();
+
+        if (tx == null) {
+            // No target found
+            turretController.stop();
+            opMode.telemetry.addLine("❌ No target found");
+            opMode.telemetry.addData("Last TX", "%.2f°", lastTx);
+            opMode.telemetry.addData("Valid Readings", "%d/5", lastValidReadings);
+            opMode.telemetry.addData("Total Fiducials", lastTotalFiducials);
+            opMode.telemetry.addData("Result Valid", lastResultValid);
+            opMode.telemetry.addData("Target Tag ID", TARGET_TAG_ID);
+            opMode.telemetry.addData("Seen Tag IDs", lastSeenTagIds.isEmpty() ? "none" : lastSeenTagIds);
+            opMode.telemetry.addData("Limelight Status", limelightStatus);
+            if (!debugRawData.isEmpty()) {
+                opMode.telemetry.addData("Raw Debug", debugRawData);
+            }
+            return;
+        }
+
+        lastTx = tx;
+
+        // Check if we're aligned
+        if (Math.abs(tx) <= TOLERANCE_DEGREES) {
+            // Within tolerance - stop
+            turretController.stop();
+            opMode.telemetry.addLine("✅ ALIGNED!");
+            opMode.telemetry.addData("TX Error", "%.2f°", tx);
+            return;
+        }
+
+        // Not aligned - turn toward target with proportional control
+        // Calculate power based on error magnitude
+        double absTx = Math.abs(tx);
+        double power;
+
+        if (USE_PROPORTIONAL) {
+            // True proportional control: power = error * gain
+            power = absTx * PROPORTIONAL_GAIN;
+
+            // Clamp to min/max power range
+            power = Math.max(MIN_TURN_POWER, Math.min(MAX_TURN_POWER, power));
+        } else {
+            // Linear interpolation (original method)
+            if (absTx > SLOWDOWN_THRESHOLD) {
+                // Large error - use maximum power
+                power = MAX_TURN_POWER;
+            } else {
+                // Within slowdown range - linear interpolation from MIN to MAX
+                double ratio = absTx / SLOWDOWN_THRESHOLD;
+                power = MIN_TURN_POWER + (MAX_TURN_POWER - MIN_TURN_POWER) * ratio;
+            }
+        }
+
+        // Apply direction: TX positive = target is RIGHT, so turn LEFT (negative power)
+        power = (tx > 0) ? -power : power;
+        turretController.setPower(power);
+
+        opMode.telemetry.addLine("🔄 Aligning...");
+        opMode.telemetry.addData("TX Error", "%.2f°", tx);
+        opMode.telemetry.addData("Turret Power", "%.2f", power);
+        opMode.telemetry.addData("Error Magnitude", "%.1f°", absTx);
+        opMode.telemetry.addData("Control Mode", USE_PROPORTIONAL ? "P-Control" : "Linear");
+    }
 
     /**
-     * Find the target AprilTag and read its TX value
+     * Get TX value from limelight for the target AprilTag
+     * Returns null if target not found
+     * Takes multiple readings for better accuracy (same as LimelightAlignmentController)
      */
-    private boolean findTarget() {
+    @SuppressLint("DefaultLocale")
+    private Double getTargetTx() {
         if (limelight == null) {
-            return false;
+            return null;
         }
 
         try {
-            int validReadings = 0;
+            // Get Limelight status first
+            try {
+                LLStatus status = limelight.getStatus();
+                int currentPipeline = status.getPipelineIndex();
+                double fps = status.getFps();
 
-            LLResult result = limelight.getLatestResult();
-            if (result != null && result.isValid()) {
-                List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
-                for (LLResultTypes.FiducialResult fiducial : fiducials) {
-                        if (fiducial.getFiducialId() == targetTagId) {
-                            currentTx = fiducial.getTargetXDegrees();
-                            validReadings++;
-                            hasTarget = true;
-                            break;
+                limelightStatus = String.format("Pipeline:%d FPS:%.0f", currentPipeline, fps);
+
+                // Warn if pipeline is wrong
+                if (currentPipeline != 1) {
+                    limelightStatus += " ⚠️WRONG!";
+                    // Try to switch back to pipeline 1
+                    limelight.pipelineSwitch(1);
+                }
+
+                // Warn if FPS is 0
+                if (fps == 0) {
+                    limelightStatus += " ❌NO STREAM";
+                }
+            } catch (Exception e) {
+                limelightStatus = "Error: " + e.getMessage();
+            }
+
+            // Take multiple readings for better accuracy (same as LimelightAlignmentController)
+            double sumTx = 0;
+            int validReadings = 0;
+            int totalFiducials = 0;
+            boolean anyResultValid = false;
+            StringBuilder seenIds = new StringBuilder();
+
+            for (int i = 0; i < 5; i++) {
+                LLResult result = limelight.getLatestResult();
+
+                // Debug: Log raw result data on first iteration
+                if (i == 0) {
+                    if (result == null) {
+                        debugRawData = "LLResult=null";
+                    } else if (!result.isValid()) {
+                        debugRawData = String.format("Invalid result (tx=%.2f ty=%.2f)",
+                            result.getTx(), result.getTy());
+                    } else {
+                        List<LLResultTypes.FiducialResult> fids = result.getFiducialResults();
+                        debugRawData = String.format("Valid, Fiducials=%d",
+                            fids != null ? fids.size() : -1);
+                    }
+                }
+
+                if (result != null && result.isValid()) {
+                    anyResultValid = true;
+                    List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+                    if (fiducials != null) {
+                        totalFiducials = Math.max(totalFiducials, fiducials.size());
+
+                        // Log all visible tag IDs for debugging
+                        if (i == 0 && !fiducials.isEmpty()) {
+                            for (LLResultTypes.FiducialResult fid : fiducials) {
+                                if (seenIds.length() > 0) seenIds.append(", ");
+                                seenIds.append(fid.getFiducialId());
+                            }
                         }
+
+                        for (LLResultTypes.FiducialResult fiducial : fiducials) {
+                            if (fiducial.getFiducialId() == TARGET_TAG_ID) {
+                                sumTx += fiducial.getTargetXDegrees();
+                                validReadings++;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                try {
+                    Thread.sleep(20);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
                 }
             }
 
+            // Store debug info
+            lastValidReadings = validReadings;
+            lastTotalFiducials = totalFiducials;
+            lastResultValid = anyResultValid;
+            lastSeenTagIds = seenIds.toString();
+
             if (validReadings > 0) {
-                hasTarget = true;
-                return true;
+                double avgTx = sumTx / validReadings;
+                return -avgTx;  // Invert TX sign (same as LimelightAlignmentController)
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            opMode.telemetry.addData("Exception", e.getMessage());
         }
 
-        hasTarget = false;
-        return false;
+        return null;
     }
 
-    private void executeSearch() {
-        if (!TargetSearch.ENABLE_SEARCH) {
-            currentState = AlignmentState.TARGET_LOST;
-            turretController.stop();
-            return;
-        }
-
-        if (searchTimer.milliseconds() > TargetSearch.MAX_SEARCH_TIME_MS) {
-            currentState = AlignmentState.TARGET_LOST;
-            turretController.stop();
-            return;
-        }
-
-        // Try to find target during search
-        if (findTarget()) {
-            hasTarget = true;
-
-            try {
-                turnTurretToAlignWithTarget();
-                currentState = AlignmentState.ALIGNED;
-                totalAlignmentTime = alignmentTimer.seconds();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                currentState = AlignmentState.STOPPED;
-            }
-            return;
-        }
-
-        // Continue searching - slow rotation
-        turretController.setPower(TargetSearch.SEARCH_POWER);
+    /**
+     * Check if currently running
+     */
+    public boolean isRunning() {
+        return isRunning;
     }
 
-    public void align(int targetTagId) {
-        if (!isActive) return;
-
-        this.targetTagId = targetTagId;
-
-        switch (currentState) {
-            case SEARCHING:
-                executeSearch();
-                break;
-            case ALIGNED:
-                maintainAlignment();
-                break;
-            case ALIGNING:
-            case TARGET_LOST:
-            case STOPPED:
-                break;
-        }
-    }
-
-    // === GETTERS ===
-
-    public boolean isAligned() {
-        return currentState == AlignmentState.ALIGNED;
-    }
-
-    public boolean isSearching() {
-        return currentState == AlignmentState.SEARCHING;
-    }
-
-    public AlignmentState getState() {
-        return currentState;
-    }
-
-    public boolean hasTarget() {
-        return hasTarget;
-    }
-
-    public double getTargetError() {
-        return Math.abs(currentTx);
-    }
-
-    public double getTotalAlignmentTime() {
-        return totalAlignmentTime;
-    }
-
-    public double getCurrentTurretAngle() {
-        return turretController.getCurrentAngle();
-    }
-
-    public double getCurrentTx() {
-        return currentTx;
+    /**
+     * Get the last TX value
+     */
+    public double getLastTx() {
+        return lastTx;
     }
 }
