@@ -37,7 +37,7 @@ public class AutonFarBlue extends LinearOpMode {
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 4600.0;
+    public static double CONSTANT_SHOOTER_RPM = 4750.0;
     public static double CONSTANT_RAMP_ANGLE = 92.0;
 
     // Movement parameters (tunable via dashboard)
@@ -48,6 +48,8 @@ public class AutonFarBlue extends LinearOpMode {
     // Distance parameters (in INCHES)
     public static double INITIAL_BACKWARD = 50.0;
     public static double ENDING_DISTANCE = 25.0;
+    public static double SHOOTING_DISTANCE = 5.0;
+
 
     public static double PATTERN_SCAN_ANGLE = 45.0;
     public static double[] PATTERN_POSITION_DISTANCE = {
