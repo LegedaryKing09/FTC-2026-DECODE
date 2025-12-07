@@ -388,148 +388,149 @@ public class DecemberTeleop extends LinearOpMode {
                 }
             }
 
-        // X button - far preset
-        boolean currentX2 = gamepad2.x;
-        if (currentX2 && !lastX2) {
-            if (shooter != null) {
-                shooter.setTargetRPM(FAR_RPM);
-                currentTargetRPM = FAR_RPM;
-                if (!shooter.isShootMode()) shooter.toggleShoot();
-            }
-            if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
-        }
-        lastX2 = currentX2;
-
-        // A button - close preset
-        boolean currentA2 = gamepad2.a;
-        if (currentA2 && !lastA2) {
-            if (shooter != null) {
-                shooter.setTargetRPM(CLOSE_RPM);
-                currentTargetRPM = CLOSE_RPM;
-                if (!shooter.isShootMode()) shooter.toggleShoot();
-            }
-            if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
-        }
-        lastA2 = currentA2;
-
-        // Y button - increase ramp angle
-        boolean currentY2 = gamepad2.y;
-        if (currentY2 && !lastY2) {
-            if (ramp != null) ramp.incrementAngle(RAMP_INCREMENT_DEGREES);
-        }
-        lastY2 = currentY2;
-
-        // B button - decrease ramp angle
-        boolean currentB2 = gamepad2.b;
-        if (currentB2 && !lastB2) {
-            if (ramp != null) ramp.decrementAngle(RAMP_INCREMENT_DEGREES);
-        }
-        lastB2 = currentB2;
-
-        // Dpad Up - increase target RPM
-        boolean currentDpadUp2 = gamepad2.dpad_up;
-        if (currentDpadUp2 && !lastDpadUp2) {
-            if (shooter != null) {
-                currentTargetRPM += RPM_INCREMENT;
-                if (currentTargetRPM > NewShooterController.MAX_RPM) {
-                    currentTargetRPM = NewShooterController.MAX_RPM;
+            // X button - far preset
+            boolean currentX2 = gamepad2.x;
+            if (currentX2 && !lastX2) {
+                if (shooter != null) {
+                    shooter.setTargetRPM(FAR_RPM);
+                    currentTargetRPM = FAR_RPM;
+                    if (!shooter.isShootMode()) shooter.toggleShoot();
                 }
-                shooter.setTargetRPM(currentTargetRPM);
+                if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
             }
-        }
-        lastDpadUp2 = currentDpadUp2;
+            lastX2 = currentX2;
 
-        // Dpad Down - decrease target RPM
-        boolean currentDpadDown2 = gamepad2.dpad_down;
-        if (currentDpadDown2 && !lastDpadDown2) {
-            if (shooter != null) {
-                currentTargetRPM -= RPM_INCREMENT;
-                if (currentTargetRPM < NewShooterController.MIN_RPM) {
-                    currentTargetRPM = NewShooterController.MIN_RPM;
+            // A button - close preset
+            boolean currentA2 = gamepad2.a;
+            if (currentA2 && !lastA2) {
+                if (shooter != null) {
+                    shooter.setTargetRPM(CLOSE_RPM);
+                    currentTargetRPM = CLOSE_RPM;
+                    if (!shooter.isShootMode()) shooter.toggleShoot();
                 }
-                shooter.setTargetRPM(currentTargetRPM);
+                if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
             }
-        }
-        lastDpadDown2 = currentDpadDown2;
+            lastA2 = currentA2;
 
-        // Right bumper - shooting mode toggle
-        boolean currentRB2 = gamepad2.right_bumper;
-        if (currentRB2 && !lastRightBumper2) {
-            if (!isShooting) {
-                // Start shooting sequence
-                isShooting = true;
-                intakeModeActive = false;
-                vomitModeActive = false;
-                // Turn on intake, transfer, uptake if not already on
-                if (intake != null && !intake.isActive()) {
-                    intake.reversed = false;
-                    intake.toggle();
+            // Y button - increase ramp angle
+            boolean currentY2 = gamepad2.y;
+            if (currentY2 && !lastY2) {
+                if (ramp != null) ramp.incrementAngle(RAMP_INCREMENT_DEGREES);
+            }
+            lastY2 = currentY2;
+
+            // B button - decrease ramp angle
+            boolean currentB2 = gamepad2.b;
+            if (currentB2 && !lastB2) {
+                if (ramp != null) ramp.decrementAngle(RAMP_INCREMENT_DEGREES);
+            }
+            lastB2 = currentB2;
+
+            // Dpad Up - increase target RPM
+            boolean currentDpadUp2 = gamepad2.dpad_up;
+            if (currentDpadUp2 && !lastDpadUp2) {
+                if (shooter != null) {
+                    currentTargetRPM += RPM_INCREMENT;
+                    if (currentTargetRPM > NewShooterController.MAX_RPM) {
+                        currentTargetRPM = NewShooterController.MAX_RPM;
+                    }
+                    shooter.setTargetRPM(currentTargetRPM);
                 }
-                if (transfer != null && !transfer.isActive()) {
-                    transfer.reversed = false;
-                    transfer.toggle();
+            }
+            lastDpadUp2 = currentDpadUp2;
+
+            // Dpad Down - decrease target RPM
+            boolean currentDpadDown2 = gamepad2.dpad_down;
+            if (currentDpadDown2 && !lastDpadDown2) {
+                if (shooter != null) {
+                    currentTargetRPM -= RPM_INCREMENT;
+                    if (currentTargetRPM < NewShooterController.MIN_RPM) {
+                        currentTargetRPM = NewShooterController.MIN_RPM;
+                    }
+                    shooter.setTargetRPM(currentTargetRPM);
                 }
+            }
+            lastDpadDown2 = currentDpadDown2;
+
+            // Right bumper - shooting mode toggle
+            boolean currentRB2 = gamepad2.right_bumper;
+            if (currentRB2 && !lastRightBumper2) {
+                if (!isShooting) {
+                    // Start shooting sequence
+                    isShooting = true;
+                    intakeModeActive = false;
+                    vomitModeActive = false;
+                    // Turn on intake, transfer, uptake if not already on
+                    if (intake != null && !intake.isActive()) {
+                        intake.reversed = false;
+                        intake.toggle();
+                    }
+                    if (transfer != null && !transfer.isActive()) {
+                        transfer.reversed = false;
+                        transfer.toggle();
+                    }
+                    if (uptake != null && !uptake.isActive()) {
+                        uptake.reversed = false;
+                        uptake.toggle();
+                    }
+                } else {
+                    // Stop shooting sequence - stop everything including shooter
+                    isShooting = false;
+                    // Stop intake
+                    if (intake != null && intake.isActive()) {
+                        intake.toggle();
+                    }
+                    // Stop transfer
+                    if (transfer != null && transfer.isActive()) {
+                        transfer.toggle();
+                    }
+                    // Stop uptake
+                    if (uptake != null && uptake.isActive()) {
+                        uptake.toggle();
+                    }
+                    // Stop shooter
+                    if (shooter != null) {
+                        shooter.stopShooting();
+                        currentTargetRPM = 0;
+                    }
+                }
+            }
+            lastRightBumper2 = currentRB2;
+
+            // Left bumper - start alignment, or stop if already aligning
+            boolean currentLB2 = gamepad2.left_bumper;
+            if (currentLB2 && !lastLeftBumper2) {
+                if (turretAlignment != null) {
+                    if (turretAlignment.isRunning()) {
+                        turretAlignment.stop();
+                    } else {
+                        turretAlignment.start();
+                    }
+                }
+            }
+            lastLeftBumper2 = currentLB2;
+
+            // Right trigger - hold for uptake (press = on, release = off)
+            if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
                 if (uptake != null && !uptake.isActive()) {
                     uptake.reversed = false;
                     uptake.toggle();
+                    uptakeFromTrigger = true;
                 }
             } else {
-                // Stop shooting sequence - stop everything including shooter
-                isShooting = false;
-                // Stop intake
-                if (intake != null && intake.isActive()) {
-                    intake.toggle();
-                }
-                // Stop transfer
-                if (transfer != null && transfer.isActive()) {
-                    transfer.toggle();
-                }
-                // Stop uptake
-                if (uptake != null && uptake.isActive()) {
+                if (uptakeFromTrigger && uptake != null && uptake.isActive()) {
                     uptake.toggle();
-                }
-                // Stop shooter
-                if (shooter != null) {
-                    shooter.stopShooting();
-                    currentTargetRPM = 0;
+                    uptakeFromTrigger = false;
                 }
             }
-        }
-        lastRightBumper2 = currentRB2;
 
-        // Left bumper - start alignment, or stop if already aligning
-        boolean currentLB2 = gamepad2.left_bumper;
-        if (currentLB2 && !lastLeftBumper2) {
-            if (turretAlignment != null) {
-                if (turretAlignment.isRunning()) {
-                    turretAlignment.stop();
-                } else {
-                    turretAlignment.start();
-                }
+            // Left trigger - stop intake, transfer, uptake completely
+            if (gamepad2.left_trigger > TRIGGER_THRESHOLD) {
+                stopIntakeSystem();
             }
-        }
-        lastLeftBumper2 = currentLB2;
-
-        // Right trigger - hold for uptake (press = on, release = off)
-        if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
-            if (uptake != null && !uptake.isActive()) {
-                uptake.reversed = false;
-                uptake.toggle();
-                uptakeFromTrigger = true;
-            }
-        } else {
-            if (uptakeFromTrigger && uptake != null && uptake.isActive()) {
-                uptake.toggle();
-                uptakeFromTrigger = false;
-            }
-        }
-
-        // Left trigger - stop intake, transfer, uptake completely
-        if (gamepad2.left_trigger > TRIGGER_THRESHOLD) {
-            stopIntakeSystem();
         }
     }
-}
+
     /**
      * Stops intake, transfer, and uptake completely.
      * Starts shooter at idle RPM.
