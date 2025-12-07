@@ -1,8 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.teleop;
 
-import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
-import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -19,9 +17,6 @@ public class DecemberTeleop extends LinearOpMode {
 
     // Ramp angle increment (tunable via FTC Dashboard)
     public static double RAMP_INCREMENT_DEGREES = 10.0;
-
-    // Turret control sensitivity
-    public static double TURRET_SENSITIVITY = 3.0;
 
     // Target AprilTag ID for turret alignment
     public static int TURRET_TARGET_TAG_ID = 20;
@@ -98,14 +93,7 @@ public class DecemberTeleop extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        FtcDashboard dashboard = FtcDashboard.getInstance();
-        telemetry = new MultipleTelemetry(telemetry, dashboard.getTelemetry());
-
-        telemetry.addData("Status", "Initializing hardware...");
-        telemetry.update();
-
         initializeHardware();
-        telemetry.update();
 
         waitForStart();
         runtime.reset();
@@ -133,9 +121,6 @@ public class DecemberTeleop extends LinearOpMode {
 
             // Update all controllers
             updateAllSystems();
-
-            // Display telemetry
-            displayTelemetry();
         }
     }
 
@@ -162,43 +147,33 @@ public class DecemberTeleop extends LinearOpMode {
             rf.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
             rb.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-            telemetry.addData("✓ Drive", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Drive", "NOT FOUND");
+        } catch (Exception ignored) {
         }
 
         // Initialize turret
         try {
             turret = new TurretController(this);
-            telemetry.addData("✓ Turret", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Turret", "NOT FOUND: " + e.getMessage());
+        } catch (Exception ignored) {
         }
 
         // Initialize turret alignment controller
         try {
             turretAlignment = new TurretAlignmentController(this, turret);
             TurretAlignmentController.TARGET_TAG_ID = TURRET_TARGET_TAG_ID;
-            telemetry.addData("✓ Turret Alignment", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Turret Alignment", "NOT FOUND: " + e.getMessage());
+        } catch (Exception ignored) {
         }
 
         // Initialize ramp
         try {
             ramp = new NewRampController(this);
-            telemetry.addData("✓ Ramp", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Ramp", "NOT FOUND: " + e.getMessage());
+        } catch (Exception ignored) {
         }
 
         // Initialize intake
         DcMotor intakeMotor = null;
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-            telemetry.addData("✓ Intake", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Intake", "NOT FOUND");
+        } catch (Exception ignored) {
         }
         intake = new NewIntakeController(intakeMotor);
 
@@ -206,9 +181,7 @@ public class DecemberTeleop extends LinearOpMode {
         DcMotor transferMotor = null;
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
-            telemetry.addData("✓ Transfer", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Transfer", "NOT FOUND");
+        } catch (Exception ignored) {
         }
         transfer = new NewTransferController(transferMotor);
 
@@ -216,27 +189,21 @@ public class DecemberTeleop extends LinearOpMode {
         CRServo uptakeServo = null;
         try {
             uptakeServo = hardwareMap.get(CRServo.class, "uptake");
-            telemetry.addData("✓ Uptake", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Uptake", "NOT FOUND");
+        } catch (Exception ignored) {
         }
         uptake = new UptakeController(uptakeServo);
 
         // Initialize uptake ball detection switch
         try {
             uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
-            telemetry.addData("✓ Uptake Switch", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Uptake Switch", "NOT FOUND");
+        } catch (Exception ignored) {
         }
 
         // Initialize shooter
         DcMotor shooterMotor = null;
         try {
             shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
-            telemetry.addData("✓ Shooter", "OK");
-        } catch (Exception e) {
-            telemetry.addData("✗ Shooter", "NOT FOUND");
+        } catch (Exception ignored) {
         }
         shooter = new NewShooterController(shooterMotor);
     }
@@ -607,58 +574,6 @@ public class DecemberTeleop extends LinearOpMode {
         if (uptake != null) uptake.update();
         if (shooter != null) shooter.update();
         if (turretAlignment != null) turretAlignment.update();
-    }
-
-    private void displayTelemetry() {
-        telemetry.addData("Runtime", "%.1f sec", runtime.seconds());
-
-        // Drive
-        telemetry.addLine("═══ DRIVE (David) ═══");
-        double leftPwr = lf != null ? lf.getPower() : 0;
-        double rightPwr = rf != null ? rf.getPower() : 0;
-        telemetry.addData("L/R Power", "%.2f / %.2f", leftPwr, rightPwr);
-
-        // Intake system status
-        telemetry.addLine("═══ INTAKE SYSTEM ═══");
-        telemetry.addData("Mode", intakeModeActive ? "INTAKE" : (vomitModeActive ? "VOMIT" : "MANUAL"));
-        telemetry.addData("Intake", (intake != null && intake.isActive()) ? "ON" : "OFF");
-        telemetry.addData("Transfer", (transfer != null && transfer.isActive()) ? "ON" : "OFF");
-        telemetry.addData("Uptake", (uptake != null && uptake.isActive()) ? "ON" : "OFF");
-        if (uptakeSwitch != null) {
-            boolean ballDetected = uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
-            telemetry.addData("Ball Detected", ballDetected ? "YES" : "NO");
-        }
-
-        // Turret
-        if (turret != null) {
-            telemetry.addLine("═══ TURRET (Edward) ═══");
-            telemetry.addData("Angle", "%.1f°", turret.getCurrentAngle());
-
-            // Show alignment status
-            if (turretAlignment != null) {
-                boolean aligning = turretAlignment.isRunning();
-                telemetry.addData("Auto-Align", aligning ? "ACTIVE" : "OFF");
-                if (aligning) {
-                    telemetry.addData("Target Tag", TurretAlignmentController.TARGET_TAG_ID);
-                }
-            }
-        }
-
-        // Ramp
-        if (ramp != null) {
-            telemetry.addLine("═══ RAMP ═══");
-            telemetry.addData("Angle", "%.1f°", ramp.getCurrentAngle());
-            telemetry.addData("Target", "%.1f°", ramp.getTargetAngle());
-        }
-
-        // Shooter
-        if (shooter != null) {
-            telemetry.addLine("═══ SHOOTER ═══");
-            telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
-            telemetry.addData("Mode", shooter.isShootMode() ? "SHOOTING" : "IDLE");
-        }
-
-        telemetry.update();
     }
 
     private double getBatteryVoltage() {
