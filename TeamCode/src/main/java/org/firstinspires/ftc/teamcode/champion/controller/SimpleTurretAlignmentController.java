@@ -21,7 +21,10 @@ public class SimpleTurretAlignmentController {
 
     // Tunable parameters via FTC Dashboard
     public static double TOLERANCE_DEGREES = 2.0;
-    public static double TURN_POWER = 0.8;
+    public static double MAX_TURN_POWER = 1.0;      // Maximum power (was TURN_POWER)
+    public static double MIN_TURN_POWER = 0.8;      // Minimum power that still moves turret
+    public static double PROPORTIONAL_GAIN = 0.05;  // How aggressively to scale with error
+    public static double SLOWDOWN_THRESHOLD = 15.0; // Start slowing down within this many degrees
     public static int TARGET_TAG_ID = 20;
 
     // State
@@ -136,15 +139,29 @@ public class SimpleTurretAlignmentController {
             return;
         }
 
-        // Not aligned - turn toward target
-        // TX positive = target is RIGHT, so turn LEFT (negative power)
-        // TX negative = target is LEFT, so turn RIGHT (positive power)
-        double power = (tx > 0) ? -TURN_POWER : TURN_POWER;
+        // Not aligned - turn toward target with proportional control
+        // Calculate power based on error magnitude
+        double absTx = Math.abs(tx);
+        double power;
+
+        if (absTx > SLOWDOWN_THRESHOLD) {
+            // Large error - use maximum power
+            power = MAX_TURN_POWER;
+        } else {
+            // Within slowdown range - proportionally reduce power
+            // Linear interpolation from MIN to MAX based on error
+            double ratio = absTx / SLOWDOWN_THRESHOLD;
+            power = MIN_TURN_POWER + (MAX_TURN_POWER - MIN_TURN_POWER) * ratio;
+        }
+
+        // Apply direction: TX positive = target is RIGHT, so turn LEFT (negative power)
+        power = (tx > 0) ? -power : power;
         turretController.setPower(power);
 
         opMode.telemetry.addLine("🔄 Aligning...");
         opMode.telemetry.addData("TX Error", "%.2f°", tx);
         opMode.telemetry.addData("Turret Power", "%.2f", power);
+        opMode.telemetry.addData("Error Magnitude", "%.1f°", absTx);
     }
 
     /**
