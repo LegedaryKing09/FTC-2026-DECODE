@@ -1,27 +1,27 @@
-package org.firstinspires.ftc.teamcode.champion.Auton;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.comp;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.AnalogInput;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
-import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
-import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.AnalogInput;
+import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
+import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 
 @Config
-@Autonomous(name = "Simple Basic Auton", group = "Competition")
-public class SimpleBasicAuton extends LinearOpMode {
+@Autonomous(name = "Red Close Auton", group = "Competition")
+public class AutonCloseRed extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -47,7 +47,7 @@ public class SimpleBasicAuton extends LinearOpMode {
 
     // Distance parameters (in INCHES)
     public static double INITIAL_BACKWARD = 50.0;
-    public static double ENDING_DISTANCE = 15.0;
+    public static double ENDING_DISTANCE = 25.0;
 
     public static double PATTERN_SCAN_ANGLE = 45.0;
     public static double[] PATTERN_POSITION_DISTANCE = {
@@ -199,7 +199,7 @@ public class SimpleBasicAuton extends LinearOpMode {
         sleep(500);
 
         // Step 3: Turn right
-        turnAngle(-PATTERN_SCAN_ANGLE, TURN_POWER);
+        turnAngle(PATTERN_SCAN_ANGLE, TURN_POWER);
         sleep(300);
 
         driveDistance(-ENDING_DISTANCE, DRIVE_POWER);

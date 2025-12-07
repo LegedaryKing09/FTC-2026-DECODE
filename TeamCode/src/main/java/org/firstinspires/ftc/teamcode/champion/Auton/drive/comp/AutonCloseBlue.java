@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.Auton;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.comp;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -20,8 +20,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "Simple Basic Auton", group = "Competition")
-public class SimpleBasicAuton extends LinearOpMode {
+@Autonomous(name = "Blue Close Auton", group = "Competition")
+public class AutonCloseBlue extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -47,7 +47,7 @@ public class SimpleBasicAuton extends LinearOpMode {
 
     // Distance parameters (in INCHES)
     public static double INITIAL_BACKWARD = 50.0;
-    public static double ENDING_DISTANCE = 15.0;
+    public static double ENDING_DISTANCE = 25.0;
 
     public static double PATTERN_SCAN_ANGLE = 45.0;
     public static double[] PATTERN_POSITION_DISTANCE = {

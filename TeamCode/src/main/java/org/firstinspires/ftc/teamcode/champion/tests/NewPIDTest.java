@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.Auton;
+package org.firstinspires.ftc.teamcode.champion.tests;
 
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
@@ -12,8 +12,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import java.util.Locale;
 
 @Config
-@TeleOp(name = "PID Tuning Test (FIXED)", group = "Testing")
-public class PIDTuningTest extends LinearOpMode {
+@TeleOp(name = "PID Tuning Test", group = "Testing")
+public class NewPIDTest extends LinearOpMode {
     SixWheelDriveController driveController;
 
     // Test parameters
@@ -43,7 +43,7 @@ public class PIDTuningTest extends LinearOpMode {
         public static double kP = 0.65;
         public static double kI = 0.0;
         public static double kD = 0.03;
-        public static double MIN_POWER = 0.15;
+        public static double MIN_POWER = 0.20;
         public static double MAX_POWER = 0.65;
         public static double TOLERANCE_DEG = 2.0;
         public static double TIMEOUT_MS = 3000;
@@ -63,7 +63,7 @@ public class PIDTuningTest extends LinearOpMode {
         driveController = new SixWheelDriveController(this);
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
-        telemetry.addLine("=== PID TUNING TEST (FIXED) ===");
+        telemetry.addLine("=== PID TUNING TEST ===");
         telemetry.addLine("Uses SimplyPID library (same as auton)");
         telemetry.addLine();
         telemetry.addLine("A - Move Forward 30in");
@@ -154,9 +154,6 @@ public class PIDTuningTest extends LinearOpMode {
         }
     }
 
-    /**
-     * Movement with PID control - EXACTLY MATCHES SimpleBasicAuton and NewAutonController
-     */
     private void driveDistancePID(double distanceInches, double maxSpeed) {
         driveController.updateOdometry();
         double startX = driveController.getX();
@@ -181,7 +178,7 @@ public class PIDTuningTest extends LinearOpMode {
         while (opModeIsActive()) {
             driveController.updateOdometry();
 
-            // Calculate distance traveled (just X distance like NewAutonController)
+            // Calculate distance traveled
             double currentDistance = Math.abs(driveController.getX() - startX);
             maxDistanceReached = Math.max(maxDistanceReached, currentDistance);
             double error = targetDistance - currentDistance;
@@ -221,7 +218,7 @@ public class PIDTuningTest extends LinearOpMode {
 
             // Clamp speed
             speed = Math.max(-effectiveMaxSpeed, Math.min(effectiveMaxSpeed, speed));
-            speed *= direction;  // Apply direction here
+            speed *= direction;
 
             // Apply heading correction
             double leftSpeed = speed - headingCorrection;
@@ -238,7 +235,6 @@ public class PIDTuningTest extends LinearOpMode {
             telemetry.addData("Current", "%.1f in", currentDistance);
             telemetry.addData("Error", "%.1f in", error);
             telemetry.addData("Speed", "%.3f", speed);
-            telemetry.addData("Direction", direction > 0 ? "FORWARD" : "BACKWARD");
             telemetry.addData("Effective Max", "%.3f", effectiveMaxSpeed);
             telemetry.addData("Heading Error", "%.2f°", Math.toDegrees(headingError));
             telemetry.addData("Time", "%.2f s", timer.seconds());
@@ -265,9 +261,6 @@ public class PIDTuningTest extends LinearOpMode {
         telemetry.update();
     }
 
-    /**
-     * Turn with PID control - EXACTLY MATCHES SimpleBasicAuton and NewAutonController
-     */
     private void turnToHeadingPID(double targetDegrees) {
         double startHeading = Math.toDegrees(driveController.getHeading());
         double targetRad = Math.toRadians(targetDegrees);
@@ -314,8 +307,6 @@ public class PIDTuningTest extends LinearOpMode {
             }
 
             // Apply turn power (left negative, right positive for right turn)
-            // Positive error (turn left/CCW) -> left wheels backward, right forward
-            // Negative error (turn right/CW) -> left wheels forward, right backward
             driveController.tankDrive(-power, power);
 
             // Telemetry

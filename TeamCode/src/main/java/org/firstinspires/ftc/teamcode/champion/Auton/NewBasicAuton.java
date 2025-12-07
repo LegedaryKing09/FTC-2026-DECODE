@@ -16,6 +16,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
 @Autonomous(name = "Basic Auton NEW ROBOT", group = "Competition")
@@ -31,9 +32,13 @@ public class NewBasicAuton extends LinearOpMode {
     NewRampController rampController;
     NewAutonController autonController;
 
+    // Uptake ball detection switch
+    private AnalogInput uptakeSwitch;
+    public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
+
     // Shooter and ramp settings
-    public static double CONSTANT_SHOOTER_RPM = 2700.0;
-    public static double CONSTANT_RAMP_ANGLE = 119.0;
+    public static double CONSTANT_SHOOTER_RPM = 3650.0;
+    public static double CONSTANT_RAMP_ANGLE = 171.0;
     public static double MOVEMENT_SPEED = 0.6;
     public static double INTAKE_SPEED = 0.25;
 
@@ -95,7 +100,7 @@ public class NewBasicAuton extends LinearOpMode {
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
         } catch (Exception e) {
-           //
+            //
         }
         transferController = new NewTransferController(transferMotor);
 
@@ -104,16 +109,23 @@ public class NewBasicAuton extends LinearOpMode {
         try {
             uptakeServo = hardwareMap.get(CRServo.class, "uptake");
         } catch (Exception e) {
-           //
+            //
         }
         uptakeController = new UptakeController(uptakeServo);
+
+        // Initialize uptake ball detection switch
+        try {
+            uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
+        } catch (Exception e) {
+           //
+        }
 
         // Initialize shooter
         DcMotor shooterMotor = null;
         try {
             shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
         } catch (Exception e) {
-           //
+            //
         }
         shooterController = new NewShooterController(shooterMotor);
 
@@ -180,10 +192,8 @@ public class NewBasicAuton extends LinearOpMode {
         // Turn left 90 degrees to intake
         autonController.turnToHeading(ALIGNMENT_ANGLE + LEFT_TURN_ANGLE);
 
-        // Go forward while intaking
-        intakeController.setState(true);
-        intakeController.update();
-        autonController.moveRobot(INTAKE_FORWARD, INTAKE_SPEED);
+        // Go forward while intaking with uptake control
+        intakeForward();
 
         // Brief intake time
         sleep(400);
@@ -202,8 +212,61 @@ public class NewBasicAuton extends LinearOpMode {
         // Turn for shooting
         autonController.turnToHeading(SHOOT_HEADING);
 
-        // Shoot the balls we just intaked (with REAL-TIME RPM compensation)
+        // Shoot the balls just intaked
         autonController.quickShoot();
+    }
+
+    private void intakeForward() {
+        // Start intake and transfer
+        intakeController.setState(true);
+        intakeController.update();
+        transferController.setState(true);
+        transferController.update();
+
+        // Start moving forward
+        ElapsedTime moveTimer = new ElapsedTime();
+        double targetDistance = INTAKE_FORWARD;
+
+        while (opModeIsActive() && moveTimer.seconds() < 5.0) {
+            // Update movement (this is simplified - your actual implementation may vary)
+            autonController.moveRobot(targetDistance, INTAKE_SPEED);
+
+            // Check if ball is at uptake position and shooter is ready
+            if (isBallAtUptake() && isShooterReady()) {
+                // Only NOW activate uptake
+                if (!uptakeController.isActive()) {
+                    uptakeController.setState(true);
+                    uptakeController.update();
+                }
+            }
+
+            // Update controllers
+            transferController.update();
+            intakeController.update();
+            uptakeController.update();
+
+            // Small delay to prevent overwhelming the system
+            sleep(20);
+
+            // Break when movement is complete (you may need to adjust this logic)
+            if (moveTimer.seconds() > 2.0) break;
+        }
+    }
+
+    private boolean isBallAtUptake() {
+        if (uptakeSwitch == null) return true; // If no switch, assume ready
+        return uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
+    }
+
+    private boolean isShooterReady() {
+        if (shooterController == null) return true; // If no shooter, assume ready
+
+        // Check if shooter RPM is within acceptable range of target
+        double currentRPM = shooterController.getRPM();
+        double targetRPM = shooterController.getTargetRPM();
+        double rpmTolerance = 100.0; // Allow 100 RPM variance
+
+        return Math.abs(currentRPM - targetRPM) < rpmTolerance;
     }
 
     private void cleanup() {

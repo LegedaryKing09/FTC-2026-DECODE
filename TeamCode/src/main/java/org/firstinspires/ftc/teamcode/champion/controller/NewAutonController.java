@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode.champion.controller;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 @Config
@@ -18,27 +17,34 @@ public class NewAutonController {
     private final LimelightAlignmentController limelightController;
     private final NewAutoShootController autoShootController;
     private final NewRampController rampController;
-    private final TurnPIDController turnPID;
-    private final MovementPIDController movementPID;
 
-    // ========== MOVEMENT PARAMETERS ==========
     @Config
-    public static class MovementParams {
+    public static class MovementPID {
+        public static double kP = 0.05;
+        public static double kI = 0.002;
+        public static double kD = 0.0;
+        public static double MIN_SPEED = 0.15;
         public static double MAX_SPEED = 0.8;
-        public static double TOLERANCE_INCHES = 2.0;
+        public static double TOLERANCE = 0.25;
         public static double TIMEOUT_MS = 5000;
         public static double HEADING_CORRECTION_KP = 0.15;
+        public static double DECEL_DISTANCE = 16.0;
     }
 
-    // ========== TURN PARAMETERS ==========
+    // ========== TURN PID PARAMETERS ==========
     @Config
-    public static class TurnParams {
+    public static class TurnPID {
+        public static double kP = 0.65;
+        public static double kI = 0.0;
+        public static double kD = 0.03;
+        public static double MIN_POWER = 0.15;
+        public static double MAX_POWER = 0.65;
         public static double TOLERANCE_DEG = 2.0;
         public static double TIMEOUT_MS = 3000;
     }
 
     // Configuration
-    public static double CONSTANT_SHOOTER_RPM = 2800.0;
+    public static double CONSTANT_SHOOTER_RPM = 3650.0;
     public static long SHOOT_DURATION = 1400;
 
     // RPM Compensation Parameters
@@ -83,25 +89,6 @@ public class NewAutonController {
         this.limelightController = limelightController;
         this.autoShootController = autoShootController;
         this.rampController = rampController;
-
-        IMU imu = initializeIMU(opMode);
-        this.turnPID = new TurnPIDController(imu);
-        this.movementPID = new MovementPIDController();
-    }
-
-    private IMU initializeIMU(LinearOpMode opMode) {
-        IMU imu = opMode.hardwareMap.get(IMU.class, "imu");
-
-        IMU.Parameters parameters = new IMU.Parameters(
-                new RevHubOrientationOnRobot(
-                        RevHubOrientationOnRobot.LogoFacingDirection.UP,      // Logo facing direction
-                        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD   // USB port facing direction
-                )
-        );
-
-        imu.initialize(parameters);
-
-        return imu;
     }
 
 
@@ -187,10 +174,17 @@ public class NewAutonController {
         driveController.updateOdometry();
         double startX = driveController.getX();
         double startHeading = driveController.getHeading();
-
-        // Set target distance
-        movementPID.setTarget(Math.abs(distanceInches));
+        double targetDistance = Math.abs(distanceInches);
         double direction = Math.signum(distanceInches);
+
+        // FIXED: Reference NewAutonController instead of AutonController
+        fr.charleslabs.simplypid.SimplyPID movePID = new fr.charleslabs.simplypid.SimplyPID(
+                0.0,
+                MovementPID.kP,
+                MovementPID.kI,
+                MovementPID.kD
+        );
+        movePID.setOuputLimits(-MovementPID.MAX_SPEED, MovementPID.MAX_SPEED);
 
         timer.reset();
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
@@ -200,30 +194,38 @@ public class NewAutonController {
 
             // Calculate distance traveled
             double currentDistance = Math.abs(driveController.getX() - startX);
+            double error = targetDistance - currentDistance;
 
-            // Check if finished
-            if (movementPID.isFinished(currentDistance, MovementParams.TOLERANCE_INCHES)) {
-                break;
-            }
-
-            // Check timeout
-            if (timer.milliseconds() > MovementParams.TIMEOUT_MS) {
-                break;
-            }
-
-            // Get PID output
-            double pidOutput = movementPID.update(currentDistance);
-            double speed = pidOutput * direction;
-
-            // Apply max speed limit
-            speed = Math.max(-maxSpeed, Math.min(maxSpeed, speed));
-
-            // Heading correction
             double currentHeading = driveController.getHeading();
             double headingError = normalizeAngle(startHeading - currentHeading);
-            double headingCorrection = MovementParams.HEADING_CORRECTION_KP * headingError;
+            double headingCorrection = MovementPID.HEADING_CORRECTION_KP * headingError;
 
-            // Apply to motors
+            if (Math.abs(error) < MovementPID.TOLERANCE) {
+                break;
+            }
+
+            if (timer.milliseconds() > MovementPID.TIMEOUT_MS) {
+                break;
+            }
+
+            double pidOutput = movePID.getOutput(timer.seconds(), error);
+            double speed = pidOutput;
+
+            double effectiveMaxSpeed = maxSpeed;
+            if (Math.abs(error) < MovementPID.DECEL_DISTANCE) {
+                double decelFactor = Math.abs(error) / MovementPID.DECEL_DISTANCE;
+                decelFactor = decelFactor * decelFactor;
+                effectiveMaxSpeed = MovementPID.MIN_SPEED +
+                        (maxSpeed - MovementPID.MIN_SPEED) * decelFactor;
+            }
+
+            if (Math.abs(speed) < MovementPID.MIN_SPEED && Math.abs(error) > MovementPID.TOLERANCE * 2) {
+                speed = Math.signum(speed) * MovementPID.MIN_SPEED;
+            }
+
+            speed = Math.max(-effectiveMaxSpeed, Math.min(effectiveMaxSpeed, speed));
+            speed *= direction;
+
             double leftSpeed = speed - headingCorrection;
             double rightSpeed = speed + headingCorrection;
 
@@ -239,8 +241,17 @@ public class NewAutonController {
     }
 
     public void turnToHeading(double targetDegrees) {
-        // Set target
-        turnPID.setTarget(targetDegrees);
+        double targetRad = Math.toRadians(targetDegrees);
+        double toleranceRad = Math.toRadians(TurnPID.TOLERANCE_DEG);
+
+        // FIXED: Reference NewAutonController instead of AutonController
+        fr.charleslabs.simplypid.SimplyPID turnPID = new fr.charleslabs.simplypid.SimplyPID(
+                0.0,
+                TurnPID.kP,
+                TurnPID.kI,
+                TurnPID.kD
+        );
+        turnPID.setOuputLimits(-TurnPID.MAX_POWER, TurnPID.MAX_POWER);
 
         timer.reset();
         driveController.setDriveMode(SixWheelDriveController.DriveMode.VELOCITY);
@@ -248,20 +259,24 @@ public class NewAutonController {
         while (opMode.opModeIsActive()) {
             driveController.updateOdometry();
 
-            // Check if finished
-            if (turnPID.isFinished(TurnParams.TOLERANCE_DEG)) {
+            double currentHeading = driveController.getHeading();
+            double headingError = normalizeAngle(targetRad - currentHeading);
+
+            if (Math.abs(headingError) < toleranceRad) {
                 break;
             }
 
-            // Check timeout
-            if (timer.milliseconds() > TurnParams.TIMEOUT_MS) {
+            if (timer.milliseconds() > TurnPID.TIMEOUT_MS) {
                 break;
             }
 
-            // Get PID output
-            double power = turnPID.update();
+            double pidOutput = turnPID.getOutput(timer.seconds(), headingError);
 
-            // Apply to motors (tank turn)
+            double power = pidOutput;
+            if (Math.abs(power) < TurnPID.MIN_POWER && Math.abs(headingError) > toleranceRad) {
+                power = Math.signum(power) * TurnPID.MIN_POWER;
+            }
+
             driveController.tankDrive(-power, power);
 
             opMode.sleep(10);
@@ -271,7 +286,8 @@ public class NewAutonController {
     }
 
     public double getCurrentHeading() {
-        return turnPID.getCurrentHeading();
+        driveController.updateOdometry();
+        return Math.toDegrees(driveController.getHeading());
     }
 
     public void quickShoot() {

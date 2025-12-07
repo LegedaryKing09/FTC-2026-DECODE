@@ -165,7 +165,7 @@ public class SixWheelDriveController {
         pinpoint.setEncoderDirections(xDir, yDir);
 
         if (OdometryParams.USE_4_BAR_PODS) {
-            pinpoint.setEncoderResolution(19.9847352f, DistanceUnit.MM);
+            pinpoint.setEncoderResolution(19.9847352f, DistanceUnit.MM); // 19.9847352f as of 12/7
         } else {
             pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
         }

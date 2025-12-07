@@ -287,7 +287,6 @@ public class AutonController {
                 break;
             }
 
-            // FIXED: Removed negative sign from error
             double pidOutput = turnPID.getOutput(timer.seconds(), headingError);
 
             double power = pidOutput;
@@ -307,7 +306,6 @@ public class AutonController {
         driveController.updateOdometry();
         return Math.toDegrees(driveController.getHeading());
     }
-
 
     public void quickShoot() {
         // Reset compensation counters
