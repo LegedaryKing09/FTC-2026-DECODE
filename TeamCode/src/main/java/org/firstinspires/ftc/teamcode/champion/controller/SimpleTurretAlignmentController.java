@@ -24,9 +24,10 @@ public class SimpleTurretAlignmentController {
     // Tunable parameters via FTC Dashboard
     public static double TOLERANCE_DEGREES = 2.0;
     public static double MAX_TURN_POWER = 0.35;      // Maximum power (was TURN_POWER)
-    public static double MIN_TURN_POWER = 0.3;      // Minimum power that still moves turret
-    public static double PROPORTIONAL_GAIN = 0.05;  // How aggressively to scale with error
-    public static double SLOWDOWN_THRESHOLD = 20.0; // Start slowing down within this many degrees
+    public static double MIN_TURN_POWER = 0.3;       // Minimum power that still moves turret
+    public static double PROPORTIONAL_GAIN = 0.015;  // Multiplier for error (power = error * gain)
+    public static boolean USE_PROPORTIONAL = false;  // If true, use P control; if false, use linear interpolation
+    public static double SLOWDOWN_THRESHOLD = 20.0;  // Start slowing down within this many degrees
     public static int TARGET_TAG_ID = 20;
 
     // State
@@ -146,14 +147,22 @@ public class SimpleTurretAlignmentController {
         double absTx = Math.abs(tx);
         double power;
 
-        if (absTx > SLOWDOWN_THRESHOLD) {
-            // Large error - use maximum power
-            power = MAX_TURN_POWER;
+        if (USE_PROPORTIONAL) {
+            // True proportional control: power = error * gain
+            power = absTx * PROPORTIONAL_GAIN;
+
+            // Clamp to min/max power range
+            power = Math.max(MIN_TURN_POWER, Math.min(MAX_TURN_POWER, power));
         } else {
-            // Within slowdown range - proportionally reduce power
-            // Linear interpolation from MIN to MAX based on error
-            double ratio = absTx / SLOWDOWN_THRESHOLD;
-            power = MIN_TURN_POWER + (MAX_TURN_POWER - MIN_TURN_POWER) * ratio;
+            // Linear interpolation (original method)
+            if (absTx > SLOWDOWN_THRESHOLD) {
+                // Large error - use maximum power
+                power = MAX_TURN_POWER;
+            } else {
+                // Within slowdown range - linear interpolation from MIN to MAX
+                double ratio = absTx / SLOWDOWN_THRESHOLD;
+                power = MIN_TURN_POWER + (MAX_TURN_POWER - MIN_TURN_POWER) * ratio;
+            }
         }
 
         // Apply direction: TX positive = target is RIGHT, so turn LEFT (negative power)
@@ -164,6 +173,7 @@ public class SimpleTurretAlignmentController {
         opMode.telemetry.addData("TX Error", "%.2f°", tx);
         opMode.telemetry.addData("Turret Power", "%.2f", power);
         opMode.telemetry.addData("Error Magnitude", "%.1f°", absTx);
+        opMode.telemetry.addData("Control Mode", USE_PROPORTIONAL ? "P-Control" : "Linear");
     }
 
     /**
