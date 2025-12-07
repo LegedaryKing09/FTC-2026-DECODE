@@ -21,7 +21,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "Red Close Auton", group = "Competition")
+@Autonomous(name = "Red Far Auton", group = "Competition")
 public class AutonFarRed extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
