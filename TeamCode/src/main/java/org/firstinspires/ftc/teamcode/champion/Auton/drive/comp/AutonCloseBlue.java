@@ -220,7 +220,6 @@ public class AutonCloseBlue extends LinearOpMode {
         turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
         sleep(500);
 
-        //go backward after intake
         driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
         sleep(500);
 
