@@ -23,16 +23,18 @@ public class SimpleTurretAlignmentController {
 
     // Tunable parameters via FTC Dashboard
     public static double TOLERANCE_DEGREES = 2.0;
-    public static double MAX_TURN_POWER = 0.35;      // Maximum power (was TURN_POWER)
-    public static double MIN_TURN_POWER = 0.3;       // Minimum power that still moves turret
-    public static double PROPORTIONAL_GAIN = 0.015;  // Multiplier for error (power = error * gain)
-    public static boolean USE_PROPORTIONAL = false;  // If true, use P control; if false, use linear interpolation
+    public static double MAX_TURN_POWER = 0.5;      // Maximum power (was TURN_POWER)
+    public static double MIN_TURN_POWER = 0.35;       // Minimum power that still moves turret
+    public static double PROPORTIONAL_GAIN = 0.10;  // Multiplier for error (power = error * gain)
+    public static boolean USE_PROPORTIONAL = true;  // If true, use P control; if false, use linear interpolation
     public static double SLOWDOWN_THRESHOLD = 20.0;  // Start slowing down within this many degrees
     public static int TARGET_TAG_ID = 20;
 
     // State
     private boolean isRunning = false;
     private double lastTx = 0;
+
+
 
     // Debug info
     private int lastValidReadings = 0;

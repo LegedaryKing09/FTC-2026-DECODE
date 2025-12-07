@@ -565,6 +565,15 @@ public class DecemberTeleop extends LinearOpMode {
         if (turret != null) {
             telemetry.addLine("═══ TURRET (Edward) ═══");
             telemetry.addData("Angle", "%.1f°", turret.getCurrentAngle());
+
+            // Show alignment status
+            if (turretAlignment != null) {
+                boolean aligning = turretAlignment.isRunning();
+                telemetry.addData("Auto-Align", aligning ? "ACTIVE" : "OFF");
+                if (aligning) {
+                    telemetry.addData("Target Tag", SimpleTurretAlignmentController.TARGET_TAG_ID);
+                }
+            }
         }
 
         // Ramp
