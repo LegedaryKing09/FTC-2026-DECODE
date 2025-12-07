@@ -27,9 +27,9 @@ public class TurretAlignmentController {
     public static double MIN_TURN_POWER = 0.35;      // Minimum power that still moves turret
 
     // PID Gains
-    public static double KP = 0.10;                  // Proportional gain (P term)
+    public static double KP = 0.05;                  // Proportional gain (P term)
     public static double KI = 0.0;                   // Integral gain (I term)
-    public static double KD = 0.0;                   // Derivative gain (D term)
+    public static double KD = 0.005;                   // Derivative gain (D term)
     public static double INTEGRAL_MAX = 10.0;        // Max integral accumulation (anti-windup)
 
     // Control mode selection
