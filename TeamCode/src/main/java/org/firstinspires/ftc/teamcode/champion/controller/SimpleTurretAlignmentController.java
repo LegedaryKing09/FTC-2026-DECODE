@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
+import android.annotation.SuppressLint;
+
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
@@ -21,8 +23,8 @@ public class SimpleTurretAlignmentController {
 
     // Tunable parameters via FTC Dashboard
     public static double TOLERANCE_DEGREES = 2.0;
-    public static double MAX_TURN_POWER = 1.0;      // Maximum power (was TURN_POWER)
-    public static double MIN_TURN_POWER = 0.75;      // Minimum power that still moves turret
+    public static double MAX_TURN_POWER = 0.35;      // Maximum power (was TURN_POWER)
+    public static double MIN_TURN_POWER = 0.3;      // Minimum power that still moves turret
     public static double PROPORTIONAL_GAIN = 0.05;  // How aggressively to scale with error
     public static double SLOWDOWN_THRESHOLD = 20.0; // Start slowing down within this many degrees
     public static int TARGET_TAG_ID = 20;
@@ -169,6 +171,7 @@ public class SimpleTurretAlignmentController {
      * Returns null if target not found
      * Takes multiple readings for better accuracy (same as LimelightAlignmentController)
      */
+    @SuppressLint("DefaultLocale")
     private Double getTargetTx() {
         if (limelight == null) {
             return null;
@@ -229,7 +232,7 @@ public class SimpleTurretAlignmentController {
                         totalFiducials = Math.max(totalFiducials, fiducials.size());
 
                         // Log all visible tag IDs for debugging
-                        if (i == 0 && fiducials.size() > 0) {
+                        if (i == 0 && !fiducials.isEmpty()) {
                             for (LLResultTypes.FiducialResult fid : fiducials) {
                                 if (seenIds.length() > 0) seenIds.append(", ");
                                 seenIds.append(fid.getFiducialId());
