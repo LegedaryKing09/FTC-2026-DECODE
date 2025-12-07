@@ -63,7 +63,7 @@ public class AutonFarBlue extends LinearOpMode {
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 2000;
-    public static long SHOOT_TIME_MS = 3200;
+    public static long SHOOT_TIME_MS = 3600;
 
     // Turning tolerance
     public static double TURN_TOLERANCE_DEGREES = 3.0;
@@ -193,7 +193,7 @@ public class AutonFarBlue extends LinearOpMode {
         sleep(500);
 
         driveDistance(ENDING_DISTANCE, DRIVE_POWER);
-        sleep(300);
+        sleep(500);
 
         telemetry.addLine("COMPLETE!");
         telemetry.update();
@@ -251,24 +251,6 @@ public class AutonFarBlue extends LinearOpMode {
             transferController.update();
             uptakeController.update();
 
-            double currentRPM = shooterController.getRPM();
-            double targetRPM = shooterController.getTargetRPM();
-            double rpmDiff = Math.abs(currentRPM - targetRPM);
-
-            telemetry.addLine("=== SHOOTING DEBUG ===");
-            telemetry.addData("Time", "%.1f / %.1f sec", timer.milliseconds() / 1000.0, SHOOT_TIME_MS / 1000.0);
-            telemetry.addData("RPM", "%.0f / %.0f (diff: %.0f)", currentRPM, targetRPM, rpmDiff);
-            telemetry.addLine();
-            telemetry.addData("Switch Voltage", "%.2f V", switchVoltage);
-            telemetry.addData("Threshold", "%.2f V", UPTAKE_SWITCH_THRESHOLD);
-            telemetry.addData("Ball Detected", ballDetected ? "YES" : "NO");
-            telemetry.addData("Shooter Ready", shooterReady ? "YES" : "NO");
-            telemetry.addLine();
-            telemetry.addData("Intake Active", intakeController.isActive());
-            telemetry.addData("Transfer Active", transferController.isActive());
-            telemetry.addData("Uptake Active", uptakeController.isActive() ? "YES" : "NO");
-            telemetry.addData("Uptake Activations", uptakeActivationCount);
-            telemetry.update();
 
             sleep(50);
         }

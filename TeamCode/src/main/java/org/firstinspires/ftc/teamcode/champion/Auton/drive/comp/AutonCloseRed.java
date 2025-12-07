@@ -63,7 +63,7 @@ public class AutonCloseRed extends LinearOpMode {
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 2000;
-    public static long SHOOT_TIME_MS = 3200;
+    public static long SHOOT_TIME_MS = 3600;
 
     // Turning tolerance
     public static double TURN_TOLERANCE_DEGREES = 3.0;
@@ -198,12 +198,12 @@ public class AutonCloseRed extends LinearOpMode {
         shootBalls();
         sleep(500);
 
-        // Step 3: Turn right
+        // Step 3: Turn left
         turnAngle(PATTERN_SCAN_ANGLE, TURN_POWER);
-        sleep(300);
+        sleep(500);
 
         driveDistance(-ENDING_DISTANCE, DRIVE_POWER);
-        sleep(300);
+        sleep(500);
 
         telemetry.addLine("COMPLETE!");
         telemetry.update();
@@ -219,79 +219,49 @@ public class AutonCloseRed extends LinearOpMode {
             sleep(20);
         }
 
-        // Start intake and transfer for shooting
+        // Start ALL systems for shooting
         intakeController.setState(true);
         intakeController.update();
 
         transferController.setState(true);
         transferController.update();
 
-        // IMPORTANT: Start with uptake OFF
-        uptakeController.setState(false);
+        uptakeController.setState(true);
         uptakeController.update();
 
-        // Run shooting sequence with smart uptake control
         timer.reset();
-        int uptakeActivationCount = 0;
+        int ballsShotCount = 0;
+        boolean lastBallState = false;
 
         while (opModeIsActive() && timer.milliseconds() < SHOOT_TIME_MS) {
-            // Get current values for debugging
+            // Get current values for monitoring only
             boolean ballDetected = isBallAtUptake();
             boolean shooterReady = isShooterReady();
             double switchVoltage = (uptakeSwitch != null) ? uptakeSwitch.getVoltage() : -1.0;
 
-            // CRITICAL: Check if ball is at uptake position AND shooter is ready
-            if (ballDetected && shooterReady) {
-                // Activate uptake when conditions are met
-                if (!uptakeController.isActive()) {
-                    uptakeController.setState(true);
-                    uptakeController.update();
-                }
-//            } else {
-//                // Turn OFF uptake if conditions not met
-//                if (uptakeController.isActive()) {
-//                    uptakeController.setState(false);
-//                    uptakeController.update();
-//                }
+            // Count balls shot (detect when ball passes through)
+            if (ballDetected && !lastBallState) {
+                ballsShotCount++;
             }
+            lastBallState = ballDetected;
 
-            sleep(5000);
-            // Update all controllers
+            // Update all controllers to keep them running
             intakeController.update();
             transferController.update();
             uptakeController.update();
 
-            double currentRPM = shooterController.getRPM();
-            double targetRPM = shooterController.getTargetRPM();
-            double rpmDiff = Math.abs(currentRPM - targetRPM);
-
-            telemetry.addLine("=== SHOOTING DEBUG ===");
-            telemetry.addData("Time", "%.1f / %.1f sec", timer.milliseconds() / 1000.0, SHOOT_TIME_MS / 1000.0);
-            telemetry.addData("RPM", "%.0f / %.0f (diff: %.0f)", currentRPM, targetRPM, rpmDiff);
-            telemetry.addLine();
-            telemetry.addData("Switch Voltage", "%.2f V", switchVoltage);
-            telemetry.addData("Threshold", "%.2f V", UPTAKE_SWITCH_THRESHOLD);
-            telemetry.addData("Ball Detected", ballDetected ? "YES" : "NO");
-            telemetry.addData("Shooter Ready", shooterReady ? "YES" : "NO");
-            telemetry.addLine();
-            telemetry.addData("Intake Active", intakeController.isActive());
-            telemetry.addData("Transfer Active", transferController.isActive());
-            telemetry.addData("Uptake Active", uptakeController.isActive() ? "YES" : "NO");
-            telemetry.addData("Uptake Activations", uptakeActivationCount);
-            telemetry.update();
 
             sleep(50);
         }
 
-        // Stop all intake systems after shooting
-//        intakeController.setState(false);
-//        intakeController.update();
-//
-//        transferController.setState(false);
-//        transferController.update();
-//
-//        uptakeController.setState(false);
-//        uptakeController.update();
+        intakeController.setState(false);
+        intakeController.update();
+
+        transferController.setState(false);
+        transferController.update();
+
+        uptakeController.setState(false);
+        uptakeController.update();
 
         sleep(1000);
     }

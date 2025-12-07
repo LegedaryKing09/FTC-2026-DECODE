@@ -63,7 +63,7 @@ public class AutonFarRed extends LinearOpMode {
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 2000;
-    public static long SHOOT_TIME_MS = 3200;
+    public static long SHOOT_TIME_MS = 3600;
 
     // Turning tolerance
     public static double TURN_TOLERANCE_DEGREES = 3.0;
@@ -188,12 +188,11 @@ public class AutonFarRed extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
-
         shootBalls();
         sleep(500);
 
         driveDistance(ENDING_DISTANCE, DRIVE_POWER);
-        sleep(300);
+        sleep(500);
 
     }
 
