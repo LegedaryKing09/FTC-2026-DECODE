@@ -48,9 +48,9 @@ public class AutonCloseRed extends LinearOpMode {
 
     // Distance parameters (in INCHES)
     public static double INITIAL_BACKWARD = 50.0;
-    public static double LEFT_TURN_ANGLE = 50.0;
-    public static double INTAKE_FORWARD = 30.0;
-    public static double INTAKE_BACKWARD = 30.0;
+    public static double LEFT_TURN_ANGLE = 46.0;
+    public static double INTAKE_FORWARD = 28.0;
+    public static double INTAKE_BACKWARD = 28.0;
     public static double FINAL_TURN_ANGLE = 45.0;
     public static double SHOOT_HEADING = 45.0;
     public static double PICK_UP_DISTANCE = 24.0;

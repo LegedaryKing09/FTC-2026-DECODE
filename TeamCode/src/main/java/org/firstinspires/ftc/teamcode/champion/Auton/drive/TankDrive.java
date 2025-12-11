@@ -68,22 +68,25 @@ public final class TankDrive {
         // TODO: fill in these values based on
         //   see https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html?highlight=imu#physical-hub-mounting
         public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
-                RevHubOrientationOnRobot.LogoFacingDirection.UP;
+                RevHubOrientationOnRobot.LogoFacingDirection.LEFT;
         public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
-                RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD;
+                RevHubOrientationOnRobot.UsbFacingDirection.UP;
 
         // drive model parameters
-        public double wheelRadius = 1.89;
+        public double wheelRadius = 1.35;
         public double gearRatio = 1;
         public double ticksPerRev = 537.7;
         public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
-        public double physicalTrackWidthInches = 15.0;
+        public double physicalTrackWidthInches = 14.5; //overturns, increase new_track_width = current_track_width × (360° / actual_heading_after_360°_turn)
+
+        public double pinpointXOffsetInches = 3.2;   // Right of center
+        public double pinpointYOffsetInches = 7.5;   // Forward of center
 
 
         // feedforward parameters (in tick units)
-        public double kS = 0.1;
-        public double kV = 0.01;
-        public double kA = 0.001;
+        public double kS = 0.05; // jerks, decrease, doesnt move, increase
+        public double kV = 0.005; // undershoot, increase
+        public double kA = 0.0005; //oscillates, decrease, slow response, increase
 
 
         // path profile parameters
@@ -96,12 +99,12 @@ public final class TankDrive {
         public double maxAngVel = (2 * maxWheelVel) / physicalTrackWidthInches;
         public double maxAngAccel = (2 * maxProfileAccel) / physicalTrackWidthInches;
 
-        public double ramseteZeta = 0.7;
-        public double ramseteBBar = 2.0;
+        public double ramseteZeta = 0.7; // oscillates, increase
+        public double ramseteBBar = 2.0; // too aggressive,
 
 
-        public double turnGain = 0.01;
-        public double turnVelGain = 0.001;
+        public double turnGain = 0.05;
+        public double turnVelGain = 0.005;
 
     }
 
@@ -255,9 +258,9 @@ public final class TankDrive {
         rightMotors = Arrays.asList(rightFront, rightBack);
 
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
-        leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
-        rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
+        rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
         leftFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         leftBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -280,7 +283,7 @@ public final class TankDrive {
                 PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
-        pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, 6, 6,pose);
+        pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, PARAMS.pinpointYOffsetInches, PARAMS.pinpointXOffsetInches, pose);
         localizer = pinpointLocalizer;
 
         FlightRecorder.write("TANK_PARAMS", PARAMS);

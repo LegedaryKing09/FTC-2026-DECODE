@@ -9,18 +9,12 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
 
-/**
- * RoadRunner Autonomous OpMode for FTC robot.
- * This OpMode demonstrates basic RoadRunner functionality with tank drive,
- * moving the robot forward and then returning to the starting position.
- */
 @Config
 @Autonomous
 public class RoadRunnerAuto extends LinearOpMode {
 
     // Configurable constants for movement parameters
     public static final double FORWARD_DISTANCE_INCHES = 24.0;
-
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -42,14 +36,6 @@ public class RoadRunnerAuto extends LinearOpMode {
         waitForStart();
         if (isStopRequested()) return;
 
-
-        // Show "Running..." during execution
-        telemetry.clear();
-        telemetry.addLine("====================================");
-        telemetry.addLine("EXECUTING AUTONOMOUS...");
-        telemetry.addLine("====================================");
-        telemetry.update();
-
         // Execute the autonomous action with real-time telemetry
         executeActionWithTelemetry(drive, movementAction);
 
@@ -63,9 +49,7 @@ public class RoadRunnerAuto extends LinearOpMode {
         }
     }
 
-    /**
-     * Displays pre-start telemetry information including starting position and planned movements.
-     */
+
     private void displayPreStartTelemetry(AutoTankDrive drive, Pose2d startPose) {
         telemetry.addLine("====================================");
         telemetry.addLine("ROADRUNNER AUTONOMOUS");
@@ -84,85 +68,16 @@ public class RoadRunnerAuto extends LinearOpMode {
         telemetry.update();
     }
 
-    /**
-     * Executes the given action with real-time telemetry updates.
-     */
     private void executeActionWithTelemetry(AutoTankDrive drive, Action action) {
         while (!isStopRequested()) {
             boolean actionRunning = action.run(null);
             if (!actionRunning) {
                 break;
             }
-
-            updateExecutionTelemetry(drive);
             sleep(50); // Update rate
         }
     }
 
-    /**
-     * Updates telemetry during action execution with detailed drive information.
-     */
-    private void updateExecutionTelemetry(AutoTankDrive drive) {
-        telemetry.clear();
-        telemetry.addLine("====================================");
-        telemetry.addLine("ROADRUNNER AUTONOMOUS - EXECUTING");
-        telemetry.addLine("====================================");
-        telemetry.addLine("");
-
-        // Ramsete controller parameters
-        telemetry.addLine("RAMSETE CONTROLLER:");
-        telemetry.addData("  Zeta (damping)", "%.3f", drive.ramseteZeta);
-        telemetry.addData("  BBar (aggressiveness)", "%.3f", drive.ramseteBBar);
-        telemetry.addLine("");
-
-        // Pose errors
-        telemetry.addLine("POSE ERRORS:");
-        telemetry.addData("  X Error", "%.2f inches", drive.xError);
-        telemetry.addData("  Y Error", "%.2f inches", drive.yError);
-        telemetry.addData("  Heading Error", "%.1f degrees", drive.headingErrorDeg);
-        telemetry.addLine("");
-
-        // Current pose
-        telemetry.addLine("CURRENT POSITION:");
-        telemetry.addData("  X", "%.2f inches", drive.currentX);
-        telemetry.addData("  Y", "%.2f inches", drive.currentY);
-        telemetry.addData("  Heading", "%.1f degrees", drive.currentHeadingDeg);
-        telemetry.addLine("");
-
-        // Target pose
-        telemetry.addLine("TARGET POSITION:");
-        telemetry.addData("  X", "%.2f inches", drive.targetX);
-        telemetry.addData("  Y", "%.2f inches", drive.targetY);
-        telemetry.addData("  Heading", "%.1f degrees", drive.targetHeadingDeg);
-        telemetry.addLine("");
-
-        // Velocities
-        telemetry.addLine("VELOCITIES:");
-        telemetry.addData("  Commanded Linear", "%.2f in/s", drive.commandLinVel);
-        telemetry.addData("  Commanded Angular", "%.1f deg/s", drive.commandAngVelDeg);
-        telemetry.addData("  Actual Linear", "%.2f in/s", drive.actualLinVel);
-        telemetry.addData("  Actual Angular", "%.1f deg/s", drive.actualAngVelDeg);
-        telemetry.addLine("");
-
-        // Motor powers
-        telemetry.addLine("MOTOR POWERS:");
-        telemetry.addData("  Left Power", "%.3f", drive.leftPower);
-        telemetry.addData("  Right Power", "%.3f", drive.rightPower);
-        telemetry.addData("  Left Wheel Vel", "%.2f", drive.leftWheelVel);
-        telemetry.addData("  Right Wheel Vel", "%.2f", drive.rightWheelVel);
-        telemetry.addLine("");
-
-        // Additional telemetry
-        telemetry.addLine("ADDITIONAL DATA:");
-        telemetry.addData("  Elapsed Time", "%.2f seconds", drive.elapsedTime);
-        telemetry.addData("  Battery Voltage", "%.2f V", drive.batteryVoltage);
-
-        telemetry.update();
-    }
-
-    /**
-     * Displays final telemetry after autonomous completion.
-     */
     private void displayFinalTelemetry(AutoTankDrive drive, Pose2d startPose) {
         // Update pose estimate one final time
         drive.updatePoseEstimate();

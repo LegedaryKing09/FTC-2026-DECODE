@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.comp;
 
+import static org.firstinspires.ftc.teamcode.champion.teleop.DecemberTeleop.TURRET_TARGET_TAG_ID;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -10,6 +12,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentCont
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -32,6 +36,8 @@ public class AutonCloseBlue extends LinearOpMode {
     LimelightAlignmentController limelightController;
     NewAutoShootController autoShootController;
     NewAutonController autonController;
+    TurretController turret;
+    TurretAlignmentController turretAlignment;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -51,10 +57,8 @@ public class AutonCloseBlue extends LinearOpMode {
     public static double LEFT_TURN_ANGLE = 50.0;
     public static double INTAKE_FORWARD = 30.0;
     public static double INTAKE_BACKWARD = 30.0;
-    public static double FINAL_TURN_ANGLE = 45.0;
-    public static double SHOOT_HEADING = 45.0;
-    public static double PICK_UP_DISTANCE = 24.0;
-    public static double SECOND_PICK_UP_DISTANCE = 48.0;
+    public static double SECOND_PICKUP = 24.0;
+    public static double THIRD_PICKUP = 48.0;
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 2000;
@@ -170,6 +174,18 @@ public class AutonCloseBlue extends LinearOpMode {
             autoShootController = null;
         }
 
+        try {
+            turret = new TurretController(this);
+        } catch (Exception ignored) {
+        }
+
+        // Initialize turret alignment controller
+        try {
+            turretAlignment = new TurretAlignmentController(this, turret);
+            TurretAlignmentController.TARGET_TAG_ID = TURRET_TARGET_TAG_ID;
+        } catch (Exception ignored) {
+        }
+
         // Initialize autoncontroller
         autonController = new NewAutonController(
                 this,
@@ -188,15 +204,15 @@ public class AutonCloseBlue extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
-        // Step 1: Go backward
+        // Go backward
         driveDistance(-INITIAL_BACKWARD, DRIVE_POWER);
         sleep(500);
 
-        // Step 2: Shoot 3 preloaded balls
+        // Shoot 3 preloaded balls
         shootBalls();
         sleep(500);
 
-        //turn left
+        //turn left (first pick up)
         turnAngle(LEFT_TURN_ANGLE, TURN_POWER);
         sleep(500);
 
@@ -216,36 +232,44 @@ public class AutonCloseBlue extends LinearOpMode {
         shootBalls();
         sleep(500);
 
-//        turn right
+        //turn right
+        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        sleep(500);
+
+        //go back to get the second line (second pickup)
+        driveDistance(-SECOND_PICKUP, DRIVE_POWER);
+        sleep(500);
+
+        // turn left to face the balls
+        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        sleep(500);
+
+        //go forward while intaking
+        intakeForward();
+        sleep(500);
+
+        //go backward after intake
+        driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
+        sleep(500);
+
+        //go to shooting position
+        driveDistance(SECOND_PICKUP, DRIVE_POWER);
+        sleep(500);
+
+        //facing shooting place
+        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        sleep(500);
+
+
+
+
+        // exiting
         turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
         sleep(500);
 
         driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
         sleep(500);
 
-//        //go back to pick up second ball
-//        driveDistance(-PICK_UP_DISTANCE, DRIVE_POWER);
-//        sleep(500);
-//
-//        //turn left
-//        turnAngle(LEFT_TURN_ANGLE,TURN_POWER);
-//        sleep(500);
-//
-//        //intake
-//        intakeForward();
-//        sleep(500);
-//
-//        //go backward after intake
-//        driveDistance(INTAKE_BACKWARD, DRIVE_POWER);
-//        sleep(500);
-//
-//        //turn right
-//        turnAngle(-FINAL_TURN_ANGLE, TURN_POWER);
-//        sleep(500);
-//
-//        //shoot balls
-//        shootBalls();
-//        sleep(500);
 
         telemetry.addLine("COMPLETE!");
         telemetry.update();
@@ -410,7 +434,6 @@ public class AutonCloseBlue extends LinearOpMode {
     }
 
     private void driveDistance(double distanceInches, double power) {
-        // FIXED: Negate distance to correct reversed direction
         if (autonController != null) {
             autonController.moveRobot(-distanceInches, power);
         } else {
@@ -483,12 +506,6 @@ public class AutonCloseBlue extends LinearOpMode {
             }
 
             driveController.tankDrive(-turnPower, turnPower);
-
-            telemetry.addData("Target", "%.1f°", angleDegrees);
-            telemetry.addData("Current", "%.1f°", turnedAngle);
-            telemetry.addData("Error", "%.1f°", error);
-            telemetry.addData("Power", "%.2f", turnPower);
-            telemetry.update();
 
             sleep(10);
         }
