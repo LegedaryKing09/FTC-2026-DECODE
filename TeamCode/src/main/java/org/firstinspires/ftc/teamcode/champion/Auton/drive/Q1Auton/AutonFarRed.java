@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.Auton.drive.comp;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q1Auton;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -21,8 +21,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "Blue Far Auton", group = "Competition")
-public class AutonFarBlue extends LinearOpMode {
+@Autonomous(name = "Red Far Auton", group = "Competition")
+public class AutonFarRed extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -199,6 +199,7 @@ public class AutonFarBlue extends LinearOpMode {
         telemetry.addLine("COMPLETE!");
         telemetry.update();
     }
+
 
     private void shootBalls() {
         // Wait for RPM stabilization

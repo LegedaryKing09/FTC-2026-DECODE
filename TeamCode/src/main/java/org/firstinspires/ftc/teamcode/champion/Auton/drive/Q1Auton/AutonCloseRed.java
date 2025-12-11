@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.Auton.drive.comp;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q1Auton;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;

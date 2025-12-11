@@ -72,14 +72,14 @@ public final class AutoTankDrive {
         public double physicalTrackWidthInches = 14.5;
 
         // Path profile parameters (velocity and acceleration limits)
-        public double maxWheelVelTick = 6500; // Maximum wheel velocity in encoder ticks per second
+        public double maxWheelVelTick = 6500; // Maximum safe wheel velocity in encoder ticks per second
         public double maxWheelVel = maxWheelVelTick * odoInPerTick; // Maximum wheel velocity in inches per second
         public double minProfileAccel = -2200; // Minimum acceleration in inches per second squared
         public double maxProfileAccel = 50; // Maximum acceleration in inches per second squared
 
         // Feedforward control gains for motor voltage compensation
-        public double kS = 0.0978; // Static friction gain (volts)
-        public double kV = 1 / maxWheelVel; // Velocity gain (volts per inch/second)
+        public double kS =  0.0978; // Static friction gain (volts)
+        public double kV = 0.00013699740061902415; // Velocity gain (volts per inch/second)
         public double kA = 1.0; // Acceleration gain (volts per inch/second squared)
 
         // Turn profile parameters (angular velocity and acceleration limits)

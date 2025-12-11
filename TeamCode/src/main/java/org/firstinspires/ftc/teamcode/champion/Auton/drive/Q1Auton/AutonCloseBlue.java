@@ -1,4 +1,6 @@
-package org.firstinspires.ftc.teamcode.champion.Auton.drive.comp;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q1Auton;
+
+import static org.firstinspires.ftc.teamcode.champion.teleop.DecemberTeleop.TURRET_TARGET_TAG_ID;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -10,6 +12,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentCont
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -21,8 +25,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "Red Far Auton", group = "Competition")
-public class AutonFarRed extends LinearOpMode {
+@Autonomous(name = "Blue Close Auton", group = "Competition")
+public class AutonCloseBlue extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -32,14 +36,16 @@ public class AutonFarRed extends LinearOpMode {
     LimelightAlignmentController limelightController;
     NewAutoShootController autoShootController;
     NewAutonController autonController;
+    TurretController turret;
+    TurretAlignmentController turretAlignment;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 5200.0;
-    public static double CONSTANT_RAMP_ANGLE = 80.0;
+    public static double CONSTANT_SHOOTER_RPM = 3650.0;
+    public static double CONSTANT_RAMP_ANGLE = 171.0;
 
     // Movement parameters (tunable via dashboard)
     public static double DRIVE_POWER = 0.5;
@@ -49,17 +55,14 @@ public class AutonFarRed extends LinearOpMode {
     // Distance parameters (in INCHES)
     public static double INITIAL_BACKWARD = 50.0;
     public static double LEFT_TURN_ANGLE = 50.0;
-    public static double INTAKE_FORWARD = 18.0;
-    public static double ENDING_DISTANCE = 24.0;
-    public static double INTAKE_BACKWARD = 18.0;
-    public static double FINAL_TURN_ANGLE = 45.0;
-    public static double SHOOT_HEADING = 45.0;
-    public static double PICK_UP_DISTANCE = 24.0;
-    public static double SECOND_PICK_UP_DISTANCE = 48.0;
+    public static double INTAKE_FORWARD = 30.0;
+    public static double INTAKE_BACKWARD = 30.0;
+    public static double SECOND_PICKUP = 24.0;
+    public static double THIRD_PICKUP = 48.0;
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 2000;
-    public static long SHOOT_TIME_MS = 4000;
+    public static long SHOOT_TIME_MS = 3600;
 
     // Turning tolerance
     public static double TURN_TOLERANCE_DEGREES = 3.0;
@@ -171,6 +174,18 @@ public class AutonFarRed extends LinearOpMode {
             autoShootController = null;
         }
 
+        try {
+            turret = new TurretController(this);
+        } catch (Exception ignored) {
+        }
+
+        // Initialize turret alignment controller
+        try {
+            turretAlignment = new TurretAlignmentController(this, turret);
+            TurretAlignmentController.TARGET_TAG_ID = TURRET_TARGET_TAG_ID;
+        } catch (Exception ignored) {
+        }
+
         // Initialize autoncontroller
         autonController = new NewAutonController(
                 this,
@@ -189,17 +204,76 @@ public class AutonFarRed extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
+        // Go backward
+        driveDistance(-INITIAL_BACKWARD, DRIVE_POWER);
+        sleep(500);
 
+        // Shoot 3 preloaded balls
         shootBalls();
         sleep(500);
 
-        driveDistance(ENDING_DISTANCE, DRIVE_POWER);
+        //turn left (first pick up)
+        turnAngle(LEFT_TURN_ANGLE, TURN_POWER);
         sleep(500);
+
+        //go forward while intaking
+        intakeForward();
+        sleep(500);
+
+        //go backward after intake
+        driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
+        sleep(500);
+
+        //turn right
+        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        sleep(500);
+
+        //shoot balls
+        shootBalls();
+        sleep(500);
+
+        //turn right
+        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        sleep(500);
+
+        //go back to get the second line (second pickup)
+        driveDistance(-SECOND_PICKUP, DRIVE_POWER);
+        sleep(500);
+
+        // turn left to face the balls
+        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        sleep(500);
+
+        //go forward while intaking
+        intakeForward();
+        sleep(500);
+
+        //go backward after intake
+        driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
+        sleep(500);
+
+        //go to shooting position
+        driveDistance(SECOND_PICKUP, DRIVE_POWER);
+        sleep(500);
+
+        //facing shooting place
+        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        sleep(500);
+
+
+
+
+        // exiting
+        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        sleep(500);
+
+        driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
+        sleep(500);
+
 
         telemetry.addLine("COMPLETE!");
         telemetry.update();
     }
-
 
     private void shootBalls() {
         // Wait for RPM stabilization
@@ -289,7 +363,7 @@ public class AutonFarRed extends LinearOpMode {
             }
 
             // Timeout safety (10 seconds)
-            if (timer.seconds() > 5.0) {
+            if (timer.seconds() > 10.0) {
                 break;
             }
 
@@ -360,7 +434,6 @@ public class AutonFarRed extends LinearOpMode {
     }
 
     private void driveDistance(double distanceInches, double power) {
-        // FIXED: Negate distance to correct reversed direction
         if (autonController != null) {
             autonController.moveRobot(-distanceInches, power);
         } else {
@@ -433,12 +506,6 @@ public class AutonFarRed extends LinearOpMode {
             }
 
             driveController.tankDrive(-turnPower, turnPower);
-
-            telemetry.addData("Target", "%.1f°", angleDegrees);
-            telemetry.addData("Current", "%.1f°", turnedAngle);
-            telemetry.addData("Error", "%.1f°", error);
-            telemetry.addData("Power", "%.2f", turnPower);
-            telemetry.update();
 
             sleep(10);
         }
