@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.Auton.drive.comp;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q1Auton;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -21,8 +21,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "Blue Close Auton", group = "Competition")
-public class AutonCloseBlue extends LinearOpMode {
+@Autonomous(name = "Red Close Auton", group = "Competition")
+public class AutonCloseRed extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -48,9 +48,9 @@ public class AutonCloseBlue extends LinearOpMode {
 
     // Distance parameters (in INCHES)
     public static double INITIAL_BACKWARD = 50.0;
-    public static double LEFT_TURN_ANGLE = 50.0;
-    public static double INTAKE_FORWARD = 30.0;
-    public static double INTAKE_BACKWARD = 30.0;
+    public static double LEFT_TURN_ANGLE = 46.0;
+    public static double INTAKE_FORWARD = 28.0;
+    public static double INTAKE_BACKWARD = 28.0;
     public static double FINAL_TURN_ANGLE = 45.0;
     public static double SHOOT_HEADING = 45.0;
     public static double PICK_UP_DISTANCE = 24.0;
@@ -197,7 +197,7 @@ public class AutonCloseBlue extends LinearOpMode {
         sleep(500);
 
         //turn left
-        turnAngle(LEFT_TURN_ANGLE, TURN_POWER);
+        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
         sleep(500);
 
         //go forward while intaking
@@ -209,7 +209,7 @@ public class AutonCloseBlue extends LinearOpMode {
         sleep(500);
 
         //turn right
-        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        turnAngle(LEFT_TURN_ANGLE, TURN_POWER);
         sleep(500);
 
         //shoot balls
@@ -217,7 +217,7 @@ public class AutonCloseBlue extends LinearOpMode {
         sleep(500);
 
 //        turn right
-        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        turnAngle(LEFT_TURN_ANGLE, TURN_POWER);
         sleep(500);
 
         driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
@@ -339,7 +339,7 @@ public class AutonCloseBlue extends LinearOpMode {
             }
 
             // Timeout safety (10 seconds)
-            if (timer.seconds() > 10.0) {
+            if (timer.seconds() > 5.0) {
                 break;
             }
 

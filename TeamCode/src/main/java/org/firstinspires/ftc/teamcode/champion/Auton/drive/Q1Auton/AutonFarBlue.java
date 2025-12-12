@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.Auton.drive.comp;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q1Auton;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -21,8 +21,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "Red Close Auton", group = "Competition")
-public class AutonCloseRed extends LinearOpMode {
+@Autonomous(name = "Blue Far Auton", group = "Competition")
+public class AutonFarBlue extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -38,8 +38,8 @@ public class AutonCloseRed extends LinearOpMode {
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 3650.0;
-    public static double CONSTANT_RAMP_ANGLE = 171.0;
+    public static double CONSTANT_SHOOTER_RPM = 5200.0;
+    public static double CONSTANT_RAMP_ANGLE = 80.0;
 
     // Movement parameters (tunable via dashboard)
     public static double DRIVE_POWER = 0.5;
@@ -49,8 +49,9 @@ public class AutonCloseRed extends LinearOpMode {
     // Distance parameters (in INCHES)
     public static double INITIAL_BACKWARD = 50.0;
     public static double LEFT_TURN_ANGLE = 50.0;
-    public static double INTAKE_FORWARD = 30.0;
-    public static double INTAKE_BACKWARD = 30.0;
+    public static double INTAKE_FORWARD = 18.0;
+    public static double ENDING_DISTANCE = 24.0;
+    public static double INTAKE_BACKWARD = 18.0;
     public static double FINAL_TURN_ANGLE = 45.0;
     public static double SHOOT_HEADING = 45.0;
     public static double PICK_UP_DISTANCE = 24.0;
@@ -58,7 +59,7 @@ public class AutonCloseRed extends LinearOpMode {
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 2000;
-    public static long SHOOT_TIME_MS = 3600;
+    public static long SHOOT_TIME_MS = 4000;
 
     // Turning tolerance
     public static double TURN_TOLERANCE_DEGREES = 3.0;
@@ -188,64 +189,12 @@ public class AutonCloseRed extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
-        // Step 1: Go backward
-        driveDistance(-INITIAL_BACKWARD, DRIVE_POWER);
-        sleep(500);
 
-        // Step 2: Shoot 3 preloaded balls
         shootBalls();
         sleep(500);
 
-        //turn left
-        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
+        driveDistance(ENDING_DISTANCE, DRIVE_POWER);
         sleep(500);
-
-        //go forward while intaking
-        intakeForward();
-        sleep(500);
-
-        //go backward after intake
-        driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
-        sleep(500);
-
-        //turn right
-        turnAngle(LEFT_TURN_ANGLE, TURN_POWER);
-        sleep(500);
-
-        //shoot balls
-        shootBalls();
-        sleep(500);
-
-//        turn right
-        turnAngle(LEFT_TURN_ANGLE, TURN_POWER);
-        sleep(500);
-
-        driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
-        sleep(500);
-
-//        //go back to pick up second ball
-//        driveDistance(-PICK_UP_DISTANCE, DRIVE_POWER);
-//        sleep(500);
-//
-//        //turn left
-//        turnAngle(LEFT_TURN_ANGLE,TURN_POWER);
-//        sleep(500);
-//
-//        //intake
-//        intakeForward();
-//        sleep(500);
-//
-//        //go backward after intake
-//        driveDistance(INTAKE_BACKWARD, DRIVE_POWER);
-//        sleep(500);
-//
-//        //turn right
-//        turnAngle(-FINAL_TURN_ANGLE, TURN_POWER);
-//        sleep(500);
-//
-//        //shoot balls
-//        shootBalls();
-//        sleep(500);
 
         telemetry.addLine("COMPLETE!");
         telemetry.update();

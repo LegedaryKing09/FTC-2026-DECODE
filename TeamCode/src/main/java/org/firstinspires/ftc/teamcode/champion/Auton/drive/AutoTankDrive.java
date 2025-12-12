@@ -27,24 +27,15 @@ import com.acmerobotics.roadrunner.TimeTurn;
 import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
 import com.acmerobotics.roadrunner.TrajectoryBuilderParams;
 import com.acmerobotics.roadrunner.TurnConstraints;
-import com.acmerobotics.roadrunner.Twist2dDual;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Vector2dDual;
 import com.acmerobotics.roadrunner.VelConstraint;
 import com.acmerobotics.roadrunner.ftc.DownsampledWriter;
-import com.acmerobotics.roadrunner.ftc.Encoder;
 import com.acmerobotics.roadrunner.ftc.FlightRecorder;
-import com.acmerobotics.roadrunner.ftc.LazyHardwareMapImu;
-import com.acmerobotics.roadrunner.ftc.LazyImu;
 import com.acmerobotics.roadrunner.ftc.LynxFirmware;
-import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
-import com.acmerobotics.roadrunner.ftc.PositionVelocityPair;
-import com.acmerobotics.roadrunner.ftc.RawEncoder;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -52,26 +43,15 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.DriveCommandMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.PoseMessage;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankCommandMessage;
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankLocalizerInputsMessage;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
 @Config
 public final class AutoTankDrive {
-    /**
-     * Configuration parameters for the AutoTankDrive system.
-     * These parameters define physical properties, motion profiles, and control gains.
-     */
     public static class Params {
         // IMU orientation on the robot
         public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
@@ -80,27 +60,26 @@ public final class AutoTankDrive {
                 RevHubOrientationOnRobot.UsbFacingDirection.UP;
 
         // Drive wheel physical parameters
-        public double wheelRadius = 1.89; // Radius of the drive wheels in inches
+        public double wheelRadius = 1.35; // Radius of the drive wheels in inches
         public double gearRatio = 1.0; // Gear ratio between motor and wheels
         public double ticksPerRev = 537.7; // Encoder ticks per motor revolution
-        public double inPerTick = (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev; // Inches per encoder tick
-
-        public double odoWheelRadius = 0.62992; // Radius of odometry wheels in inches
+        public double inPerTick = 0.016187; // (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
+        public double odoWheelRadius = 0.62525; // Radius of odometry wheels in inches
         public double odoTicksPerRev = 2000; // Encoder ticks per odometry wheel revolution
-        public double odoInPerTick = (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev; // Inches per odometry encoder tick
+        public double odoInPerTick = 0.002017; // (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev
 
         // Track width for kinematics (distance between wheels in inches)
-        public double physicalTrackWidthInches = 11.0;
+        public double physicalTrackWidthInches = 14.5;
 
         // Path profile parameters (velocity and acceleration limits)
-        public double maxWheelVelTick = 6500; // Maximum wheel velocity in encoder ticks per second
+        public double maxWheelVelTick = 6500; // Maximum safe wheel velocity in encoder ticks per second
         public double maxWheelVel = maxWheelVelTick * odoInPerTick; // Maximum wheel velocity in inches per second
         public double minProfileAccel = -2200; // Minimum acceleration in inches per second squared
         public double maxProfileAccel = 50; // Maximum acceleration in inches per second squared
 
         // Feedforward control gains for motor voltage compensation
-        public double kS = 0.001; // Static friction gain (volts)
-        public double kV = 1 / maxWheelVel; // Velocity gain (volts per inch/second)
+        public double kS =  0.0978; // Static friction gain (volts)
+        public double kV = 0.00013699740061902415; // Velocity gain (volts per inch/second)
         public double kA = 1.0; // Acceleration gain (volts per inch/second squared)
 
         // Turn profile parameters (angular velocity and acceleration limits)
@@ -108,15 +87,7 @@ public final class AutoTankDrive {
         public double maxAngAccel = (2 * maxProfileAccel) / physicalTrackWidthInches; // Maximum angular acceleration in radians per second squared
 
         // Ramsete controller parameters for smooth path following
-        /**
-         * Damping coefficient for Ramsete controller.
-         * Typical range: 0.7-0.9. Higher values provide smoother corrections but may be slower.
-         */
         public double ramseteZeta = 0.7;
-        /**
-         * Aggressiveness parameter for Ramsete controller.
-         * Higher values make the robot reach the target faster but may cause oscillations near turns.
-         */
         public double ramseteBBar = 0.2;
 
         // Turn controller gains (proportional and velocity feedback)
@@ -124,8 +95,8 @@ public final class AutoTankDrive {
         public double turnVelGain = 0.0; // Velocity feedback gain for turn smoothing
 
         // Pinpoint odometry parameters for localization
-       public double pinpointXOffset = 6.0; // X offset of Pinpoint sensor from robot center in inches
-        public double pinpointYOffset = 3.0; // Y offset of Pinpoint sensor from robot center in inches
+       public double pinpointXOffset = 3.2; // X offset of Pinpoint sensor from robot center in inches
+        public double pinpointYOffset = 7.5; // Y offset of Pinpoint sensor from robot center in inches
         public double parYTicks = pinpointYOffset * odoInPerTick; // Y position of parallel encoder in tick units
         public double perpXTicks = pinpointXOffset * odoInPerTick; // X position of perpendicular encoder in tick units
     }
@@ -182,6 +153,7 @@ public final class AutoTankDrive {
     public double leftWheelVel = 0.0;
     public double rightWheelVel = 0.0;
     public PinpointLocalizer pinpointLocalizer;
+    public final Localizer localizer;
 
     public AutoTankDrive(HardwareMap hardwareMap, Pose2d pose, Telemetry telemetry) {
         this.telemetry = telemetry;
@@ -189,13 +161,16 @@ public final class AutoTankDrive {
         // Ensure Lynx modules are up to date
         LynxFirmware.throwIfModulesAreOutdated(hardwareMap);
 
-        // Enable bulk caching for efficient sensor reads
+        // Enable bulk caching for efficient sensor reads;
+        //  \-æ
         for (LynxModule module : hardwareMap.getAll(LynxModule.class)) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
 
         // Initialize odometry localizer
         pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.odoInPerTick, PARAMS.pinpointYOffset, PARAMS.pinpointXOffset, pose);
+
+        localizer = pinpointLocalizer;
 
         // Initialize drive motors
         leftFront = hardwareMap.get(DcMotorEx.class, "lf");
@@ -211,7 +186,7 @@ public final class AutoTankDrive {
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
         leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
-        rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
+        rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
         // Configure motor braking behavior
         for (DcMotorEx motor : leftMotors) {

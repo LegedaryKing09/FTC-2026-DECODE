@@ -1,72 +1,86 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
 import com.acmerobotics.dashboard.config.Config;
-import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.util.Range;
-
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+
 @Config
 public class TurnPIDController {
-    private final IMU imu;
+    private final GoBildaPinpointDriver odo;
 
     // PID coefficients - tunable via FTC Dashboard
-    public static double kP = 0.018;
-    public static double kI = 0.0008;
-    public static double kD = 0.004;
+    public static double kP = 0.018;   // Proportional gain
+    public static double kI = 0.0008;  // Integral gain
+    public static double kD = 0.004;   // Derivative gain
 
-    // Alternative safe values (P-only): kP = 0.015, kI = 0.0, kD = 0.003
-    private double integral = 0;
-    private double previousError = 0;
-    private double targetHeading = 0;
-    private long lastTime = 0;
+    // Feedforward coefficient
+    public static double kF = 0.03;    // Base turning power (helps overcome static friction)
+
+    private double integral = 0;        // Accumulated error
+    private double previousError = 0;   // Previous error for derivative
+    private double targetHeading = 0;   // Target angle in degrees
+    private long lastTime = 0;          // Timestamp for dt calculation
 
     // Integral windup protection
-    public static double MAX_INTEGRAL = 2.0;
+    public static double MAX_INTEGRAL = 2.0;  // Cap on integral accumulation
 
     // Output clamping
-    public static double MAX_OUTPUT = 1.0;
-    public static double MIN_OUTPUT = -1.0;
+    public static double MAX_OUTPUT = 1.0;   // Max turning power
+    public static double MIN_OUTPUT = -1.0;  // Min turning power
 
-    public TurnPIDController(IMU imu) {
-        this.imu = imu;
+    public TurnPIDController(GoBildaPinpointDriver odo) {
+        this.odo = odo;  // Store reference to odometry computer
     }
 
     public void setTarget(double degrees) {
-        // Normalize target to -180..180 for shortest turn
+        // Normalize target to -180..180 for shortest turn path
         targetHeading = normalizeAngle(degrees);
-        integral = 0;
-        previousError = 0;
-        lastTime = System.nanoTime();
+        integral = 0;               // Reset accumulated error
+        previousError = 0;          // Reset derivative calculation
+        lastTime = System.nanoTime();  // Start timing
     }
 
     public double update() {
+        // Get current heading from Pinpoint's IMU
         double current = getCurrentHeading();
+
+        // Calculate error (how far we need to turn)
         double error = targetHeading - current;
 
-        // Make it always take the shortest path
+        // Normalize error to -180..180 to always take shortest path
         error = normalizeAngle(error);
 
+        // Calculate time since last update
         long now = System.nanoTime();
-        double dt = (now - lastTime) / 1_000_000_000.0; // convert to seconds
+        double dt = (now - lastTime) / 1_000_000_000.0; // nanoseconds → seconds
         lastTime = now;
 
-        // Sanity check on dt (should be ~0.02s for typical loop)
+        // reject unrealistic time intervals
         if (dt < 0.005 || dt > 0.5) {
-            dt = 0.02;
+            dt = 0.02;  // Default to 20ms if something weird happened
         }
 
-        // Integral term (with windup protection)
+        // INTEGRAL TERM: Accumulate error over time
         integral += error * dt;
+        // Clamp integral to prevent windup (integral getting too large)
         integral = Range.clip(integral, -MAX_INTEGRAL, MAX_INTEGRAL);
 
-        // Derivative term
+        // DERIVATIVE TERM: Rate of change of error
         double derivative = (error - previousError) / dt;
-        previousError = error;
+        previousError = error;  // Store for next iteration
 
-        // Calculate PID output
-        double output = kP * error + kI * integral + kD * derivative;
+        // Base power to initiate/maintain rotation
+        double feedforward = Math.signum(error) * kF;
 
-        // Clamp output to motor power range
+        // Calculate total PID+F output
+        // P: corrects current error
+        // I: eliminates steady-state error
+        // D: dampens oscillation
+        // F: overcomes friction
+        double output = kP * error + kI * integral + kD * derivative + feedforward;
+
+        // Clamp output to valid motor power range
         output = Range.clip(output, MIN_OUTPUT, MAX_OUTPUT);
 
         return output;
@@ -78,9 +92,8 @@ public class TurnPIDController {
     }
 
     public double getCurrentHeading() {
-        // Note: negative sign converts from CCW-positive to CW-positive convention
-        // Adjust based on your robot's IMU orientation
-        return -imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+        // Get heading from Pinpoint's internal IMU
+        return odo.getHeading(AngleUnit.DEGREES);
     }
 
     public double getError() {
@@ -92,8 +105,9 @@ public class TurnPIDController {
     }
 
     public static double normalizeAngle(double angle) {
-        while (angle > 180) angle -= 360;
-        while (angle <= -180) angle += 360;
+        // Keep subtracting/adding 360 until angle is in range
+        while (angle > 180) angle -= 360;   // If too positive, wrap around
+        while (angle <= -180) angle += 360; // If too negative, wrap around
         return angle;
     }
 

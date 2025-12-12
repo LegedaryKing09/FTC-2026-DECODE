@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.Auton.drive.comp;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q1Auton;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -59,7 +59,7 @@ public class AutonFarRed extends LinearOpMode {
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 2000;
-    public static long SHOOT_TIME_MS = 3600;
+    public static long SHOOT_TIME_MS = 4000;
 
     // Turning tolerance
     public static double TURN_TOLERANCE_DEGREES = 3.0;
@@ -200,29 +200,7 @@ public class AutonFarRed extends LinearOpMode {
         telemetry.update();
     }
 
-//        //go back to pick up second ball
-//        driveDistance(-PICK_UP_DISTANCE, DRIVE_POWER);
-//        sleep(500);
-//
-//        //turn left
-//        turnAngle(LEFT_TURN_ANGLE,TURN_POWER);
-//        sleep(500);
-//
-//        //intake
-//        intakeForward();
-//        sleep(500);
-//
-//        //go backward after intake
-//        driveDistance(INTAKE_BACKWARD, DRIVE_POWER);
-//        sleep(500);
-//
-//        //turn right
-//        turnAngle(-FINAL_TURN_ANGLE, TURN_POWER);
-//        sleep(500);
-//
-//        //shoot balls
-//        shootBalls();
-//        sleep(500);
+
     private void shootBalls() {
         // Wait for RPM stabilization
         timer.reset();
