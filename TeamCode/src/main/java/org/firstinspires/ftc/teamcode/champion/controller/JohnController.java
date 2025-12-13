@@ -143,12 +143,12 @@ public class JohnController {
 
         pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
-        motor1Left.setDirection(DcMotor.Direction.REVERSE);
+        motor1Left.setDirection(DcMotor.Direction.FORWARD);
         motor2Left.setDirection(DcMotor.Direction.REVERSE);
-        motor3Left.setDirection(DcMotor.Direction.REVERSE);
-        motor1Right.setDirection(DcMotor.Direction.FORWARD);
+        motor3Left.setDirection(DcMotor.Direction.FORWARD);
+        motor1Right.setDirection(DcMotor.Direction.REVERSE);
         motor2Right.setDirection(DcMotor.Direction.REVERSE);
-        motor3Right.setDirection(DcMotor.Direction.FORWARD);
+        motor3Right.setDirection(DcMotor.Direction.REVERSE);
 
         setMotorsBrakeMode();
         configurePinpoint();
@@ -653,12 +653,12 @@ public class JohnController {
 
             // RPM Display
             linearOpMode.telemetry.addLine("=== MOTOR RPM ===");
-            linearOpMode.telemetry.addData("L1 RPM", String.format(Locale.US, "%.1f", motor1LeftRPM));
-            linearOpMode.telemetry.addData("L2 RPM", String.format(Locale.US, "%.1f", motor2LeftRPM));
-            linearOpMode.telemetry.addData("L3 RPM", String.format(Locale.US, "%.1f", motor3LeftRPM));
-            linearOpMode.telemetry.addData("R1 RPM", String.format(Locale.US, "%.1f", motor1RightRPM));
-            linearOpMode.telemetry.addData("R2 RPM", String.format(Locale.US, "%.1f", motor2RightRPM));
-            linearOpMode.telemetry.addData("R3 RPM", String.format(Locale.US, "%.1f", motor3RightRPM));
+            linearOpMode.telemetry.addData("L1 RPM", String.format(Locale.US, "%.1f", motor1LeftRPM * (28 / 751.8)));
+            linearOpMode.telemetry.addData("L2 RPM", String.format(Locale.US, "%.1f", motor2LeftRPM * (28 / 751.8)));
+            linearOpMode.telemetry.addData("L3 RPM", String.format(Locale.US, "%.1f", motor3LeftRPM * (28 / 751.8)));
+            linearOpMode.telemetry.addData("R1 RPM", String.format(Locale.US, "%.1f", motor1RightRPM * (28 / 751.8)));
+            linearOpMode.telemetry.addData("R2 RPM", String.format(Locale.US, "%.1f", motor2RightRPM * (28 / 751.8)));
+            linearOpMode.telemetry.addData("R3 RPM", String.format(Locale.US, "%.1f", motor3RightRPM * (28 / 751.8)));
             linearOpMode.telemetry.addData("Left Avg RPM", String.format(Locale.US, "%.1f", getLeftAverageRPM()));
             linearOpMode.telemetry.addData("Right Avg RPM", String.format(Locale.US, "%.1f", getRightAverageRPM()));
 
