@@ -19,7 +19,7 @@ import java.util.Objects;
 public final class PinpointLocalizer implements Localizer {
 
     public final GoBildaPinpointDriver driver;
-    public static boolean X_ENCODER_REVERSED = true;
+    public static boolean X_ENCODER_REVERSED = false;
     public static boolean Y_ENCODER_REVERSED = false;
     private Pose2d txWorldPinpoint;//world coordinate system
     private Pose2d txPinpointRobot = new Pose2d(0, 0, 0);//robot coordinate system
@@ -35,11 +35,11 @@ public final class PinpointLocalizer implements Localizer {
 
         // TODO: reverse encoder directions if needed
         GoBildaPinpointDriver.EncoderDirection initialParDirection = X_ENCODER_REVERSED ?
-                GoBildaPinpointDriver.EncoderDirection.FORWARD :
-                GoBildaPinpointDriver.EncoderDirection.REVERSED;
+                GoBildaPinpointDriver.EncoderDirection.REVERSED :
+                GoBildaPinpointDriver.EncoderDirection.FORWARD;
         GoBildaPinpointDriver.EncoderDirection initialPerpDirection = Y_ENCODER_REVERSED ?
-                GoBildaPinpointDriver.EncoderDirection.FORWARD :
-                GoBildaPinpointDriver.EncoderDirection.REVERSED;
+                GoBildaPinpointDriver.EncoderDirection.REVERSED :
+                GoBildaPinpointDriver.EncoderDirection.FORWARD;
 
         driver.setEncoderDirections(initialParDirection, initialPerpDirection);
 

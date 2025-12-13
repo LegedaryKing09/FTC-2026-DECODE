@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.tuning;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
@@ -10,6 +11,7 @@ import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
 
 @Autonomous(name = "Turn Test", group = "Tuning")
 public class TurnTest extends LinearOpMode {
+    public double turnAngle = 90;
     @Override
     public void runOpMode() {
         Pose2d start = new Pose2d(0, 0, 0);
@@ -25,10 +27,10 @@ public class TurnTest extends LinearOpMode {
 
         // Turn 360° (should end at 0°)
         Action turn360 = drive.actionBuilder(start)
-                .turn(Math.toRadians(90))
-                .turn(Math.toRadians(90))
-                .turn(Math.toRadians(90))
-                .turn(Math.toRadians(90))
+                .turn(Math.toRadians(turnAngle))
+                .turn(Math.toRadians(turnAngle))
+                .turn(Math.toRadians(turnAngle))
+                .turn(Math.toRadians(turnAngle))
                 .build();
 
         Actions.runBlocking(turn360);

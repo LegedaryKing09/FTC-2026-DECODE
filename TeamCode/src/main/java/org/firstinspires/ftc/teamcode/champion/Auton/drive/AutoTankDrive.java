@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive;
 
+import static com.qualcomm.robotcore.hardware.DcMotor.RunMode.RUN_WITHOUT_ENCODER;
+
 import androidx.annotation.NonNull;
 
 import com.acmerobotics.dashboard.canvas.Canvas;
@@ -63,42 +65,41 @@ public final class AutoTankDrive {
         public double wheelRadius = 1.35; // Radius of the drive wheels in inches
         public double gearRatio = 1.0; // Gear ratio between motor and wheels
         public double ticksPerRev = 537.7; // Encoder ticks per motor revolution
-        public double inPerTick = 0.016187; // (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
+        public double inPerTick = 0.00201884253; // (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
         public double odoWheelRadius = 0.62525; // Radius of odometry wheels in inches
         public double odoTicksPerRev = 2000; // Encoder ticks per odometry wheel revolution
-        public double odoInPerTick = 0.002017; // (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev
+        public double odoInPerTick = (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev;
 
         // Track width for kinematics (distance between wheels in inches)
         public double physicalTrackWidthInches = 14.5;
 
-        // Path profile parameters (velocity and acceleration limits)
-        public double maxWheelVelTick = 6500; // Maximum safe wheel velocity in encoder ticks per second
-        public double maxWheelVel = maxWheelVelTick * odoInPerTick; // Maximum wheel velocity in inches per second
-        public double minProfileAccel = -2200; // Minimum acceleration in inches per second squared
-        public double maxProfileAccel = 50; // Maximum acceleration in inches per second squared
+        public double maxWheelVelTick = 20000;
+        public double maxWheelVel = maxWheelVelTick * inPerTick; // when testing, I put this 50 inches.
+        public double minProfileAccel = -30; // Minimum acceleration in inches per second squared
+        public double maxProfileAccel = 30; // Maximum acceleration in inches per second squared
 
         // Feedforward control gains for motor voltage compensation
-        public double kS =  0.0978; // Static friction gain (volts)
-        public double kV = 0.00013699740061902415; // Velocity gain (volts per inch/second)
-        public double kA = 1.0; // Acceleration gain (volts per inch/second squared)
+        public double kS = 0.25; // Static friction gain (volts)
+        public double kV = 0.16865; // Velocity gain (volts per inch/second)
+        public double kA = 0.0001; // Acceleration gain (volts per inch/second squared)
 
         // Turn profile parameters (angular velocity and acceleration limits)
-        public double maxAngVel = (2 * maxWheelVel) / physicalTrackWidthInches; // Maximum angular velocity in radians per second
-        public double maxAngAccel = (2 * maxProfileAccel) / physicalTrackWidthInches; // Maximum angular acceleration in radians per second squared
+        public double maxAngVel = Math.PI; // Maximum angular velocity in radians per second
+        public double maxAngAccel = Math.PI; // Maximum angular acceleration in radians per second squared
 
         // Ramsete controller parameters for smooth path following
-        public double ramseteZeta = 0.7;
-        public double ramseteBBar = 0.2;
+        public double ramseteZeta = 0.5;
+        public double ramseteBBar = 1.5;
 
         // Turn controller gains (proportional and velocity feedback)
-        public double turnGain = 0.0; // Proportional gain for turn error correction
-        public double turnVelGain = 0.0; // Velocity feedback gain for turn smoothing
+        public double turnGain = 1.0; // Proportional gain for turn error correction
+        public double turnVelGain = 0.1; // Velocity feedback gain for turn smoothing
 
         // Pinpoint odometry parameters for localization
        public double pinpointXOffset = 3.2; // X offset of Pinpoint sensor from robot center in inches
         public double pinpointYOffset = 7.5; // Y offset of Pinpoint sensor from robot center in inches
-        public double parYTicks = pinpointYOffset * odoInPerTick; // Y position of parallel encoder in tick units
-        public double perpXTicks = pinpointXOffset * odoInPerTick; // X position of perpendicular encoder in tick units
+        public double parYTicks = pinpointYOffset / odoInPerTick; // Y position of parallel encoder in tick units
+        public double perpXTicks = pinpointXOffset / odoInPerTick; // X position of perpendicular encoder in tick units
     }
 
     public static Params PARAMS = new Params();
@@ -205,7 +206,7 @@ public final class AutoTankDrive {
 
     public void setDrivePowers(PoseVelocity2d powers) {
         // Calculate wheel velocities from robot velocities using inverse kinematics
-        TankKinematics.WheelVelocities<Time> wheelVels = new TankKinematics(2).inverse(
+        TankKinematics.WheelVelocities<Time> wheelVels = kinematics.inverse(
                 PoseVelocity2dDual.constant(powers, 1));
 
         // Find the maximum power magnitude to normalize velocities if needed
@@ -280,18 +281,14 @@ public final class AutoTankDrive {
                     .compute(currentPosition, targetPose, pinpointLocalizer.getPose());
             driveCommandWriter.write(new DriveCommandMessage(velocityCommand));
 
-            // Compute powers using tank inverse kinematics
-            double linearVel = velocityCommand.linearVel.value().norm();
-            double angVel = velocityCommand.angVel.value();
-            double trackWidth = PARAMS.physicalTrackWidthInches;
-            double maxVel = PARAMS.maxWheelVel;
-            leftPower = (linearVel - (trackWidth * angVel) / 2) / maxVel;
-            rightPower = (linearVel + (trackWidth * angVel) / 2) / maxVel;
+            // Convert to wheel velocities and calculate feedforward powers
+            TankKinematics.WheelVelocities<Time> wheelVelocities = kinematics.inverse(velocityCommand);
             double batteryVoltage = voltageSensor.getVoltage();
+            MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS, PARAMS.kV, PARAMS.kA);
+            leftPower = feedforward.compute(wheelVelocities.left) / batteryVoltage;
+            rightPower = feedforward.compute(wheelVelocities.right) / batteryVoltage;
             tankCommandWriter.write(new TankCommandMessage(batteryVoltage, leftPower, rightPower));
 
-            // Convert to wheel velocities for telemetry
-            TankKinematics.WheelVelocities<Time> wheelVelocities = kinematics.inverse(velocityCommand);
             leftWheelVel = wheelVelocities.left.get(0);
             rightWheelVel = wheelVelocities.right.get(0);
 
@@ -476,7 +473,7 @@ public final class AutoTankDrive {
             TankKinematics.WheelVelocities<Time> wheelVelocities = kinematics.inverse(velocityCommand);
             double batteryVoltage = voltageSensor.getVoltage();
             MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS,
-                    PARAMS.kV / PARAMS.odoInPerTick, PARAMS.kA / PARAMS.odoInPerTick);
+                    PARAMS.kV , PARAMS.kA );
             double leftPower = feedforward.compute(wheelVelocities.left) / batteryVoltage;
             double rightPower = feedforward.compute(wheelVelocities.right) / batteryVoltage;
             tankCommandWriter.write(new TankCommandMessage(batteryVoltage, leftPower, rightPower));
