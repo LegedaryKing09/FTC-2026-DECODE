@@ -59,7 +59,7 @@ public class RoadRunnerTuningTest extends LinearOpMode {
 
         // Initialize drive
         Pose2d startPose = new Pose2d(0, 0, 0);
-        drive = new AutoTankDrive(hardwareMap, startPose, telemetry);
+        drive = new AutoTankDrive(hardwareMap, startPose);
         runtime = new ElapsedTime();
 
         telemetry.addLine("=== ROAD RUNNER TUNING TESTS ===");

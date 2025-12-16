@@ -8,6 +8,7 @@ import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
+import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.Drawing;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.MecanumDrive;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDrive;
@@ -44,8 +45,8 @@ public class LocalizationTest extends LinearOpMode {
                 Drawing.drawRobot(packet.fieldOverlay(), pose);
                 FtcDashboard.getInstance().sendTelemetryPacket(packet);
             }
-        } else if (TuningOpModes.DRIVE_CLASS.equals(TankDrive.class)) {
-            TankDrive drive = new TankDrive(hardwareMap, new Pose2d(0, 0, 0));
+        } else if (TuningOpModes.DRIVE_CLASS.equals(AutoTankDrive.class)) {
+            AutoTankDrive drive = new AutoTankDrive(hardwareMap, new Pose2d(0, 0, 0));
 
             waitForStart();
 

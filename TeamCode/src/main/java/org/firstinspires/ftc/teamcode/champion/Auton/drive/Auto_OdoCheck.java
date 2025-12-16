@@ -11,7 +11,7 @@ public class Auto_OdoCheck extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         Pose2d startPose = new Pose2d(0, 0, 0);
-        AutoTankDrive drive = new AutoTankDrive(hardwareMap, startPose, this.telemetry);
+        AutoTankDrive drive = new AutoTankDrive(hardwareMap, startPose);
 
         // Initialize pinpoint
     //    drive.initializePinpoint(this, startPose);

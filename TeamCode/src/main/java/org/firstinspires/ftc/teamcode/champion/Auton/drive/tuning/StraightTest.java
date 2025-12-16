@@ -20,30 +20,16 @@ public class StraightTest extends LinearOpMode {
     @Override
     public void runOpMode() {
         Pose2d start = new Pose2d(0, 0, 0);
-        AutoTankDrive drive = new AutoTankDrive(hardwareMap, start, telemetry);
+        AutoTankDrive drive = new AutoTankDrive(hardwareMap, start);
 
         waitForStart();
 
-        Actions.runBlocking(
-                drive.actionBuilder(start)
-                        .lineToX(24)
-                        .build()
-        );
-
-        sleep(300);
-
-        Actions.runBlocking(
-                drive.actionBuilder(drive.localizer.getPose())
-                        .lineToX(0)
-                        .build()
-        );
-
-        /*Action forward = drive.actionBuilder(start)
+        Action forward = drive.actionBuilder(start)
                 .lineToX(forwardDistance)
                 .lineToX(endingDistance)
                 .build();
 
-        Actions.runBlocking(forward);*/
+        Actions.runBlocking(forward);
 
 
 
