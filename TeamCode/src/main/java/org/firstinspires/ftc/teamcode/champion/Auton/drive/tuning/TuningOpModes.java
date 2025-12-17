@@ -285,8 +285,8 @@ public final class TuningOpModes {
                         lazyImu,
                         td.voltageSensor,
                         () -> new MotorFeedforward(AutoTankDrive.PARAMS.kS,
-                                AutoTankDrive.PARAMS.kV / AutoTankDrive.PARAMS.inPerTick,
-                                AutoTankDrive.PARAMS.kA / AutoTankDrive.PARAMS.inPerTick),
+                                AutoTankDrive.PARAMS.kV / AutoTankDrive.PARAMS.odoInPerTick,
+                                AutoTankDrive.PARAMS.kA / AutoTankDrive.PARAMS.odoInPerTick),
                         0
                 );
             };

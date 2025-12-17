@@ -22,7 +22,7 @@ public class TurnTest extends LinearOpMode {
 
         while (opModeIsActive()) {
             // Reset position
-            drive.pinpointLocalizer.setPose(start);
+//            drive.pinpointLocalizer.setPose(start);
 
             double turnRadians = Math.toRadians(TURN_ANGLE);
             Action turnTest = drive.actionBuilder(start)
@@ -39,9 +39,9 @@ public class TurnTest extends LinearOpMode {
             telemetry.addData("Final Heading", "%.1f°", finalHeading);
             telemetry.addData("Error", "%.1f°", error);
             telemetry.addData("", "");
-            telemetry.addData("turnKS", "%.3f", AutoTankDrive.PARAMS.turnKS);
-            telemetry.addData("turnKV", "%.3f", AutoTankDrive.PARAMS.turnKV);
-            telemetry.addData("turnKA", "%.4f", AutoTankDrive.PARAMS.turnKA);
+            telemetry.addData("turnKS", "%.3f", AutoTankDrive.PARAMS.kS);
+            telemetry.addData("turnKV", "%.3f", AutoTankDrive.PARAMS.kV);
+            telemetry.addData("turnKA", "%.4f", AutoTankDrive.PARAMS.kA);
             telemetry.addData("", "");
             telemetry.addData("Status", "Press START to run again");
             telemetry.update();

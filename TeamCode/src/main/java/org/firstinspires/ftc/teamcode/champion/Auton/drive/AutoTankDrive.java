@@ -74,7 +74,7 @@ public final class AutoTankDrive {
         public double odoInPerTick = (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev; // Let it calculate!
 
         // Track width for kinematics (distance between wheels in inches)
-        public double physicalTrackWidthInches = 14.5;
+        public double physicalTrackWidthInches = 12.309544254810191; // 14.5; //New Track Width = Current Track Width × (Target Angle / Actual Angle)
 
         // Path profile parameters (velocity and acceleration limits)
         public double maxWheelVelTick = 20000; // Conservative for better control
@@ -86,15 +86,15 @@ public final class AutoTankDrive {
         public double rightMotorScale = 1.0;
 
         // Feedforward control gains for motor voltage compensation
-        public double kS = 1.1923587963817335; // 0.22; // was 0.115
-        public double kV = 0.0003904177171058639 / odoInPerTick;
+        public double kS = 1.1923587963817335; // 0.22;
+        public double kV = 0.0003904177171058639;
         public double kA = 0.001; // Increased to help with acceleration
         public double backwardKsMultiplier = 1.1;
 
         // Feedforward control gains for turning
-        public double turnKS = 0.22;
-        public double turnKV = 0.20;
-        public double turnKA = 0.001;
+//        public double turnKS = 0.22;
+//        public double turnKV = 0.20;
+//        public double turnKA = 0.001;
 
         // Turn profile parameters (angular velocity and acceleration limits)
         public double maxAngVel = Math.PI; // Maximum angular velocity in radians per second
@@ -109,8 +109,8 @@ public final class AutoTankDrive {
         public double turnVelGain = 0.1; // Velocity feedback gain for turn smoothing
 
         // Pinpoint odometry parameters for localization
-        public double pinpointXOffset = 3.2; // X offset of Pinpoint sensor from robot center in inches
-        public double pinpointYOffset = 7.5; // Y offset of Pinpoint sensor from robot center in inches
+        public double pinpointXOffset = 2060.8677060804002 * odoInPerTick; // 3.2; // X offset of Pinpoint sensor from robot center in inches
+        public double pinpointYOffset = 3470.040645641411 * odoInPerTick; // 7.5; // Y offset of Pinpoint sensor from robot center in inches
         public double parYTicks = pinpointYOffset / odoInPerTick; // Y position of parallel encoder in tick units
         public double perpXTicks = pinpointXOffset / odoInPerTick; // X position of perpendicular encoder in tick units
     }
@@ -503,7 +503,7 @@ public final class AutoTankDrive {
             // Convert to wheel velocities and calculate feedforward powers
             TankKinematics.WheelVelocities<Time> wheelVelocities = kinematics.inverse(velocityCommand);
             double batteryVoltage = voltageSensor.getVoltage();
-            MotorFeedforward feedforward = new MotorFeedforward(PARAMS.turnKS, PARAMS.turnKV, PARAMS.turnKA);
+            MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS, PARAMS.kV, PARAMS.kA);
             double leftPower = feedforward.compute(wheelVelocities.left) / batteryVoltage;
             double rightPower = feedforward.compute(wheelVelocities.right) / batteryVoltage;
             tankCommandWriter.write(new TankCommandMessage(batteryVoltage, leftPower, rightPower));
