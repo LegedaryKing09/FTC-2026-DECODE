@@ -18,6 +18,10 @@ public class NewShooterTester extends LinearOpMode {
     public static double RPM_INCREMENT = 50.0;
     public static double INITIAL_TARGET_RPM = 1500.0;
 
+    //  New parameters to enable/disable individual motors
+    public static boolean ENABLE_MOTOR_1 = true;  // Motor with encoder
+    public static boolean ENABLE_MOTOR_2 = true;  // Motor without encoder
+
     private NewShooterController shooter;
     private final ElapsedTime runtime = new ElapsedTime();
 
@@ -28,6 +32,9 @@ public class NewShooterTester extends LinearOpMode {
     private boolean lastX = false;
     private boolean lastA = false;
     private boolean lastB = false;
+    // New button debouncing for motor toggle
+    private boolean lastDpadLeft = false;
+    private boolean lastDpadRight = false;
 
     @Override
     public void runOpMode() {
@@ -42,15 +49,23 @@ public class NewShooterTester extends LinearOpMode {
         telemetry.update();
 
         // Initialize shooter
-        DcMotor shooterMotor = null;
+        DcMotor shooterMotorFirst = null;
+        DcMotor shooterMotorSecond = null;
         try {
-            shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
-            telemetry.addData("✓ Shooter Motor", "OK");
+            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
+            telemetry.addData("✓ Shooter Motor 1", "OK");
         } catch (Exception e) {
-            telemetry.addData("✗ Shooter Motor", "NOT FOUND: " + e.getMessage());
+            telemetry.addData("✗ Shooter Motor 1", "NOT FOUND: " + e.getMessage());
         }
 
-        shooter = new NewShooterController(shooterMotor);
+        try {
+            shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
+            telemetry.addData("✓ Shooter Motor 2", "OK");
+        } catch (Exception e) {
+            telemetry.addData("✗ Shooter Motor 2", "NOT FOUND: " + e.getMessage());
+        }
+
+        shooter = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
         shooter.setTargetRPM(INITIAL_TARGET_RPM);
 
         // Display controls
@@ -61,6 +76,8 @@ public class NewShooterTester extends LinearOpMode {
         telemetry.addLine();
         telemetry.addLine("DPAD UP:    +50 RPM");
         telemetry.addLine("DPAD DOWN:  -50 RPM");
+        telemetry.addLine("DPAD LEFT:  Toggle Motor 1");  // CHANGE: New control
+        telemetry.addLine("DPAD RIGHT: Toggle Motor 2");  // CHANGE: New control
         telemetry.addLine("Y:          START shooter");
         telemetry.addLine("X:          STOP shooter");
         telemetry.addLine("A:          Reset to " + INITIAL_TARGET_RPM + " RPM");
@@ -91,6 +108,20 @@ public class NewShooterTester extends LinearOpMode {
                 shooter.setTargetRPM(newRPM);
             }
             lastDpadDown = currentDpadDown;
+
+            // DPAD LEFT - Toggle Motor 1
+            boolean currentDpadLeft = gamepad1.dpad_left;
+            if (currentDpadLeft && !lastDpadLeft) {
+                ENABLE_MOTOR_1 = !ENABLE_MOTOR_1;
+            }
+            lastDpadLeft = currentDpadLeft;
+
+            // DPAD RIGHT - Toggle Motor 2
+            boolean currentDpadRight = gamepad1.dpad_right;
+            if (currentDpadRight && !lastDpadRight) {
+                ENABLE_MOTOR_2 = !ENABLE_MOTOR_2;
+            }
+            lastDpadRight = currentDpadRight;
 
             // ========== SHOOTER CONTROL ==========
 
@@ -145,6 +176,11 @@ public class NewShooterTester extends LinearOpMode {
             telemetry.addData("Mode", modeStatus);
             telemetry.addLine();
 
+            // Motor enable status
+            telemetry.addData("Motor 1 (encoder)", ENABLE_MOTOR_1 ? "✓ ENABLED" : "✗ DISABLED");
+            telemetry.addData("Motor 2 (no encoder)", ENABLE_MOTOR_2 ? "✓ ENABLED" : "✗ DISABLED");
+            telemetry.addLine();
+
             // RPM data
             telemetry.addData("Target RPM", "%.0f", shooter.getTargetRPM());
             telemetry.addData("Current RPM", "%.0f", shooter.getRPM());
@@ -157,13 +193,15 @@ public class NewShooterTester extends LinearOpMode {
             telemetry.addLine(createProgressBar(shooter.getRPM(), shooter.getTargetRPM(), 6000));
             telemetry.addLine();
 
-            // Motor data
-            telemetry.addData("Motor Power", "%.3f", shooter.getCurrentPower());
+            // Motor data for both motors
+            telemetry.addData("Motor 1 Power", "%.3f", shooter.getCurrentPower());
+            telemetry.addData("Motor 2 Power", "%.3f", shooter.getSecondMotorPower());
             telemetry.addData("Encoder Pos", "%d", shooter.getEncoderPosition());
             telemetry.addData("Direction", NewShooterController.reversed ? "REVERSED" : "FORWARD");
+            telemetry.addData("Motor 2 Reversed", NewShooterController.secondMotorReversed ? "YES" : "NO");
             telemetry.addLine();
 
-            // PID tuning info (if you added getIntegralSum)
+            // PID tuning info
             try {
                 telemetry.addData("Integral Sum", "%.1f", shooter.getIntegralSum());
             } catch (Exception e) {
@@ -174,10 +212,11 @@ public class NewShooterTester extends LinearOpMode {
             telemetry.addLine();
             telemetry.addData("Runtime", "%.1f sec", runtime.seconds());
 
-            // Controls reminder
+            // Updated controls reminder
             telemetry.addLine();
             telemetry.addLine("───────────────────────────────");
-            telemetry.addLine("UP/DOWN=±50 RPM | Y=Start | X=Stop");
+            telemetry.addLine("UP/DOWN=±50 | LEFT/RIGHT=Toggle Motor");
+            telemetry.addLine("Y=Start | X=Stop | B=Direction");
 
             telemetry.update();
         }

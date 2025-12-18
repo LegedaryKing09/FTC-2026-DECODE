@@ -200,12 +200,14 @@ public class DecemberTeleop extends LinearOpMode {
         }
 
         // Initialize shooter
-        DcMotor shooterMotor = null;
+        DcMotor shooterMotorFirst = null;
+        DcMotor shooterMotorSecond = null;
         try {
-            shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
+            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
+            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception ignored) {
         }
-        shooter = new NewShooterController(shooterMotor);
+        shooter = new NewShooterController(shooterMotorFirst,shooterMotorSecond);
     }
 
     /**

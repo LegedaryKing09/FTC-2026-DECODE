@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.tuning;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
@@ -7,69 +8,51 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
-
-@Autonomous(name = "Turn Test", group = "Tuning")
+@Config
+@Autonomous(name = "Turn Tuning", group = "Tuning")
 public class TurnTest extends LinearOpMode {
+    public static double TURN_ANGLE = 90;  // Change via FTC Dashboard
+
     @Override
     public void runOpMode() {
         Pose2d start = new Pose2d(0, 0, 0);
-        AutoTankDrive drive = new AutoTankDrive(hardwareMap, start, telemetry);
-
-        telemetry.addLine("TRACK WIDTH TUNING");
-        telemetry.addLine("Robot will turn 360° (4×90°)");
-        telemetry.addData("Current Track Width", "%.2f inches",
-                AutoTankDrive.PARAMS.physicalTrackWidthInches);
-        telemetry.update();
+        AutoTankDrive drive = new AutoTankDrive(hardwareMap, start);
 
         waitForStart();
 
-        // Turn 360° (should end at 0°)
-        Action turn360 = drive.actionBuilder(start)
-                .turn(Math.toRadians(90))
-                .turn(Math.toRadians(90))
-                .turn(Math.toRadians(90))
-                .turn(Math.toRadians(90))
-                .build();
+        while (opModeIsActive()) {
+            // Reset position
+//            drive.pinpointLocalizer.setPose(start);
 
-        Actions.runBlocking(turn360);
+            double turnRadians = Math.toRadians(TURN_ANGLE);
+            Action turnTest = drive.actionBuilder(start)
+                    .turn(turnRadians)
+                    .build();
 
-        Pose2d end = drive.localizer.getPose();
-        double headingDeg = Math.toDegrees(end.heading.toDouble());
+            Actions.runBlocking(turnTest);
 
-        // Normalize to -180 to 180
-        while (headingDeg > 180) headingDeg -= 360;
-        while (headingDeg < -180) headingDeg += 360;
+            // Show results
+            double finalHeading = Math.toDegrees(drive.pinpointLocalizer.getPose().heading.toDouble());
+            double error = TURN_ANGLE - finalHeading;
 
-        telemetry.clear();
-        telemetry.addLine("==================================");
-        telemetry.addLine("TURN TEST COMPLETE");
-        telemetry.addLine("==================================");
-        telemetry.addData("Expected Heading", "0.0°");
-        telemetry.addData("Actual Heading", "%.2f°", headingDeg);
-        telemetry.addData("Error", "%.2f°", headingDeg);
-        telemetry.addLine();
+            telemetry.addData("Target Heading", "%.1f°", TURN_ANGLE);
+            telemetry.addData("Final Heading", "%.1f°", finalHeading);
+            telemetry.addData("Error", "%.1f°", error);
+            telemetry.addData("", "");
+            telemetry.addData("turnKS", "%.3f", AutoTankDrive.PARAMS.kS);
+            telemetry.addData("turnKV", "%.3f", AutoTankDrive.PARAMS.kV);
+            telemetry.addData("turnKA", "%.4f", AutoTankDrive.PARAMS.kA);
+            telemetry.addData("", "");
+            telemetry.addData("Status", "Press START to run again");
+            telemetry.update();
 
-        if (Math.abs(headingDeg) < 2.0) {
-            telemetry.addLine("✓ EXCELLENT! Track width is correct!");
-        } else if (headingDeg > 2.0) {
-            telemetry.addLine("⚠ OVERTURNED (turned too much)");
-            telemetry.addLine("→ Track width is TOO SMALL");
-            double newTrackWidth = AutoTankDrive.PARAMS.physicalTrackWidthInches *
-                    (360.0 / (360.0 + headingDeg));
-            telemetry.addData("Current", "%.2f inches",
-                    AutoTankDrive.PARAMS.physicalTrackWidthInches);
-            telemetry.addData("Try", "%.2f inches", newTrackWidth);
-        } else {
-            telemetry.addLine("⚠ UNDERTURNED (didn't turn enough)");
-            telemetry.addLine("→ Track width is TOO LARGE");
-            double newTrackWidth = AutoTankDrive.PARAMS.physicalTrackWidthInches *
-                    (360.0 / (360.0 + headingDeg));
-            telemetry.addData("Current", "%.2f inches",
-                    AutoTankDrive.PARAMS.physicalTrackWidthInches);
-            telemetry.addData("Try", "%.2f inches", newTrackWidth);
+            // Wait for next run
+            while (opModeIsActive() && !gamepad1.start) {
+                sleep(20);
+            }
+            while (opModeIsActive() && gamepad1.start) {
+                sleep(20);
+            }
         }
-
-        telemetry.update();
-        sleep(30000);
     }
 }

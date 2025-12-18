@@ -144,13 +144,15 @@ public class AutonFarBlue extends LinearOpMode {
         }
 
         // Initialize shooter
-        DcMotor shooterMotor = null;
+        DcMotor shooterMotorFirst = null;
+        DcMotor shooterMotorSecond = null;
         try {
-            shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
+            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
+            shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
             //
         }
-        shooterController = new NewShooterController(shooterMotor);
+        shooterController = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
 
         // Initialize ramp
         try {

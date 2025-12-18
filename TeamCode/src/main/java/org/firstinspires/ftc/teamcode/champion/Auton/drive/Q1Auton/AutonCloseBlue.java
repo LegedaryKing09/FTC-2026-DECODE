@@ -3,10 +3,12 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q1Auton;
 import static org.firstinspires.ftc.teamcode.champion.teleop.DecemberTeleop.TURRET_TARGET_TAG_ID;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.roadrunner.Pose2d;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
@@ -36,6 +38,7 @@ public class AutonCloseBlue extends LinearOpMode {
     LimelightAlignmentController limelightController;
     NewAutoShootController autoShootController;
     NewAutonController autonController;
+    AutoTankDrive tankDrive;
     TurretController turret;
     TurretAlignmentController turretAlignment;
 
@@ -112,6 +115,8 @@ public class AutonCloseBlue extends LinearOpMode {
         driveController = new SixWheelDriveController(this);
         driveController.setDriveMode(SixWheelDriveController.DriveMode.POWER);
 
+        Pose2d startPose = new Pose2d(0, 0, 0);
+        tankDrive = new AutoTankDrive(hardwareMap, startPose);
         // Initialize intake
         DcMotor intakeMotor = null;
         try {
@@ -147,13 +152,15 @@ public class AutonCloseBlue extends LinearOpMode {
         }
 
         // Initialize shooter
-        DcMotor shooterMotor = null;
+        DcMotor shooterMotorFirst = null;
+        DcMotor shooterMotorSecond = null;
         try {
-            shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
+            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
+            shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
             //
         }
-        shooterController = new NewShooterController(shooterMotor);
+        shooterController = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
 
         // Initialize ramp
         try {
