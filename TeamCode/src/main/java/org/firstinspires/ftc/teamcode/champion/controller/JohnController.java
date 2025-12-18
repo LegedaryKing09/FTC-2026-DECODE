@@ -145,10 +145,10 @@ public class JohnController {
 
         motor1Left.setDirection(DcMotor.Direction.FORWARD);
         motor2Left.setDirection(DcMotor.Direction.REVERSE);
-        motor3Left.setDirection(DcMotor.Direction.FORWARD);
-        motor1Right.setDirection(DcMotor.Direction.REVERSE);
+        motor3Left.setDirection(DcMotor.Direction.REVERSE);
+        motor1Right.setDirection(DcMotor.Direction.FORWARD);
         motor2Right.setDirection(DcMotor.Direction.REVERSE);
-        motor3Right.setDirection(DcMotor.Direction.REVERSE);
+        motor3Right.setDirection(DcMotor.Direction.FORWARD);
 
         setMotorsBrakeMode();
         configurePinpoint();
