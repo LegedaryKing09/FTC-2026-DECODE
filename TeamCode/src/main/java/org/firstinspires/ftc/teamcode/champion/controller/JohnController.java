@@ -653,12 +653,12 @@ public class JohnController {
 
             // RPM Display
             linearOpMode.telemetry.addLine("=== MOTOR RPM ===");
-            linearOpMode.telemetry.addData("L1 RPM", String.format(Locale.US, "%.1f", motor1LeftRPM * (28 / 751.8)));
-            linearOpMode.telemetry.addData("L2 RPM", String.format(Locale.US, "%.1f", motor2LeftRPM * (28 / 751.8)));
-            linearOpMode.telemetry.addData("L3 RPM", String.format(Locale.US, "%.1f", motor3LeftRPM * (28 / 751.8)));
-            linearOpMode.telemetry.addData("R1 RPM", String.format(Locale.US, "%.1f", motor1RightRPM * (28 / 751.8)));
-            linearOpMode.telemetry.addData("R2 RPM", String.format(Locale.US, "%.1f", motor2RightRPM * (28 / 751.8)));
-            linearOpMode.telemetry.addData("R3 RPM", String.format(Locale.US, "%.1f", motor3RightRPM * (28 / 751.8)));
+            linearOpMode.telemetry.addData("L1 RPM", String.format(Locale.US, "%.1f", motor1LeftRPM * (751.8 / 28)));
+            linearOpMode.telemetry.addData("L2 RPM", String.format(Locale.US, "%.1f", motor2LeftRPM * (751.8 / 28)));
+            linearOpMode.telemetry.addData("L3 RPM", String.format(Locale.US, "%.1f", motor3LeftRPM * (751.8 / 28)));
+            linearOpMode.telemetry.addData("R1 RPM", String.format(Locale.US, "%.1f", motor1RightRPM * (751.8 / 28)));
+            linearOpMode.telemetry.addData("R2 RPM", String.format(Locale.US, "%.1f", motor2RightRPM * (751.8 / 28)));
+            linearOpMode.telemetry.addData("R3 RPM", String.format(Locale.US, "%.1f", motor3RightRPM * (751.8 / 28)));
             linearOpMode.telemetry.addData("Left Avg RPM", String.format(Locale.US, "%.1f", getLeftAverageRPM()));
             linearOpMode.telemetry.addData("Right Avg RPM", String.format(Locale.US, "%.1f", getRightAverageRPM()));
 
