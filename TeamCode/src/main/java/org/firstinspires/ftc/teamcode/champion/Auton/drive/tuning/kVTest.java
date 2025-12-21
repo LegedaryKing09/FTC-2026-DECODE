@@ -13,7 +13,6 @@ import java.util.Locale;
 
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
 
-
 @Autonomous(name = "Forward Ramp Logger (kV)", group = "Tuning")
 public class kVTest extends LinearOpMode {
 
@@ -51,11 +50,10 @@ public class kVTest extends LinearOpMode {
         rightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rightBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        // CRITICAL: Use RUN_USING_ENCODER so getVelocity() returns real data
-        leftFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        leftBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightBack.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // Get voltage sensor
         VoltageSensor voltageSensor = hardwareMap.voltageSensor.iterator().next();
@@ -161,10 +159,6 @@ public class kVTest extends LinearOpMode {
             double lbVel = leftBack.getVelocity();
             double rfVel = rightFront.getVelocity();
             double rbVel = rightBack.getVelocity();
-
-            // CRITICAL: Flip the sign of right-side velocities (they're reversed)
-            rfVel = -rfVel;
-            rbVel = -rbVel;
 
             // Calculate average velocity
             double leftVel = (lfVel + lbVel) / 2.0;

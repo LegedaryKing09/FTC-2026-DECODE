@@ -22,7 +22,7 @@ public class RoadRunnerAuto extends LinearOpMode {
         Pose2d startPose = new Pose2d(0, 0, 0);
 
         // Initialize the drive system
-        AutoTankDrive drive = new AutoTankDrive(hardwareMap, startPose, telemetry);
+        AutoTankDrive drive = new AutoTankDrive(hardwareMap, startPose);
 
         // Build the autonomous action: move forward to FORWARD_DISTANCE_INCHES, then back to origin
         Action movementAction = drive.actionBuilder(startPose)
