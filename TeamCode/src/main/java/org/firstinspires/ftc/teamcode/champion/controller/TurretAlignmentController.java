@@ -24,7 +24,7 @@ public class TurretAlignmentController {
     // Tunable parameters via FTC Dashboard
     public static double TOLERANCE_DEGREES = 2.0;
     public static double MAX_TURN_POWER = 0.5;       // Maximum power
-    public static double MIN_TURN_POWER = 0.35;      // Minimum power that still moves turret
+    public static double MIN_TURN_POWER = 0.15;      // Minimum power that still moves turret
 
     // PID Gains
     public static double KP = 0.05;                  // Proportional gain (P term)
@@ -107,7 +107,6 @@ public class TurretAlignmentController {
         lastError = 0;
         integralSum = 0;
         lastUpdateTime = System.currentTimeMillis();
-        opMode.telemetry.addLine("🎯 Alignment Started");
         opMode.telemetry.update();
     }
 
@@ -140,17 +139,8 @@ public class TurretAlignmentController {
         if (tx == null) {
             // No target found
             turretController.stop();
-            opMode.telemetry.addLine("❌ No target found");
-            opMode.telemetry.addData("Last TX", "%.2f°", lastTx);
-            opMode.telemetry.addData("Valid Readings", "%d/5", lastValidReadings);
-            opMode.telemetry.addData("Total Fiducials", lastTotalFiducials);
-            opMode.telemetry.addData("Result Valid", lastResultValid);
-            opMode.telemetry.addData("Target Tag ID", TARGET_TAG_ID);
+            opMode.telemetry.addLine(" No target found");;
             opMode.telemetry.addData("Seen Tag IDs", lastSeenTagIds.isEmpty() ? "none" : lastSeenTagIds);
-            opMode.telemetry.addData("Limelight Status", limelightStatus);
-            if (!debugRawData.isEmpty()) {
-                opMode.telemetry.addData("Raw Debug", debugRawData);
-            }
             return;
         }
 
@@ -160,7 +150,7 @@ public class TurretAlignmentController {
         if (Math.abs(tx) <= TOLERANCE_DEGREES) {
             // Within tolerance - stop
             turretController.stop();
-            opMode.telemetry.addLine("✅ ALIGNED!");
+            opMode.telemetry.addLine("ALIGNED");
             opMode.telemetry.addData("TX Error", "%.2f°", tx);
             return;
         }
@@ -228,18 +218,8 @@ public class TurretAlignmentController {
 
         turretController.setPower(power);
 
-        opMode.telemetry.addLine("🔄 Aligning...");
+        opMode.telemetry.addLine("Aligning");
         opMode.telemetry.addData("TX Error", "%.2f°", tx);
-        opMode.telemetry.addData("Turret Power", "%.2f", power);
-        if (USE_PID) {
-            opMode.telemetry.addData("P term", "%.3f", pTerm);
-            opMode.telemetry.addData("I term", "%.3f", iTerm);
-            opMode.telemetry.addData("D term", "%.3f", dTerm);
-            opMode.telemetry.addData("Integral Sum", "%.2f", integralSum);
-            opMode.telemetry.addData("Control Mode", "PID");
-        } else {
-            opMode.telemetry.addData("Control Mode", "Linear");
-        }
     }
 
     /**
@@ -264,14 +244,14 @@ public class TurretAlignmentController {
 
                 // Warn if pipeline is wrong
                 if (currentPipeline != 1) {
-                    limelightStatus += " ⚠️WRONG!";
+                    limelightStatus += "WRONG!";
                     // Try to switch back to pipeline 1
                     limelight.pipelineSwitch(1);
                 }
 
                 // Warn if FPS is 0
                 if (fps == 0) {
-                    limelightStatus += " ❌NO STREAM";
+                    limelightStatus += "NO STREAM";
                 }
             } catch (Exception e) {
                 limelightStatus = "Error: " + e.getMessage();

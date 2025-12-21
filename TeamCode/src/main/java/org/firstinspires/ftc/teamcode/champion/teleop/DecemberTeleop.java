@@ -1,11 +1,12 @@
 package org.firstinspires.ftc.teamcode.champion.teleop;
 
+import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -24,7 +25,6 @@ public class DecemberTeleop extends LinearOpMode {
     // Shooter presets (tunable via FTC Dashboard)
     public static double CLOSE_RPM = 3650.0;
     public static double FAR_RPM = 4600.0;
-    public static double SHOOTER_RPM = 4800.0;
 
     // RPM manual adjustment increment (tunable via FTC Dashboard)
     public static double RPM_INCREMENT = 50.0;
@@ -36,7 +36,11 @@ public class DecemberTeleop extends LinearOpMode {
     public static double CLOSE_RAMP_ANGLE = 171.0;
     public static double FAR_RAMP_ANGLE = 92.0;
 
+    // Telemetry update interval (ms) - reduces loop overhead
+    public static double TELEMETRY_INTERVAL_MS = 100;  // 10Hz telemetry
+
     // Controllers
+    private SixWheelDriveController drive;
     private TurretController turret;
     private TurretAlignmentController turretAlignment;
     private NewIntakeController intake;
@@ -45,15 +49,18 @@ public class DecemberTeleop extends LinearOpMode {
     private NewShooterController shooter;
     private NewRampController ramp;
 
-    // Drive motors
-    private DcMotor lf, lb;
-    private DcMotor rf, rb;
-
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
-    public static double UPTAKE_SWITCH_THRESHOLD = 1.5;  // Voltage threshold for ball detection
+    public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
+    // Timers
     private final ElapsedTime runtime = new ElapsedTime();
+    private final ElapsedTime loopTimer = new ElapsedTime();
+    private final ElapsedTime telemetryTimer = new ElapsedTime();
+
+    // Loop timing stats
+    private double loopTimeMs = 0;
+    private double avgLoopTimeMs = 0;
 
     // David's gamepad (gamepad1) button states
     private boolean lastRightBumper1 = false;
@@ -93,10 +100,22 @@ public class DecemberTeleop extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        // FTC Dashboard telemetry
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
+
         initializeHardware();
+
+        telemetry.addLine("=== DECEMBER TELEOP ===");
+        telemetry.addLine("Hardware initialized");
+        telemetry.update();
 
         waitForStart();
         runtime.reset();
+
+        // Initialize turret angle tracking AFTER start
+        if (turret != null) {
+            turret.initialize();
+        }
 
         // Initialize ramp to 0 degrees at start
         if (ramp != null) {
@@ -108,7 +127,16 @@ public class DecemberTeleop extends LinearOpMode {
             }
         }
 
+        loopTimer.reset();
+        telemetryTimer.reset();
+
         while (opModeIsActive()) {
+            // Track loop time
+            loopTimeMs = loopTimer.milliseconds();
+            loopTimer.reset();
+            avgLoopTimeMs = avgLoopTimeMs * 0.95 + loopTimeMs * 0.05;
+
+            // === FAST UPDATES (every loop) ===
             // David's controls (gamepad1)
             handleDriveControls();
             handleDavidControls();
@@ -119,38 +147,26 @@ public class DecemberTeleop extends LinearOpMode {
             // Check uptake ball detection switch
             checkUptakeSwitch();
 
-            // Update all controllers
+            // Update all controllers (PID loops run here)
             updateAllSystems();
+
+            // === SLOW UPDATES (telemetry only every TELEMETRY_INTERVAL_MS) ===
+            if (telemetryTimer.milliseconds() >= TELEMETRY_INTERVAL_MS) {
+                telemetryTimer.reset();
+                updateTelemetry();
+            }
         }
     }
 
     public void initializeHardware() {
-        // Initialize drive motors
+        // Initialize drive controller (velocity-based with odometry)
         try {
-            lf = hardwareMap.get(DcMotor.class, "lf");
-            lb = hardwareMap.get(DcMotor.class, "lb");
-            rf = hardwareMap.get(DcMotor.class, "rf");
-            rb = hardwareMap.get(DcMotor.class, "rb");
-
-            lf.setDirection(DcMotorSimple.Direction.FORWARD);
-            lb.setDirection(DcMotorSimple.Direction.FORWARD);
-            rf.setDirection(DcMotorSimple.Direction.REVERSE);
-            rb.setDirection(DcMotorSimple.Direction.REVERSE);
-
-            lf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            lb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            rf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            rb.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-            lf.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            lb.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            rf.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            rb.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-        } catch (Exception ignored) {
+            drive = new SixWheelDriveController(this);
+        } catch (Exception e) {
+            telemetry.addLine("WARNING: Drive controller failed to initialize");
         }
 
-        // Initialize turret
+        // Initialize turret (use 'this' for LinearOpMode constructor)
         try {
             turret = new TurretController(this);
         } catch (Exception ignored) {
@@ -199,334 +215,301 @@ public class DecemberTeleop extends LinearOpMode {
         } catch (Exception ignored) {
         }
 
-        // Initialize shooter
-        DcMotor shooterMotor = null;
+        // Initialize shooter (fixed motor names: "shooter" not "shooter1")
+        DcMotor shooterMotor1 = null;
+        DcMotor shooterMotor2 = null;
         try {
-            shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
+            shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
         } catch (Exception ignored) {
         }
-        shooter = new NewShooterController(shooterMotor);
+        try {
+            shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
+        } catch (Exception ignored) {
+        }
+        shooter = new NewShooterController(shooterMotor1, shooterMotor2);
     }
 
     /**
      * Drive controls - David (gamepad1)
      * Left stick Y = forward/backward, Right stick X = rotation
+     * Uses velocity-based control via SixWheelDriveController
      */
     public void handleDriveControls() {
+        if (drive == null) return;
+
+        // Update odometry
+        drive.updateOdometry();
+
         double rawDrive = -gamepad1.left_stick_y;
         double rawTurn = gamepad1.right_stick_x;
 
-        double drive = applySensitivityCurve(rawDrive);
-        double turn = applySensitivityCurve(rawTurn);
+        // Get speed multipliers based on current mode
+        double speedMult = drive.isFastSpeedMode() ?
+                SixWheelDriveController.FAST_SPEED_MULTIPLIER :
+                SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
+        double turnMult = drive.isFastSpeedMode() ?
+                SixWheelDriveController.FAST_TURN_MULTIPLIER :
+                SixWheelDriveController.SLOW_TURN_MULTIPLIER;
 
-        double leftPower = drive + turn;
-        double rightPower = drive - turn;
+        // Apply sensitivity curve and multipliers
+        double drive_power = applySensitivityCurve(rawDrive) * speedMult;
+        double turn_power = applySensitivityCurve(rawTurn) * turnMult;
 
-        double maxPower = Math.max(Math.abs(leftPower), Math.abs(rightPower));
-        if (maxPower > 1.0) {
-            leftPower /= maxPower;
-            rightPower /= maxPower;
-        }
-
-        if (lf != null) lf.setPower(leftPower);
-        if (lb != null) lb.setPower(leftPower);
-        if (rf != null) rf.setPower(rightPower);
-        if (rb != null) rb.setPower(rightPower);
+        // Use arcade drive (handles velocity control internally)
+        drive.arcadeDrive(drive_power, turn_power);
     }
 
-    private double applySensitivityCurve(double value) {
-        double sign = Math.signum(value);
-        double magnitude = Math.abs(value);
-        double curved = Math.pow(magnitude, 2.0);
-        return sign * curved;
+    private double applySensitivityCurve(double input) {
+        // Cubic curve for fine control at low speeds
+        return input * input * input;
     }
 
     /**
-     * David's controls (gamepad1):
-     * Right bumper - toggle intake mode (intake + transfer + uptake)
-     * Right trigger - hold for vomit mode (reverse all)
-     * Left trigger - stop intake, transfer, uptake completely
-     * X - toggle intake only
-     * Y - toggle transfer only
-     * A - toggle uptake only
+     * David's controls (gamepad1)
      */
-    private void handleDavidControls() {
-        // Right bumper - toggle intake mode (all wheels together)
+    public void handleDavidControls() {
+        // Right bumper - toggle intake mode
         boolean currentRB1 = gamepad1.right_bumper;
         if (currentRB1 && !lastRightBumper1) {
-            isShooting = false;
-            intakeModeActive = !intakeModeActive;
-            vomitModeActive = false; // Disable vomit when toggling intake mode
-
-            if (intakeModeActive) {
-                if (intake != null) { intake.reversed = false; if (!intake.isActive()) intake.toggle(); }
-                if (transfer != null) { transfer.reversed = false; if (!transfer.isActive()) transfer.toggle(); }
-                if (uptake != null) { uptake.reversed = false; if (!uptake.isActive()) uptake.toggle(); }
+            if (!intakeModeActive) {
+                startIntakeMode();
             } else {
-                if (intake != null && intake.isActive()) intake.toggle();
-                if (transfer != null && transfer.isActive()) transfer.toggle();
-                if (uptake != null && uptake.isActive()) uptake.toggle();
+                stopIntakeMode();
             }
         }
         lastRightBumper1 = currentRB1;
 
-        // Right trigger - hold for vomit mode (press = on, release = off)
-        if (gamepad1.right_trigger > TRIGGER_THRESHOLD) {
-            if (!vomitModeActive) {
-                vomitModeActive = true;
-                intakeModeActive = false;
-                if (intake != null) { intake.reversed = true; if (!intake.isActive()) intake.toggle(); }
-                if (transfer != null) { transfer.reversed = true; if (!transfer.isActive()) transfer.toggle(); }
-                if (uptake != null) { uptake.reversed = true; if (!uptake.isActive()) uptake.toggle(); }
-            }
-        } else {
-            if (vomitModeActive) {
-                vomitModeActive = false;
-                if (intake != null && intake.isActive()) intake.toggle();
-                if (transfer != null && transfer.isActive()) transfer.toggle();
-                if (uptake != null && uptake.isActive()) uptake.toggle();
+        // Left bumper - toggle drive speed mode
+        boolean currentA1 = gamepad1.a;
+        if (currentA1 && !lastA1) {
+            if (drive != null) {
+                drive.toggleSpeedMode();
             }
         }
+        lastA1 = currentA1;
 
-        // Left trigger - stop intake, transfer, uptake completely
-        if (gamepad1.left_trigger > TRIGGER_THRESHOLD) {
-            stopIntakeSystem();
-        }
-
-        // X button - toggle intake only
+        // X button - vomit mode toggle
         boolean currentX1 = gamepad1.x;
         if (currentX1 && !lastX1) {
-            if (intake != null) {
-                intake.reversed = false;
-                intake.toggle();
+            if (!vomitModeActive) {
+                startVomitMode();
+            } else {
+                stopVomitMode();
             }
         }
         lastX1 = currentX1;
 
-        // Y button - toggle transfer only
-        boolean currentY1 = gamepad1.y;
-        if (currentY1 && !lastY1) {
-            if (transfer != null) {
-                transfer.reversed = false;
-                transfer.toggle();
-            }
+        // Y button - turret manual right
+        if (gamepad1.y && turret != null) {
+            turret.setPower(0.5);
+        } else if (gamepad1.b && turret != null) {
+            turret.setPower(-0.5);
+        } else if (turret != null && (turretAlignment == null || !turretAlignment.isRunning())) {
+            turret.stop();
         }
-        lastY1 = currentY1;
+    }
 
-        // A button - toggle uptake only
-        boolean currentA1 = gamepad1.a;
-        if (currentA1 && !lastA1) {
-            if (uptake != null) {
-                uptake.reversed = false;
-                uptake.toggle();
-            }
+    private void startIntakeMode() {
+        intakeModeActive = true;
+        vomitModeActive = false;
+        uptakeStoppedBySwitch = false;
+
+        if (intake != null && !intake.isActive()) {
+            intake.reversed = false;
+            intake.toggle();
         }
-        lastA1 = currentA1;
+        if (transfer != null && !transfer.isActive()) {
+            transfer.reversed = false;
+            transfer.toggle();
+        }
+        if (uptake != null && !uptake.isActive()) {
+            uptake.reversed = false;
+            uptake.toggle();
+        }
+    }
+
+    private void stopIntakeMode() {
+        intakeModeActive = false;
+        if (intake != null && intake.isActive()) intake.toggle();
+        if (transfer != null && transfer.isActive()) transfer.toggle();
+        if (uptake != null && uptake.isActive()) uptake.toggle();
+    }
+
+    private void startVomitMode() {
+        vomitModeActive = true;
+        intakeModeActive = false;
+
+        if (intake != null) {
+            intake.reversed = true;
+            if (!intake.isActive()) intake.toggle();
+        }
+        if (transfer != null) {
+            transfer.reversed = true;
+            if (!transfer.isActive()) transfer.toggle();
+        }
+        if (uptake != null) {
+            uptake.reversed = true;
+            if (!uptake.isActive()) uptake.toggle();
+        }
+    }
+
+    private void stopVomitMode() {
+        vomitModeActive = false;
+        if (intake != null && intake.isActive()) intake.toggle();
+        if (transfer != null && transfer.isActive()) transfer.toggle();
+        if (uptake != null && uptake.isActive()) uptake.toggle();
     }
 
     /**
-     * Edward's controls (gamepad2):
-     * Left stick X - turret rotation
-     * X - far preset (RPM + ramp)
-     * A - close preset (RPM + ramp)
-     * Y - increase ramp angle
-     * B - decrease ramp angle
-     * Dpad Up - increase target RPM
-     * Dpad Down - decrease target RPM
-     * Right bumper - shooting mode toggle
-     * Left bumper - turret alignment
-     * Right trigger - hold for uptake
-     * Left trigger - stop intake, transfer, uptake completely
+     * Edward's controls (gamepad2)
      */
-    private void handleEdwardControls() {
-        // Left stick X - turret control (only if not in alignment mode)
-        if (turret != null) {
-            // Don't allow manual control while alignment is active
-            boolean alignmentActive = (turretAlignment != null && turretAlignment.isRunning());
+    public void handleEdwardControls() {
+        // X button - far preset
+        boolean currentX2 = gamepad2.x;
+        if (currentX2 && !lastX2) {
+            if (shooter != null) {
+                shooter.setTargetRPM(FAR_RPM);
+                currentTargetRPM = FAR_RPM;
+                if (!shooter.isShootMode()) shooter.toggleShoot();
+            }
+            if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
+        }
+        lastX2 = currentX2;
 
-            if (!alignmentActive) {
-                double turretInput = gamepad2.left_stick_x;
-                if (Math.abs(turretInput) > 0.1) {
-                    // Joystick is being pushed - set turret power
-                    turret.setPower(turretInput);
-                } else {
-                    // Joystick is in neutral - stop turret immediately
-                    turret.setPower(0);
+        // A button - close preset
+        boolean currentA2 = gamepad2.a;
+        if (currentA2 && !lastA2) {
+            if (shooter != null) {
+                shooter.setTargetRPM(CLOSE_RPM);
+                currentTargetRPM = CLOSE_RPM;
+                if (!shooter.isShootMode()) shooter.toggleShoot();
+            }
+            if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
+        }
+        lastA2 = currentA2;
+
+        // Y button - increase ramp angle
+        boolean currentY2 = gamepad2.y;
+        if (currentY2 && !lastY2) {
+            if (ramp != null) ramp.incrementAngle(RAMP_INCREMENT_DEGREES);
+        }
+        lastY2 = currentY2;
+
+        // B button - decrease ramp angle
+        boolean currentB2 = gamepad2.b;
+        if (currentB2 && !lastB2) {
+            if (ramp != null) ramp.decrementAngle(RAMP_INCREMENT_DEGREES);
+        }
+        lastB2 = currentB2;
+
+        // Dpad Up - increase target RPM
+        boolean currentDpadUp2 = gamepad2.dpad_up;
+        if (currentDpadUp2 && !lastDpadUp2) {
+            if (shooter != null) {
+                currentTargetRPM += RPM_INCREMENT;
+                if (currentTargetRPM > NewShooterController.MAX_RPM) {
+                    currentTargetRPM = NewShooterController.MAX_RPM;
                 }
+                shooter.setTargetRPM(currentTargetRPM);
             }
+        }
+        lastDpadUp2 = currentDpadUp2;
 
-            // X button - far preset
-            boolean currentX2 = gamepad2.x;
-            if (currentX2 && !lastX2) {
-                if (shooter != null) {
-                    shooter.setTargetRPM(FAR_RPM);
-                    currentTargetRPM = FAR_RPM;
-                    if (!shooter.isShootMode()) shooter.toggleShoot();
+        // Dpad Down - decrease target RPM
+        boolean currentDpadDown2 = gamepad2.dpad_down;
+        if (currentDpadDown2 && !lastDpadDown2) {
+            if (shooter != null) {
+                currentTargetRPM -= RPM_INCREMENT;
+                if (currentTargetRPM < NewShooterController.MIN_RPM) {
+                    currentTargetRPM = NewShooterController.MIN_RPM;
                 }
-                if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
+                shooter.setTargetRPM(currentTargetRPM);
             }
-            lastX2 = currentX2;
+        }
+        lastDpadDown2 = currentDpadDown2;
 
-            // A button - close preset
-            boolean currentA2 = gamepad2.a;
-            if (currentA2 && !lastA2) {
-                if (shooter != null) {
-                    shooter.setTargetRPM(CLOSE_RPM);
-                    currentTargetRPM = CLOSE_RPM;
-                    if (!shooter.isShootMode()) shooter.toggleShoot();
+        // Right bumper - shooting mode toggle
+        boolean currentRB2 = gamepad2.right_bumper;
+        if (currentRB2 && !lastRightBumper2) {
+            if (!isShooting) {
+                // Start shooting sequence
+                isShooting = true;
+                intakeModeActive = false;
+                vomitModeActive = false;
+                if (intake != null && !intake.isActive()) {
+                    intake.reversed = false;
+                    intake.toggle();
                 }
-                if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
-            }
-            lastA2 = currentA2;
-
-            // Y button - increase ramp angle
-            boolean currentY2 = gamepad2.y;
-            if (currentY2 && !lastY2) {
-                if (ramp != null) ramp.incrementAngle(RAMP_INCREMENT_DEGREES);
-            }
-            lastY2 = currentY2;
-
-            // B button - decrease ramp angle
-            boolean currentB2 = gamepad2.b;
-            if (currentB2 && !lastB2) {
-                if (ramp != null) ramp.decrementAngle(RAMP_INCREMENT_DEGREES);
-            }
-            lastB2 = currentB2;
-
-            // Dpad Up - increase target RPM
-            boolean currentDpadUp2 = gamepad2.dpad_up;
-            if (currentDpadUp2 && !lastDpadUp2) {
-                if (shooter != null) {
-                    currentTargetRPM += RPM_INCREMENT;
-                    if (currentTargetRPM > NewShooterController.MAX_RPM) {
-                        currentTargetRPM = NewShooterController.MAX_RPM;
-                    }
-                    shooter.setTargetRPM(currentTargetRPM);
+                if (transfer != null && !transfer.isActive()) {
+                    transfer.reversed = false;
+                    transfer.toggle();
                 }
-            }
-            lastDpadUp2 = currentDpadUp2;
-
-            // Dpad Down - decrease target RPM
-            boolean currentDpadDown2 = gamepad2.dpad_down;
-            if (currentDpadDown2 && !lastDpadDown2) {
-                if (shooter != null) {
-                    currentTargetRPM -= RPM_INCREMENT;
-                    if (currentTargetRPM < NewShooterController.MIN_RPM) {
-                        currentTargetRPM = NewShooterController.MIN_RPM;
-                    }
-                    shooter.setTargetRPM(currentTargetRPM);
-                }
-            }
-            lastDpadDown2 = currentDpadDown2;
-
-            // Right bumper - shooting mode toggle
-            boolean currentRB2 = gamepad2.right_bumper;
-            if (currentRB2 && !lastRightBumper2) {
-                if (!isShooting) {
-                    // Start shooting sequence
-                    isShooting = true;
-                    intakeModeActive = false;
-                    vomitModeActive = false;
-                    // Turn on intake, transfer, uptake if not already on
-                    if (intake != null && !intake.isActive()) {
-                        intake.reversed = false;
-                        intake.toggle();
-                    }
-                    if (transfer != null && !transfer.isActive()) {
-                        transfer.reversed = false;
-                        transfer.toggle();
-                    }
-                    if (uptake != null && !uptake.isActive()) {
-                        uptake.reversed = false;
-                        uptake.toggle();
-                    }
-                } else {
-                    // Stop shooting sequence - stop everything including shooter
-                    isShooting = false;
-                    // Stop intake
-                    if (intake != null && intake.isActive()) {
-                        intake.toggle();
-                    }
-                    // Stop transfer
-                    if (transfer != null && transfer.isActive()) {
-                        transfer.toggle();
-                    }
-                    // Stop uptake
-                    if (uptake != null && uptake.isActive()) {
-                        uptake.toggle();
-                    }
-                    // Stop shooter
-                    if (shooter != null) {
-                        shooter.stopShooting();
-                        currentTargetRPM = 0;
-                    }
-                }
-            }
-            lastRightBumper2 = currentRB2;
-
-            // Left bumper - start alignment, or stop if already aligning
-            boolean currentLB2 = gamepad2.left_bumper;
-            if (currentLB2 && !lastLeftBumper2) {
-                if (turretAlignment != null) {
-                    if (turretAlignment.isRunning()) {
-                        turretAlignment.stop();
-                    } else {
-                        turretAlignment.start();
-                    }
-                }
-            }
-            lastLeftBumper2 = currentLB2;
-
-            // Right trigger - hold for uptake (press = on, release = off)
-            if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
                 if (uptake != null && !uptake.isActive()) {
                     uptake.reversed = false;
                     uptake.toggle();
-                    uptakeFromTrigger = true;
                 }
             } else {
-                if (uptakeFromTrigger && uptake != null && uptake.isActive()) {
-                    uptake.toggle();
-                    uptakeFromTrigger = false;
+                // Stop shooting sequence
+                isShooting = false;
+                if (intake != null && intake.isActive()) intake.toggle();
+                if (transfer != null && transfer.isActive()) transfer.toggle();
+                if (uptake != null && uptake.isActive()) uptake.toggle();
+                if (shooter != null) {
+                    shooter.stopShooting();
+                    currentTargetRPM = 0;
                 }
             }
+        }
+        lastRightBumper2 = currentRB2;
 
-            // Left trigger - stop intake, transfer, uptake completely
-            if (gamepad2.left_trigger > TRIGGER_THRESHOLD) {
-                stopIntakeSystem();
+        // Left bumper - start/stop alignment
+        boolean currentLB2 = gamepad2.left_bumper;
+        if (currentLB2 && !lastLeftBumper2) {
+            if (turretAlignment != null) {
+                if (turretAlignment.isRunning()) {
+                    turretAlignment.stop();
+                } else {
+                    turretAlignment.start();
+                }
             }
+        }
+        lastLeftBumper2 = currentLB2;
+
+        // Right trigger - hold for uptake
+        if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
+            if (uptake != null && !uptake.isActive()) {
+                uptake.reversed = false;
+                uptake.toggle();
+                uptakeFromTrigger = true;
+            }
+        } else {
+            if (uptakeFromTrigger && uptake != null && uptake.isActive()) {
+                uptake.toggle();
+                uptakeFromTrigger = false;
+            }
+        }
+
+        // Left trigger - stop intake system
+        if (gamepad2.left_trigger > TRIGGER_THRESHOLD) {
+            stopIntakeSystem();
         }
     }
 
     /**
      * Stops intake, transfer, and uptake completely.
      * Starts shooter at idle RPM.
-     * Resets all intake-related mode flags.
      */
     private void stopIntakeSystem() {
-        // Reset all mode flags
         intakeModeActive = false;
         vomitModeActive = false;
         isShooting = false;
         uptakeStoppedBySwitch = false;
         uptakeFromTrigger = false;
 
-        // Stop intake if running
-        if (intake != null && intake.isActive()) {
-            intake.toggle();
-        }
+        if (intake != null && intake.isActive()) intake.toggle();
+        if (transfer != null && transfer.isActive()) transfer.toggle();
+        if (uptake != null && uptake.isActive()) uptake.toggle();
 
-        // Stop transfer if running
-        if (transfer != null && transfer.isActive()) {
-            transfer.toggle();
-        }
-
-        // Stop uptake if running
-        if (uptake != null && uptake.isActive()) {
-            uptake.toggle();
-        }
-
-        // Start shooter at idle RPM
         if (shooter != null) {
             shooter.setTargetRPM(IDLE_RPM);
             currentTargetRPM = IDLE_RPM;
@@ -538,23 +521,17 @@ public class DecemberTeleop extends LinearOpMode {
 
     /**
      * Check uptake switch for ball detection
-     * When in intake mode and ball detected, stop uptake but keep intake/transfer running
-     * Switch is pressed down (ball present) when voltage drops BELOW threshold
      */
     public void checkUptakeSwitch() {
         if (uptakeSwitch == null || uptake == null || isShooting) return;
 
-        // FIXED: Ball detected when voltage is BELOW threshold (switch pressed down)
         boolean ballDetected = uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
 
-        // Only auto-stop uptake during intake mode
         if (intakeModeActive) {
             if (ballDetected && !uptakeStoppedBySwitch) {
-                // Ball detected - stop uptake, keep intake and transfer running
                 if (uptake.isActive()) uptake.toggle();
                 uptakeStoppedBySwitch = true;
             } else if (!ballDetected && uptakeStoppedBySwitch) {
-                // Ball removed - restart uptake if still in intake mode
                 if (!uptake.isActive()) {
                     uptake.reversed = false;
                     uptake.toggle();
@@ -562,18 +539,65 @@ public class DecemberTeleop extends LinearOpMode {
                 uptakeStoppedBySwitch = false;
             }
         } else {
-            // Reset flag when not in intake mode
             uptakeStoppedBySwitch = false;
         }
     }
 
+    /**
+     * Update all subsystem controllers (PID loops)
+     */
     private void updateAllSystems() {
+        if (turret != null) turret.update();  // Added: was missing!
         if (ramp != null) ramp.update();
         if (intake != null) intake.update();
         if (transfer != null) transfer.update();
         if (uptake != null) uptake.update();
         if (shooter != null) shooter.update();
         if (turretAlignment != null) turretAlignment.update();
+    }
+
+    /**
+     * Update telemetry (called at reduced rate for performance)
+     */
+    private void updateTelemetry() {
+        // Status line
+        String intakeStatus = intakeModeActive ? "INTAKE" : (vomitModeActive ? "VOMIT" : (isShooting ? "SHOOT" : "OFF"));
+        String shooterStatus = shooter != null && shooter.isShootMode() ?
+                (shooter.isAtTargetRPM() ? "READY" : "SPIN") : "OFF";
+        String speedMode = (drive != null && drive.isFastSpeedMode()) ? "FAST" : "SLOW";
+
+        telemetry.addData("Status", "%s | Shooter: %s | %s", intakeStatus, shooterStatus, speedMode);
+        telemetry.addData("Loop", "%.1fms (%.0fHz)", avgLoopTimeMs, 1000.0 / avgLoopTimeMs);
+        telemetry.addLine();
+
+        // Drive info
+        if (drive != null) {
+            telemetry.addData("Position", "X:%.1f Y:%.1f", drive.getX(), drive.getY());
+            telemetry.addData("Heading", "%.1f", drive.getHeadingDegrees());
+        }
+
+        // Shooter info
+        if (shooter != null) {
+            telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
+            telemetry.addData("RPM Error", "%.0f", shooter.getRPMError());
+        }
+
+        // Ramp info
+        if (ramp != null) {
+            telemetry.addData("Ramp", "%.1f", ramp.getCurrentAngle());
+        }
+
+        // Turret info
+        if (turret != null) {
+            telemetry.addData("Turret", "%.1f", turret.getTurretAngle());
+        }
+
+        // Ball detection
+        if (uptakeSwitch != null) {
+            boolean ballDetected = uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
+            telemetry.addData("Ball", ballDetected ? "DETECTED" : "none");
+        }
+        telemetry.update();
     }
 
     private double getBatteryVoltage() {

@@ -8,65 +8,70 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 @Config
 public class NewShooterController {
 
-    private final DcMotorEx shooterMotor;  // Changed to DcMotorEx for velocity API
+    private final DcMotorEx shooterMotor1;  // Has encoder
+    private final DcMotorEx shooterMotor2;  // No encoder, follows motor1
     private final ElapsedTime runtime;
 
-    // Configurable parameters
-    public static double maxPower = 1.0;
-    public static boolean reversed = false;
+    // Motor direction control (tune these if motors spin opposite ways)
+    public static boolean motor1Reversed = false;
+    public static boolean motor2Reversed = true;  // Often mounted opposite
 
     // Target RPM control
-    public static double TARGET_RPM = 1500;
+    public static double TARGET_RPM = 4600;
     public static double RPM_INCREMENT = 50.0;
     public static double MIN_RPM = 0.0;
     public static double MAX_RPM = 6000.0;
 
     // PID gains (tunable via FTC Dashboard)
-    public static double kP = 0.65;   // Proportional gain
-    public static double kI = 0.0001;   // Integral gain (start small)
-    public static double kD = 0.02;  // Derivative gain
+    public static double kP = 0.65;   // Proportional gain (scaled for RPM error -> power)
+    public static double kI = 0;   // Integral gain
+    public static double kD = 0.001;      // Derivative gain (start with 0)
+
+    // Feedforward gain (helps reach target faster)
+    public static double kF = 0;  // Feedforward: power per RPM
 
     // PID limits
-    public static double MAX_INTEGRAL = 5000.0;  // Integral windup limit
-    public static double DERIVATIVE_FILTER = 0.7; // Low-pass filter for derivative (0-1)
+    public static double MAX_INTEGRAL = 10000.0;  // Integral windup limit
+    public static double maxPower = 1.0;
 
-    // RPM tolerance
+    // RPM tolerance for "at target" check
     public static double RPM_TOLERANCE = 50.0;
 
-    // Encoder ticks per revolution
+    // Encoder ticks per revolution (for your motor)
     public static double TICKS_PER_REVOLUTION = 28;
 
     // PID state variables
     private double integralSum = 0;
     private double lastError = 0;
-    private double lastDerivative = 0;
     private double lastPidTime = 0;
-    private double lastTargetRPM = 0;
 
-    // RPM tracking (for fallback if getVelocity() unavailable)
+    // RPM tracking (motor1 only - motor2 has no encoder)
     private double currentRPM = 0;
 
     // Shooter state
     private boolean isShootMode = false;
     private double currentTargetRPM;
 
-    public NewShooterController(DcMotor motor) {
+    /**
+     * Constructor for dual-motor shooter
+     * Motor1 has encoder, motor2 follows with same power
+     */
+    public NewShooterController(DcMotor motor1, DcMotor motor2) {
         this.runtime = new ElapsedTime();
 
-        // Cast to DcMotorEx for velocity API access
-        if (motor instanceof DcMotorEx) {
-            this.shooterMotor = (DcMotorEx) motor;
-        } else if (motor != null) {
-            // Fallback - try to get as DcMotorEx anyway (usually works)
-            this.shooterMotor = (DcMotorEx) motor;
-        } else {
-            this.shooterMotor = null;
+        // Initialize motor 1 (with encoder)
+        this.shooterMotor1 = castToMotorEx(motor1);
+        if (shooterMotor1 != null) {
+            shooterMotor1.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            shooterMotor1.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            shooterMotor1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         }
 
-        if (shooterMotor != null) {
-            shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            shooterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT); // FLOAT is better for flywheels
+        // Initialize motor 2 (no encoder, just follows)
+        this.shooterMotor2 = castToMotorEx(motor2);
+        if (shooterMotor2 != null) {
+            shooterMotor2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            shooterMotor2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         }
 
         lastPidTime = runtime.seconds();
@@ -74,39 +79,52 @@ public class NewShooterController {
     }
 
     /**
-     * Set shooter power directly (for manual control)
+     * Constructor for single-motor shooter (backwards compatible)
      */
-    public void setPower(double triggerValue) {
-        if (shooterMotor != null) {
-            double actualPower = triggerValue * maxPower;
-            if (reversed) actualPower = -actualPower;
-            shooterMotor.setPower(actualPower);
+    public NewShooterController(DcMotor motor) {
+        this(motor, null);
+    }
+
+    private DcMotorEx castToMotorEx(DcMotor motor) {
+        if (motor == null) return null;
+        return (DcMotorEx) motor;
+    }
+
+    private void setMotorPowers(double power) {
+        if (shooterMotor1 != null) {
+            shooterMotor1.setPower(motor1Reversed ? -power : power);
+        }
+        if (shooterMotor2 != null) {
+            shooterMotor2.setPower(motor2Reversed ? -power : power);
         }
     }
 
     /**
-     * Activate shoot mode - spinner will try to reach target RPM
+     * Set shooter power directly (for manual control)
+     */
+    public void setPower(double power) {
+        double clampedPower = Math.max(-maxPower, Math.min(maxPower, power));
+        setMotorPowers(clampedPower);
+    }
+
+    /**
+     * Activate shoot mode - motors will try to reach target RPM
      */
     public void startShooting() {
         isShootMode = true;
-        // Reset PID state when starting
         integralSum = 0;
         lastError = 0;
-        lastDerivative = 0;
         lastPidTime = runtime.seconds();
     }
 
     /**
-     * Stop shoot mode - motor will stop
+     * Stop shoot mode - motors will stop
      */
     public void stopShooting() {
         isShootMode = false;
         integralSum = 0;
         lastError = 0;
-        lastDerivative = 0;
-        if (shooterMotor != null) {
-            shooterMotor.setPower(0);
-        }
+        setMotorPowers(0);
     }
 
     /**
@@ -120,8 +138,26 @@ public class NewShooterController {
         }
     }
 
+    /**
+     * Toggle direction for motor 1
+     */
+    public void toggleMotor1Direction() {
+        motor1Reversed = !motor1Reversed;
+    }
+
+    /**
+     * Toggle direction for motor 2
+     */
+    public void toggleMotor2Direction() {
+        motor2Reversed = !motor2Reversed;
+    }
+
+    /**
+     * Toggle both motors' directions (legacy compatibility)
+     */
     public void toggleShootDirection() {
-        reversed = !reversed;
+        motor1Reversed = !motor1Reversed;
+        motor2Reversed = !motor2Reversed;
     }
 
     /**
@@ -142,7 +178,12 @@ public class NewShooterController {
      * Set target RPM directly
      */
     public void setTargetRPM(double rpm) {
-        currentTargetRPM = Math.max(MIN_RPM, Math.min(MAX_RPM, rpm));
+        double newTarget = Math.max(MIN_RPM, Math.min(MAX_RPM, rpm));
+        // Reset integral if target changed significantly (prevents overshoot)
+        if (Math.abs(newTarget - currentTargetRPM) > 500) {
+            integralSum = 0;
+        }
+        currentTargetRPM = newTarget;
     }
 
     /**
@@ -171,67 +212,67 @@ public class NewShooterController {
      * Update PID control - call this every loop
      */
     public void update() {
-        if (shooterMotor == null) return;
+        // Get RPM from motor1 encoder only (motor2 has no encoder)
+        if (shooterMotor1 != null) {
+            double tps = shooterMotor1.getVelocity();
+            currentRPM = Math.abs((tps / TICKS_PER_REVOLUTION) * 60.0);
+        }
 
-        // Get current RPM from hardware velocity (much more accurate)
-        double ticksPerSecond = shooterMotor.getVelocity();
-        currentRPM = Math.abs((ticksPerSecond / TICKS_PER_REVOLUTION) * 60.0);
-
-        // If in shoot mode, run PID control
         if (isShootMode && currentTargetRPM > 0) {
-            double currentTime = runtime.seconds();
-            double deltaTime = currentTime - lastPidTime;
+            double now = runtime.seconds();
+            double dt = now - lastPidTime;
 
-            // Update PID at high frequency (at least 100Hz)
-            if (deltaTime >= 0.01) {
+            // Run PID at high frequency
+            if (dt >= 0.005) {  // 200Hz max
                 double error = currentTargetRPM - currentRPM;
 
-                // Proportional term
+                // Feedforward (base power to reach target)
+                double ffTerm = kF * currentTargetRPM;
+
+                // Proportional
                 double pTerm = kP * error;
 
-                // Integral term with anti-windup
-                integralSum += error * deltaTime;
+                // Integral with anti-windup
+                integralSum += error * dt;
                 integralSum = Math.max(-MAX_INTEGRAL, Math.min(MAX_INTEGRAL, integralSum));
                 double iTerm = kI * integralSum;
 
-                // Derivative term with low-pass filter
-                double derivative = (error - lastError) / deltaTime;
-                derivative = (DERIVATIVE_FILTER * derivative) + ((1 - DERIVATIVE_FILTER) * lastDerivative);
-                double dTerm = kD * derivative;
+                // Derivative
+                double dTerm = kD * (error - lastError) / dt;
 
-                // Calculate total PID output
-                double power = pTerm + iTerm + dTerm;
-
-                // Clamp power to valid range (only positive for shooter)
+                // Total output: feedforward + PID
+                double power = ffTerm + pTerm + iTerm + dTerm;
                 power = Math.max(0.0, Math.min(maxPower, power));
 
-                // Apply direction
-                if (reversed) power = -power;
+                setMotorPowers(power);
 
-                shooterMotor.setPower(power);
-
-                // Update state for next iteration
                 lastError = error;
-                lastDerivative = derivative;
-                lastPidTime = currentTime;
-
-                // Reset integral if target changed significantly
-                if (Math.abs(currentTargetRPM - lastTargetRPM) > 500) {
-                    integralSum = 0;
-                }
-                lastTargetRPM = currentTargetRPM;
+                lastPidTime = now;
             }
         } else if (!isShootMode) {
-            // Ensure motor is stopped when not in shoot mode
-            shooterMotor.setPower(0);
+            setMotorPowers(0);
         }
     }
 
     /**
-     * Get current RPM
+     * Get current RPM (from motor1 encoder)
      */
     public double getRPM() {
         return currentRPM;
+    }
+
+    /**
+     * Get motor 1 RPM (same as getRPM)
+     */
+    public double getRPM1() {
+        return currentRPM;
+    }
+
+    /**
+     * Get motor 2 RPM - returns 0 since no encoder
+     */
+    public double getRPM2() {
+        return 0;  // Motor2 has no encoder
     }
 
     /**
@@ -245,33 +286,33 @@ public class NewShooterController {
      * Get current power being applied
      */
     public double getCurrentPower() {
-        if (shooterMotor == null) return 0.0;
-        return shooterMotor.getPower();
+        if (shooterMotor1 == null) return 0.0;
+        return shooterMotor1.getPower();
     }
 
     /**
-     * Get current encoder position
+     * Get motor 1 encoder position
      */
     public int getEncoderPosition() {
-        if (shooterMotor == null) return 0;
-        return shooterMotor.getCurrentPosition();
+        if (shooterMotor1 == null) return 0;
+        return shooterMotor1.getCurrentPosition();
     }
 
     /**
-     * Reset encoder position
+     * Reset encoder
      */
     public void resetEncoder() {
-        if (shooterMotor != null) {
-            shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            shooterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            currentRPM = 0;
-            integralSum = 0;
-            lastError = 0;
+        if (shooterMotor1 != null) {
+            shooterMotor1.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            shooterMotor1.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
+        currentRPM = 0;
+        integralSum = 0;
+        lastError = 0;
     }
 
     /**
-     * Check if motor is running
+     * Check if motors are running
      */
     public boolean isRunning() {
         return getCurrentPower() != 0;
