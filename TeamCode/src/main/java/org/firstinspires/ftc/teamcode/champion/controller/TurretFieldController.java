@@ -43,8 +43,8 @@ public class TurretFieldController {
     public static boolean INVERT_OUTPUT = true;
 
     // ========== TURRET LIMITS ==========
-    public static double TURRET_MIN_ANGLE = -150.0;
-    public static double TURRET_MAX_ANGLE = 150.0;
+    public static double TURRET_MIN_ANGLE = -200.0;
+    public static double TURRET_MAX_ANGLE = 200.0;
     public static boolean USE_LIMITS = true;
 
     // ========== WIRE SAFETY ==========
@@ -143,10 +143,10 @@ public class TurretFieldController {
                 isUnwrapping = true;
                 if (currentTurretAngle > WIRE_SAFETY_THRESHOLD) {
                     // Rotated too far positive, unwrap by going -360°
-                    unwrapTarget = currentTurretAngle - 360.0;
+                    unwrapTarget = currentTurretAngle - 225.0;
                 } else {
                     // Rotated too far negative, unwrap by going +360°
-                    unwrapTarget = currentTurretAngle + 360.0;
+                    unwrapTarget = currentTurretAngle + 225.0;
                 }
             }
         }
