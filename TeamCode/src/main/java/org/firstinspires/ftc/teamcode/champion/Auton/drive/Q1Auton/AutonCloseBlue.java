@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q1Auton;
 
-import static org.firstinspires.ftc.teamcode.champion.teleop.DecemberTeleop.TURRET_TARGET_TAG_ID;
-
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -14,7 +12,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentCont
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
@@ -40,7 +37,6 @@ public class AutonCloseBlue extends LinearOpMode {
     NewAutonController autonController;
     AutoTankDrive tankDrive;
     TurretController turret;
-    TurretAlignmentController turretAlignment;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -183,13 +179,6 @@ public class AutonCloseBlue extends LinearOpMode {
 
         try {
             turret = new TurretController(this);
-        } catch (Exception ignored) {
-        }
-
-        // Initialize turret alignment controller
-        try {
-            turretAlignment = new TurretAlignmentController(this, turret);
-            TurretAlignmentController.TARGET_TAG_ID = TURRET_TARGET_TAG_ID;
         } catch (Exception ignored) {
         }
 

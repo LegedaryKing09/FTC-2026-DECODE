@@ -42,7 +42,6 @@ public class DecemberTeleop extends LinearOpMode {
     // Controllers
     private SixWheelDriveController drive;
     private TurretController turret;
-    private TurretAlignmentController turretAlignment;
     private NewIntakeController intake;
     private NewTransferController transfer;
     private UptakeController uptake;
@@ -172,13 +171,6 @@ public class DecemberTeleop extends LinearOpMode {
         } catch (Exception ignored) {
         }
 
-        // Initialize turret alignment controller
-        try {
-            turretAlignment = new TurretAlignmentController(this, turret);
-            TurretAlignmentController.TARGET_TAG_ID = TURRET_TARGET_TAG_ID;
-        } catch (Exception ignored) {
-        }
-
         // Initialize ramp
         try {
             ramp = new NewRampController(this);
@@ -304,7 +296,7 @@ public class DecemberTeleop extends LinearOpMode {
             turret.setPower(0.5);
         } else if (gamepad1.b && turret != null) {
             turret.setPower(-0.5);
-        } else if (turret != null && (turretAlignment == null || !turretAlignment.isRunning())) {
+        } else {
             turret.stop();
         }
     }
@@ -465,13 +457,6 @@ public class DecemberTeleop extends LinearOpMode {
         // Left bumper - start/stop alignment
         boolean currentLB2 = gamepad2.left_bumper;
         if (currentLB2 && !lastLeftBumper2) {
-            if (turretAlignment != null) {
-                if (turretAlignment.isRunning()) {
-                    turretAlignment.stop();
-                } else {
-                    turretAlignment.start();
-                }
-            }
         }
         lastLeftBumper2 = currentLB2;
 
@@ -553,7 +538,6 @@ public class DecemberTeleop extends LinearOpMode {
         if (transfer != null) transfer.update();
         if (uptake != null) uptake.update();
         if (shooter != null) shooter.update();
-        if (turretAlignment != null) turretAlignment.update();
     }
 
     /**
