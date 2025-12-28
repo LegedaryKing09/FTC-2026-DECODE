@@ -47,6 +47,11 @@ public class TurretFieldController {
     public static double TURRET_MAX_ANGLE = 150.0;
     public static boolean USE_LIMITS = true;
 
+    // ========== WIRE SAFETY ==========
+    // Absolute angle threshold to trigger unwrapping (prevents wire damage)
+    public static double WIRE_SAFETY_THRESHOLD = 180.0;
+    public static boolean USE_WIRE_SAFETY = true;
+
     // ========== OFFSET ==========
     // If turret 0° doesn't align with robot forward
     public static double TURRET_OFFSET = 0.0;
@@ -61,6 +66,10 @@ public class TurretFieldController {
     private double lastRobotHeading = 0.0;
     private double calculatedTurretTarget = 0.0;
     private double lastPower = 0.0;
+
+    // Wire safety unwrapping state
+    private boolean isUnwrapping = false;
+    private double unwrapTarget = 0.0;
 
     public TurretFieldController(TurretController turret) {
         this.turret = turret;
@@ -90,6 +99,7 @@ public class TurretFieldController {
      */
     public void disable() {
         enabled = false;
+        isUnwrapping = false;
         turret.stop();
     }
 
@@ -124,26 +134,99 @@ public class TurretFieldController {
         // Get current turret angle (absolute, never reset during operation)
         double currentTurretAngle = turret.getTurretAngle();
 
+        // ========== WIRE SAFETY CHECK ==========
+        // If turret has rotated beyond safe threshold, initiate unwrap
+        if (USE_WIRE_SAFETY && !isUnwrapping) {
+            if (Math.abs(currentTurretAngle) > WIRE_SAFETY_THRESHOLD) {
+                // Turret is beyond safe zone - need to unwrap by going 360° opposite direction
+                // This brings us back to same field position but with safer turret angle
+                isUnwrapping = true;
+                if (currentTurretAngle > WIRE_SAFETY_THRESHOLD) {
+                    // Rotated too far positive, unwrap by going -360°
+                    unwrapTarget = currentTurretAngle - 360.0;
+                } else {
+                    // Rotated too far negative, unwrap by going +360°
+                    unwrapTarget = currentTurretAngle + 360.0;
+                }
+            }
+        }
+
+        // ========== UNWRAPPING MODE ==========
+        // If we're unwrapping, move to unwrap target instead of field target
+        if (isUnwrapping) {
+            double unwrapError = unwrapTarget - currentTurretAngle;
+
+            // Check if unwrap complete
+            if (Math.abs(unwrapError) <= FIELD_TOLERANCE_DEG) {
+                isUnwrapping = false;
+                turret.stop();
+                integralSum = 0;
+                lastPower = 0.0;
+                calculatedTurretTarget = unwrapTarget;
+                return 0.0;
+            }
+
+            // Calculate PID based on unwrap error
+            double power = calculatePID(unwrapError);
+
+            // Apply direction inversion
+            if (INVERT_OUTPUT) {
+                power = -power;
+            }
+
+            // Apply power
+            turret.setPower(power);
+            lastPower = power;
+            calculatedTurretTarget = unwrapTarget;
+
+            return power;
+        }
+
+        // ========== NORMAL FIELD TRACKING MODE ==========
         // Calculate current field facing
         double currentFieldFacing = normalizeAngle(robotHeadingDegrees + currentTurretAngle + TURRET_OFFSET);
 
         // Calculate field error (what we need to correct)
         double fieldError = normalizeAngle(TARGET_FIELD_ANGLE - currentFieldFacing);
 
-        // Calculate what turret angle we would need (for telemetry/limits)
-        calculatedTurretTarget = normalizeAngle(TARGET_FIELD_ANGLE - robotHeadingDegrees + TURRET_OFFSET);
+        // Calculate what turret angle we would need (unnormalized first)
+        double rawTurretTarget = TARGET_FIELD_ANGLE - robotHeadingDegrees - TURRET_OFFSET;
+
+        // Wire-safety optimization: choose shortest rotational path
+        // If the difference between target and current is > 180°, go the other way
+        double targetOption1 = rawTurretTarget;
+        double targetOption2 = rawTurretTarget + 360.0;
+        double targetOption3 = rawTurretTarget - 360.0;
+
+        // Find which option requires the smallest rotation from current position
+        double diff1 = Math.abs(targetOption1 - currentTurretAngle);
+        double diff2 = Math.abs(targetOption2 - currentTurretAngle);
+        double diff3 = Math.abs(targetOption3 - currentTurretAngle);
+
+        if (diff2 < diff1 && diff2 < diff3) {
+            calculatedTurretTarget = targetOption2;
+        } else if (diff3 < diff1 && diff3 < diff2) {
+            calculatedTurretTarget = targetOption3;
+        } else {
+            calculatedTurretTarget = targetOption1;
+        }
+
+        // Recalculate field error based on the optimized turret target
+        // This ensures we move in the shortest direction
+        double optimizedFieldTarget = normalizeAngle(robotHeadingDegrees + calculatedTurretTarget + TURRET_OFFSET);
+        fieldError = optimizedFieldTarget - currentFieldFacing;
 
         // Check turret limits - if target is outside limits, clamp the error
         if (USE_LIMITS) {
             if (calculatedTurretTarget < TURRET_MIN_ANGLE) {
                 // Target is beyond min limit
-                double limitedFieldTarget = normalizeAngle(robotHeadingDegrees + TURRET_MIN_ANGLE - TURRET_OFFSET);
-                fieldError = normalizeAngle(limitedFieldTarget - currentFieldFacing);
+                double limitedFieldTarget = normalizeAngle(robotHeadingDegrees + TURRET_MIN_ANGLE + TURRET_OFFSET);
+                fieldError = limitedFieldTarget - currentFieldFacing;
                 calculatedTurretTarget = TURRET_MIN_ANGLE;
             } else if (calculatedTurretTarget > TURRET_MAX_ANGLE) {
                 // Target is beyond max limit
-                double limitedFieldTarget = normalizeAngle(robotHeadingDegrees + TURRET_MAX_ANGLE - TURRET_OFFSET);
-                fieldError = normalizeAngle(limitedFieldTarget - currentFieldFacing);
+                double limitedFieldTarget = normalizeAngle(robotHeadingDegrees + TURRET_MAX_ANGLE + TURRET_OFFSET);
+                fieldError = limitedFieldTarget - currentFieldFacing;
                 calculatedTurretTarget = TURRET_MAX_ANGLE;
             }
         }
@@ -265,5 +348,19 @@ public class TurretFieldController {
      */
     public double getLastRobotHeading() {
         return lastRobotHeading;
+    }
+
+    /**
+     * Check if turret is currently unwrapping for wire safety
+     */
+    public boolean isUnwrapping() {
+        return isUnwrapping;
+    }
+
+    /**
+     * Get the unwrap target angle (only valid when isUnwrapping() is true)
+     */
+    public double getUnwrapTarget() {
+        return unwrapTarget;
     }
 }

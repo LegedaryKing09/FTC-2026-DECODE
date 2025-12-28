@@ -177,7 +177,15 @@ public class FieldTurretTest extends LinearOpMode {
 
             // === TELEMETRY ===
             telemetry.addLine("=== FIELD CENTRIC TURRET ===");
-            telemetry.addData("Mode", fieldController.isEnabled() ? "FIELD-CENTRIC (PID)" : "MANUAL");
+            String mode = "MANUAL";
+            if (fieldController.isEnabled()) {
+                if (fieldController.isUnwrapping()) {
+                    mode = "UNWRAPPING (WIRE SAFETY)";
+                } else {
+                    mode = "FIELD-CENTRIC (PID)";
+                }
+            }
+            telemetry.addData("Mode", mode);
             telemetry.addData("Aligned", fieldController.isAligned() ? "✓ YES" : "NO");
             telemetry.addLine();
 
@@ -198,7 +206,13 @@ public class FieldTurretTest extends LinearOpMode {
             // Turret state
             telemetry.addLine("=== TURRET ===");
             telemetry.addData("Turret Angle (absolute)", "%.1f°", turret.getTurretAngle());
-            telemetry.addData("Turret Target", "%.1f°", fieldController.getCalculatedTurretTarget());
+            if (fieldController.isUnwrapping()) {
+                telemetry.addData("Unwrap Target", "%.1f°", fieldController.getUnwrapTarget());
+                telemetry.addData("Unwrap Progress", "%.1f°",
+                    Math.abs(fieldController.getUnwrapTarget() - turret.getTurretAngle()));
+            } else {
+                telemetry.addData("Turret Target", "%.1f°", fieldController.getCalculatedTurretTarget());
+            }
             telemetry.addData("Power", "%.3f", turretPower);
             telemetry.addLine();
 
@@ -207,6 +221,15 @@ public class FieldTurretTest extends LinearOpMode {
             telemetry.addData("FIELD_kP", "%.4f", TurretFieldController.FIELD_kP);
             telemetry.addData("FIELD_kD", "%.4f", TurretFieldController.FIELD_kD);
             telemetry.addData("INVERT_OUTPUT", TurretFieldController.INVERT_OUTPUT);
+            telemetry.addLine();
+
+            // Wire safety status
+            telemetry.addLine("=== WIRE SAFETY ===");
+            telemetry.addData("Enabled", TurretFieldController.USE_WIRE_SAFETY);
+            telemetry.addData("Threshold", "±%.1f°", TurretFieldController.WIRE_SAFETY_THRESHOLD);
+            double safetyMargin = TurretFieldController.WIRE_SAFETY_THRESHOLD - Math.abs(turret.getTurretAngle());
+            String safetyStatus = safetyMargin > 0 ? String.format("SAFE (%.1f° margin)", safetyMargin) : "⚠ UNSAFE";
+            telemetry.addData("Status", safetyStatus);
             telemetry.addLine();
 
             // Angle tracking debug

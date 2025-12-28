@@ -89,7 +89,7 @@ public final class AutoTankDrive {
         public double kS = 1.1923587963817335; // 0.22;
         public double kV = 0.0003904177171058639;
         public double kA = 0.001; // Increased to help with acceleration
-        public double backwardKsMultiplier = 1.1;
+        public double backwardKsMultiplier = 1;
 
         // Feedforward control gains for turning
 //        public double turnKS = 0.22;
