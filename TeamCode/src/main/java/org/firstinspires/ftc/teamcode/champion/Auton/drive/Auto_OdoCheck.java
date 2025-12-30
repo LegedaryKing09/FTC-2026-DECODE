@@ -4,7 +4,7 @@ import com.acmerobotics.roadrunner.Pose2d;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 
 @Autonomous(name="Auto - Odometry Check", group="Diagnostics")
 public class Auto_OdoCheck extends LinearOpMode {
