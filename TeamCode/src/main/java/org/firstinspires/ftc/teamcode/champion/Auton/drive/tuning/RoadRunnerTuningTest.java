@@ -10,7 +10,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 
 /**
  * Comprehensive Road Runner Tuning Test Suite
@@ -165,7 +165,7 @@ public class RoadRunnerTuningTest extends LinearOpMode {
             // Read velocities (using Pinpoint odometry)
             drive.updatePoseEstimate();
             double currentVel = Math.abs(drive.pinpointLocalizer.driver.getEncoderY())
-                    / AutoTankDrive.PARAMS.odoInPerTick;
+                    / AutoTankDrive.PARAMS.inPerTick;
 
             if (currentVel > maxVelocity) {
                 maxVelocity = currentVel;

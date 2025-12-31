@@ -1,8 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
-
 import androidx.annotation.NonNull;
-
 
 import com.acmerobotics.dashboard.canvas.Canvas;
 import com.acmerobotics.dashboard.config.Config;
@@ -32,91 +30,51 @@ import com.acmerobotics.roadrunner.TurnConstraints;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Vector2dDual;
 import com.acmerobotics.roadrunner.VelConstraint;
-import com.acmerobotics.roadrunner.ftc.DownsampledWriter;
-import com.acmerobotics.roadrunner.ftc.FlightRecorder;
-import com.acmerobotics.roadrunner.ftc.LazyHardwareMapImu;
-import com.acmerobotics.roadrunner.ftc.LazyImu;
 import com.acmerobotics.roadrunner.ftc.LynxFirmware;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.lynx.LynxModule;
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.PinpointLocalizer;
-
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.Drawing;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.Localizer;
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.DriveCommandMessage;
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.PoseMessage;
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.messages.TankCommandMessage;
-
 
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
-
 @Config
 public final class AutoTankDrive {
     public static class Params {
-        // IMU orientation on the robot
-        public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
-                RevHubOrientationOnRobot.LogoFacingDirection.LEFT;
-        public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
-                RevHubOrientationOnRobot.UsbFacingDirection.UP;
-
-
         // Drive wheel physical parameters
-        public double wheelRadius = 1.35; // Radius of the drive wheels in inches
-        public double gearRatio = 1.0; // Gear ratio between motor and wheels
-        public double ticksPerRev = 537.7; // Encoder ticks per motor revolution
-        public double inPerTick = 0.00197231; // (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
-
-
-        public double odoWheelRadius = 0.62525;
-        public double odoTicksPerRev = 2000; // Encoder ticks per odometry wheel revolution
-        public double odoInPerTick = (odoWheelRadius * 2 * Math.PI) / odoTicksPerRev; // Let it calculate!
+        public double inPerTick = 0.0019588638589618022; // (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
 
 
         // Track width for kinematics (distance between wheels in inches)
-        public double physicalTrackWidthInches = 12.309544254810191; // 14.5; //New Track Width = Current Track Width × (Target Angle / Actual Angle)
+        public double physicalTrackWidthInches = 12.267583262898228; // 14.5; //New Track Width = Current Track Width × (Target Angle / Actual Angle)
 
 
         // Path profile parameters (velocity and acceleration limits)
-        public double maxWheelVelTick = 20000; // Conservative for better control
-        public double maxWheelVel = maxWheelVelTick * inPerTick; // ~40 in/sec
-        public double minProfileAccel = -25; // Reduced for smoother motion
-        public double maxProfileAccel = 25; // Reduced for smoother motion
-
-
-        public double leftMotorScale = 1.0;
-        public double rightMotorScale = 1.0;
-
+        public double maxWheelVel = 20;
+        public double minProfileAccel = -10; // Reduced for smoother motion
+        public double maxProfileAccel = 10; // Reduced for smoother motion
 
         // Feedforward control gains for motor voltage compensation
-        public double kS = 1.1923587963817335; // 0.22;
-        public double kV = 0.0003904177171058639;
+        public double kS = 1.3289163351364959; // 0.22;
+        public double kV = 0.00038158453030862565;
         public double kA = 0.00006;
-        public double backwardKsMultiplier = 1;
-
-
-        // Feedforward control gains for turning
-//        public double turnKS = 0.22;
-//        public double turnKV = 0.20;
-//        public double turnKA = 0.001;
-
 
         // Turn profile parameters (angular velocity and acceleration limits)
-        public double maxAngVel = Math.PI; // Maximum angular velocity in radians per second
-        public double maxAngAccel = Math.PI; // Maximum angular acceleration in radians per second squared
+        public double maxAngVel = Math.PI / 2; // Maximum angular velocity in radians per second
+        public double maxAngAccel = Math.PI / 2; // Maximum angular acceleration in radians per second squared
 
 
         // Ramsete controller parameters for smooth path following
-        public double ramseteZeta = 0.5;
-        public double ramseteBBar = 1.5;
+        public double ramseteZeta = 0.7;
+        public double ramseteBBar = 2.0;
 
 
         // Turn controller gains (proportional and velocity feedback)
@@ -125,10 +83,8 @@ public final class AutoTankDrive {
 
 
         // Pinpoint odometry parameters for localization
-        public double pinpointXOffset = 2060.8677060804002 * odoInPerTick; // 3.2; // X offset of Pinpoint sensor from robot center in inches
-        public double pinpointYOffset = 3470.040645641411 * odoInPerTick; // 7.5; // Y offset of Pinpoint sensor from robot center in inches
-        public double parYTicks = pinpointYOffset / odoInPerTick; // Y position of parallel encoder in tick units
-        public double perpXTicks = pinpointXOffset / odoInPerTick; // X position of perpendicular encoder in tick units
+        public double pinpointXOffset = 3418.7735965250777 * inPerTick; // 3.2; // X offset of Pinpoint sensor from robot center in inches
+        public double pinpointYOffset = 2032.035531016167 * inPerTick; // 7.5; // Y offset of Pinpoint sensor from robot center in inches
     }
 
 
@@ -160,44 +116,22 @@ public final class AutoTankDrive {
 //    public final Telemetry telemetry;
 
 
-    private final DownsampledWriter estimatedPoseWriter = new DownsampledWriter("ESTIMATED_POSE", 50_000_000);
-    private final DownsampledWriter targetPoseWriter = new DownsampledWriter("TARGET_POSE", 50_000_000);
-    private final DownsampledWriter driveCommandWriter = new DownsampledWriter("DRIVE_COMMAND", 50_000_000);
-    private final DownsampledWriter tankCommandWriter = new DownsampledWriter("TANK_COMMAND", 50_000_000);
-
-
     // Telemetry data fields - updated during trajectory following and turns
-    public double ramseteZeta = 0.0;
-    public double ramseteBBar = 0.0;
-    public double xError = 0.0;
-    public double yError = 0.0;
-    public double headingErrorDeg = 0.0;
-    public double commandLinVel = 0.0;
-    public double commandAngVelDeg = 0.0;
     public double actualLinVel = 0.0;
     public double actualAngVelDeg = 0.0;
     public double leftPower = 0.0;
     public double rightPower = 0.0;
     public double elapsedTime = 0.0;
     public double batteryVoltage = 0.0;
-    public double currentX = 0.0;
-    public double currentY = 0.0;
-    public double currentHeadingDeg = 0.0;
-    public double targetX = 0.0;
-    public double targetY = 0.0;
-    public double targetHeadingDeg = 0.0;
     public double leftWheelVel = 0.0;
     public double rightWheelVel = 0.0;
+    public double leftWheelAcc = 0.0;
+    public double rightWheelAcc = 0.0;
     public PinpointLocalizer pinpointLocalizer;
     public final Localizer localizer;
-    public LazyImu lazyImu;
 
 
     public AutoTankDrive(HardwareMap hardwareMap, Pose2d pose) {
-        lazyImu = new LazyHardwareMapImu(hardwareMap, "imu", new RevHubOrientationOnRobot(
-                PARAMS.logoFacingDirection, PARAMS.usbFacingDirection));
-
-
 //        this.telemetry = telemetry;
 
 
@@ -212,7 +146,7 @@ public final class AutoTankDrive {
 
 
         // Initialize odometry localizer
-        pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.odoInPerTick, PARAMS.pinpointYOffset, PARAMS.pinpointXOffset, pose);
+        pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, PARAMS.pinpointYOffset, PARAMS.pinpointXOffset, pose);
 
 
         localizer = pinpointLocalizer;
@@ -240,18 +174,16 @@ public final class AutoTankDrive {
         // Configure motor braking behavior
         for (DcMotorEx motor : leftMotors) {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
         for (DcMotorEx motor : rightMotors) {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
 
 
         // Initialize voltage sensor for feedforward compensation
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
-
-
-        // Log parameters to Flight Recorder
-        FlightRecorder.write("TANK_PARAMS", PARAMS);
     }
 
 
@@ -331,7 +263,6 @@ public final class AutoTankDrive {
             // Get current position on trajectory
             DualNum<Time> currentPosition = timeTrajectory.profile.get(elapsedTime);
             Pose2dDual<Arclength> targetPose = timeTrajectory.path.get(currentPosition.value(), 3);
-            targetPoseWriter.write(new PoseMessage(targetPose.value()));
 
 
             // Update robot pose estimate
@@ -342,37 +273,22 @@ public final class AutoTankDrive {
             PoseVelocity2dDual<Time> velocityCommand = new RamseteController(
                     kinematics.trackWidth, PARAMS.ramseteZeta, PARAMS.ramseteBBar)
                     .compute(currentPosition, targetPose, pinpointLocalizer.getPose());
-            driveCommandWriter.write(new DriveCommandMessage(velocityCommand));
 
 
-            // === DIRECTIONAL FEEDFORWARD WITH FRICTION COMPENSATION ===
             TankKinematics.WheelVelocities<Time> wheelVelocities = kinematics.inverse(velocityCommand);
             double batteryVoltage = voltageSensor.getVoltage();
 
-
-            // Get current speed to determine direction
-            double currentSpeed = wheelVelocities.left.get(0);
-            double effectiveKS = PARAMS.kS;
-
-
-            // Apply directional friction compensation for backward motion
-            if (currentSpeed < -0.5) {  // Moving backward (threshold avoids noise)
-                effectiveKS *= PARAMS.backwardKsMultiplier;
-            }
-
-
-            // Create feedforward with direction-adjusted kS
-            MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS, PARAMS.kV / PARAMS.odoInPerTick, PARAMS.kA / PARAMS.odoInPerTick);
+            MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS, PARAMS.kV / PARAMS.inPerTick, PARAMS.kA / PARAMS.inPerTick);
             leftPower = feedforward.compute(wheelVelocities.left) / batteryVoltage;
             rightPower = feedforward.compute(wheelVelocities.right) / batteryVoltage;
-            tankCommandWriter.write(new TankCommandMessage(batteryVoltage, leftPower, rightPower));
 
 
             leftWheelVel = wheelVelocities.left.get(0);
             rightWheelVel = wheelVelocities.right.get(0);
+            leftWheelAcc = wheelVelocities.left.get(1);
+            rightWheelAcc = wheelVelocities.right.get(1);
 
 
-            // Apply motor powers with scaling for drift correction
             setMotorPowers(leftPower, rightPower);
 
 
@@ -399,12 +315,11 @@ public final class AutoTankDrive {
 
 
         private void setMotorPowers(double leftPower, double rightPower) {
-            // Apply motor power scaling for drift correction
             for (DcMotorEx motor : leftMotors) {
-                motor.setPower(leftPower * PARAMS.leftMotorScale);
+                motor.setPower(leftPower);
             }
             for (DcMotorEx motor : rightMotors) {
-                motor.setPower(rightPower * PARAMS.rightMotorScale);
+                motor.setPower(rightPower);
             }
         }
 
@@ -414,32 +329,28 @@ public final class AutoTankDrive {
                                          TankKinematics.WheelVelocities<Time> wheelVelocities,
                                          double batteryVoltage, TelemetryPacket p) {
             // Current robot state
-            currentX = pinpointLocalizer.getPose().position.x;
-            currentY = pinpointLocalizer.getPose().position.y;
-            currentHeadingDeg = Math.toDegrees(pinpointLocalizer.getPose().heading.toDouble());
+            double currentX = pinpointLocalizer.getPose().position.x;
+            double currentY = pinpointLocalizer.getPose().position.y;
+            double currentHeadingDeg = Math.toDegrees(pinpointLocalizer.getPose().heading.toDouble());
 
 
             // Target state
-            targetX = targetPose.value().position.x;
-            targetY = targetPose.value().position.y;
-            targetHeadingDeg = Math.toDegrees(targetPose.value().heading.toDouble());
+            double targetX = targetPose.value().position.x;
+            double targetY = targetPose.value().position.y;
+            double targetHeadingDeg = Math.toDegrees(targetPose.value().heading.toDouble());
 
 
             // Command velocities
-            commandLinVel = velocityCommand.linearVel.value().norm();
-            commandAngVelDeg = Math.toDegrees(velocityCommand.angVel.value());
-
-
-            // Controller parameters
-            ramseteZeta = PARAMS.ramseteZeta;
-            ramseteBBar = PARAMS.ramseteBBar;
+            double commandLinVel = velocityCommand.linearVel.value().norm();
+            double commandAngVelDeg = Math.toDegrees(velocityCommand.angVel.value());
+            double commandLinAcc = velocityCommand.linearVel.drop(1).value().norm();
 
 
             // Calculate tracking errors
             Pose2d poseError = targetPose.value().minusExp(pinpointLocalizer.getPose());
-            xError = poseError.position.x;
-            yError = poseError.position.y;
-            headingErrorDeg = Math.toDegrees(poseError.heading.toDouble());
+            double xError = poseError.position.x;
+            double yError = poseError.position.y;
+            double headingErrorDeg = Math.toDegrees(poseError.heading.toDouble());
 
 
             // Add telemetry data to packet
@@ -451,14 +362,15 @@ public final class AutoTankDrive {
             p.put("targetHeading", targetHeadingDeg);
             p.put("commandLinVel", commandLinVel);
             p.put("commandAngVel", commandAngVelDeg);
+            p.put("commandLinAcc", commandLinAcc);
             p.put("leftWheelVel", leftWheelVel);
             p.put("rightWheelVel", rightWheelVel);
+            p.put("leftWheelAcc", leftWheelAcc);
+            p.put("rightWheelAcc", rightWheelAcc);
             p.put("leftPower", leftPower);
             p.put("rightPower", rightPower);
             p.put("elapsedTime", elapsedTime);
             p.put("batteryVoltage", batteryVoltage);
-            p.put("ramseteZeta", ramseteZeta);
-            p.put("ramseteBBar", ramseteBBar);
             p.put("xError", xError);
             p.put("yError", yError);
             p.put("headingError (deg)", headingErrorDeg);
@@ -468,9 +380,9 @@ public final class AutoTankDrive {
             p.put("kV", PARAMS.kV);
             p.put("kA", PARAMS.kA);
             p.put("kS", PARAMS.kS);
-            p.put("backwardKsMultiplier", PARAMS.backwardKsMultiplier);
-            p.put("odoInPerTick", PARAMS.odoInPerTick);
-            p.put("odoWheelRadius", PARAMS.odoWheelRadius);
+            p.put("inPerTick", PARAMS.inPerTick);
+            p.put("ramseteZeta", PARAMS.ramseteZeta);
+            p.put("ramseteBBar", PARAMS.ramseteBBar);
 
 
             // Update actual velocities for debugging
@@ -479,20 +391,6 @@ public final class AutoTankDrive {
             actualAngVelDeg = Math.toDegrees(actualVelocity.angVel);
             p.put("actualLinVel", actualLinVel);
             p.put("actualAngVel", actualAngVelDeg);
-
-
-            // Log debug data
-            FlightRecorder.write("TrajectoryFollow_ErrorX", poseError.position.x);
-            FlightRecorder.write("TrajectoryFollow_ErrorY", poseError.position.y);
-            FlightRecorder.write("TrajectoryFollow_ErrorHeading", headingErrorDeg);
-            FlightRecorder.write("TrajectoryFollow_LeftPower", leftPower);
-            FlightRecorder.write("TrajectoryFollow_RightPower", rightPower);
-            FlightRecorder.write("TrajectoryFollow_ActualLinVel", actualLinVel);
-            FlightRecorder.write("TrajectoryFollow_ActualAngVel", actualAngVelDeg);
-            FlightRecorder.write("TrajectoryFollow_Voltage", batteryVoltage);
-            FlightRecorder.write("TrajectoryFollow_ProfileAccelMin", PARAMS.minProfileAccel);
-            FlightRecorder.write("TrajectoryFollow_PhysicalTrackWidth", PARAMS.physicalTrackWidthInches);
-            FlightRecorder.write("TrajectoryFollow_BackwardKsMultiplier", PARAMS.backwardKsMultiplier);
         }
 
 
@@ -563,7 +461,6 @@ public final class AutoTankDrive {
 
             // Get target pose for current time
             Pose2dDual<Time> targetPose = turn.get(elapsedTime);
-            targetPoseWriter.write(new PoseMessage(targetPose.value()));
 
 
             // Update pose estimate and get current velocity
@@ -578,16 +475,14 @@ public final class AutoTankDrive {
                                     PARAMS.turnVelGain * (currentVelocity.angVel - targetPose.heading.velocity().value())
                     )
             );
-            driveCommandWriter.write(new DriveCommandMessage(velocityCommand));
 
 
             // Convert to wheel velocities and calculate feedforward powers
             TankKinematics.WheelVelocities<Time> wheelVelocities = kinematics.inverse(velocityCommand);
             double batteryVoltage = voltageSensor.getVoltage();
-            MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS, PARAMS.kV / PARAMS.odoInPerTick, PARAMS.kA / PARAMS.odoInPerTick);
+            MotorFeedforward feedforward = new MotorFeedforward(PARAMS.kS, PARAMS.kV / PARAMS.inPerTick, PARAMS.kA / PARAMS.inPerTick);
             double leftPower = feedforward.compute(wheelVelocities.left) / batteryVoltage;
             double rightPower = feedforward.compute(wheelVelocities.right) / batteryVoltage;
-            tankCommandWriter.write(new TankCommandMessage(batteryVoltage, leftPower, rightPower));
 
 
             // Apply motor powers with scaling
@@ -622,10 +517,10 @@ public final class AutoTankDrive {
         private void setMotorPowers(double leftPower, double rightPower) {
             // Apply motor power scaling for drift correction
             for (DcMotorEx motor : leftMotors) {
-                motor.setPower(leftPower * PARAMS.leftMotorScale);
+                motor.setPower(leftPower);
             }
             for (DcMotorEx motor : rightMotors) {
-                motor.setPower(rightPower * PARAMS.rightMotorScale);
+                motor.setPower(rightPower);
             }
         }
 
@@ -676,10 +571,6 @@ public final class AutoTankDrive {
         while (poseHistory.size() > 100) {
             poseHistory.removeFirst();
         }
-
-
-        // Log pose estimate for debugging
-        estimatedPoseWriter.write(new PoseMessage(pinpointLocalizer.getPose()));
 
 
         return velocity;
