@@ -8,7 +8,7 @@ import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.Drawing;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.MecanumDrive;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDrive;

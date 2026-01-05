@@ -42,7 +42,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 import org.firstinspires.ftc.robotcore.internal.opmode.OpModeMeta;
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.MecanumDrive;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.OTOSLocalizer;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.PinpointLocalizer;
@@ -215,7 +215,7 @@ public final class TuningOpModes {
         } else if (DRIVE_CLASS.equals(AutoTankDrive.class)) {
             dvf = hardwareMap -> {
                 AutoTankDrive td = new AutoTankDrive(hardwareMap, new Pose2d(0, 0, 0));
-                LazyImu lazyImu = td.lazyImu;
+                LazyImu lazyImu = null;
 
                 List<EncoderGroup> encoderGroups = new ArrayList<>();
                 List<EncoderRef> leftEncs = new ArrayList<>(), rightEncs = new ArrayList<>();
@@ -285,8 +285,8 @@ public final class TuningOpModes {
                         lazyImu,
                         td.voltageSensor,
                         () -> new MotorFeedforward(AutoTankDrive.PARAMS.kS,
-                                AutoTankDrive.PARAMS.kV / AutoTankDrive.PARAMS.odoInPerTick,
-                                AutoTankDrive.PARAMS.kA / AutoTankDrive.PARAMS.odoInPerTick),
+                                AutoTankDrive.PARAMS.kV / AutoTankDrive.PARAMS.inPerTick,
+                                AutoTankDrive.PARAMS.kA / AutoTankDrive.PARAMS.inPerTick),
                         0
                 );
             };

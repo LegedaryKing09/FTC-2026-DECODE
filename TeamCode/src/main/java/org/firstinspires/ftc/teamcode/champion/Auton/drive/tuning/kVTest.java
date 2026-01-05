@@ -11,7 +11,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Locale;
 
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 
 @Autonomous(name = "Forward Ramp Logger (kV)", group = "Tuning")
 public class kVTest extends LinearOpMode {

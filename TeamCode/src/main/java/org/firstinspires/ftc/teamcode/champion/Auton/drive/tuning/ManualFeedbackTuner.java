@@ -7,9 +7,9 @@ import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.MecanumDrive;
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.TankDrive;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.ThreeDeadWheelLocalizer;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.TwoDeadWheelLocalizer;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 
 public final class ManualFeedbackTuner extends LinearOpMode {
     public static double DISTANCE = 64;
@@ -27,8 +27,8 @@ public final class ManualFeedbackTuner extends LinearOpMode {
                                 .lineToX(0)
                                 .build());
             }
-        } else if (TuningOpModes.DRIVE_CLASS.equals(TankDrive.class)) {
-            TankDrive drive = getTankDrive();
+        } else if (TuningOpModes.DRIVE_CLASS.equals(AutoTankDrive.class)) {
+            AutoTankDrive drive = getTankDrive();
             waitForStart();
 
             while (opModeIsActive()) {
@@ -44,8 +44,8 @@ public final class ManualFeedbackTuner extends LinearOpMode {
     }
 
     @NonNull
-    private TankDrive getTankDrive() {
-        TankDrive drive = new TankDrive(hardwareMap, new Pose2d(0, 0, 0));
+    private AutoTankDrive getTankDrive() {
+        AutoTankDrive drive = new AutoTankDrive(hardwareMap, new Pose2d(0, 0, 0));
 
         if (drive.localizer instanceof TwoDeadWheelLocalizer) {
             if (TwoDeadWheelLocalizer.PARAMS.perpendicular_XTicks == 0 && TwoDeadWheelLocalizer.PARAMS.parYTicks == 0) {

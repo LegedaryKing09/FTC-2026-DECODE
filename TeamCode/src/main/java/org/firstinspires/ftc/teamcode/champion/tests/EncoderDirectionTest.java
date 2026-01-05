@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.AutoTankDrive;
+import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.PinpointLocalizer;
 
 /**
@@ -62,7 +62,7 @@ public class EncoderDirectionTest extends LinearOpMode {
         // Initialize Pinpoint
         pinpointLocalizer = new PinpointLocalizer(
                 hardwareMap,
-                AutoTankDrive.PARAMS.odoInPerTick,
+                AutoTankDrive.PARAMS.inPerTick,
                 AutoTankDrive.PARAMS.pinpointYOffset,
                 AutoTankDrive.PARAMS.pinpointXOffset,
                 new com.acmerobotics.roadrunner.Pose2d(0, 0, 0)
