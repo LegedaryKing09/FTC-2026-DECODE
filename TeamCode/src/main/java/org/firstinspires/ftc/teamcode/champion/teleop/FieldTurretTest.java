@@ -12,22 +12,18 @@ import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 
 /**
  * Field-Centric Turret Test with PID Tuning
- *
  * Drive the robot while the turret automatically maintains aim at a fixed field direction.
  * The turret angle is set to 0° ONCE at startup and remains absolute throughout.
- *
  * SETUP:
  * 1. Position robot at starting location
  * 2. Point turret at the target (this will be 0° turret angle)
  * 3. Press Start
  * 4. Set TARGET_FIELD_ANGLE = 0° (since turret starts pointing at target)
  * 5. Drive around - turret should stay aimed at target!
- *
  * ALTERNATIVE SETUP:
  * 1. Position robot, turret centered on robot
  * 2. Measure angle from robot forward to target (e.g., -30° if target is right)
  * 3. Set TARGET_FIELD_ANGLE = -30°
- *
  * Controls:
  *   Left Stick = Drive forward/back
  *   Right Stick = Turn robot
@@ -39,29 +35,23 @@ import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
  *   DPad Left/Right = Adjust field target ±1°
  *   Left Bumper = Reset IMU only (NOT turret!)
  *   Right Bumper = Toggle drive speed
- *
  * NOTE: There is NO way to reset turret angle during operation!
  * This is intentional - turret angle must stay absolute.
  */
 @Config
 @TeleOp(name = "Field Centric Turret Test", group = "Test")
 public class FieldTurretTest extends LinearOpMode {
-
     public static double TARGET_FIELD_ANGLE = 0.0;
     public static double MANUAL_TURRET_POWER = 0.4;
-
-    private SixWheelDriveController drive;
-    private TurretController turret;
-    private TurretFieldController fieldController;
 
     @Override
     public void runOpMode() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         // Initialize controllers
-        drive = new SixWheelDriveController(this);
-        turret = new TurretController(this);
-        fieldController = new TurretFieldController(turret);
+        SixWheelDriveController drive = new SixWheelDriveController(this);
+        TurretController turret = new TurretController(this);
+        TurretFieldController fieldController = new TurretFieldController(turret);
 
         telemetry.addLine("=== FIELD CENTRIC TURRET TEST ===");
         telemetry.addLine();
@@ -102,14 +92,14 @@ public class FieldTurretTest extends LinearOpMode {
             double driveInput = -gamepad1.left_stick_y;
             double turnInput = gamepad1.right_stick_x;
 
-            double speedMult = drive.isFastSpeedMode() ?
+            double speedMultiplier = drive.isFastSpeedMode() ?
                     SixWheelDriveController.FAST_SPEED_MULTIPLIER :
                     SixWheelDriveController.SLOW_SPEED_MULTIPLIER;
-            double turnMult = drive.isFastSpeedMode() ?
+            double turnMultiplier = drive.isFastSpeedMode() ?
                     SixWheelDriveController.FAST_TURN_MULTIPLIER :
                     SixWheelDriveController.SLOW_TURN_MULTIPLIER;
 
-            drive.arcadeDrive(driveInput * speedMult, turnInput * turnMult);
+            drive.arcadeDrive(driveInput * speedMultiplier, turnInput * turnMultiplier);
 
             // === MODE CONTROL ===
             if (gamepad1.a) {
@@ -158,7 +148,7 @@ public class FieldTurretTest extends LinearOpMode {
             wasPressingRB = gamepad1.right_bumper;
 
             // === TURRET CONTROL ===
-            double turretPower = 0;
+            double turretPower;
             if (fieldController.isEnabled()) {
                 // Field-centric auto control with PID
                 turretPower = fieldController.update(robotHeadingDeg);
@@ -175,7 +165,6 @@ public class FieldTurretTest extends LinearOpMode {
                 }
             }
         }
-
         drive.stopDrive();
         turret.stop();
     }
