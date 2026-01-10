@@ -62,19 +62,6 @@ public class FieldTurretTest extends LinearOpMode {
         drive = new SixWheelDriveController(this);
         turret = new TurretController(this);
         fieldController = new TurretFieldController(turret);
-
-        telemetry.addLine("=== FIELD CENTRIC TURRET TEST ===");
-        telemetry.addLine();
-        telemetry.addLine("SETUP OPTIONS:");
-        telemetry.addLine("1. Point turret at target, set TARGET=0°");
-        telemetry.addLine("2. Center turret, measure angle to target");
-        telemetry.addLine();
-        telemetry.addLine("Turret angle will be 0° at start");
-        telemetry.addLine("and will NOT reset during operation!");
-        telemetry.addLine();
-        telemetry.addLine("Press START when ready...");
-        telemetry.update();
-
         waitForStart();
 
         // === INITIALIZE ONCE AT START ===
@@ -218,8 +205,6 @@ public class FieldTurretTest extends LinearOpMode {
 
             // PID tuning
             telemetry.addLine("=== FIELD PID ===");
-            telemetry.addData("FIELD_kP", "%.4f", TurretFieldController.FIELD_kP);
-            telemetry.addData("FIELD_kD", "%.4f", TurretFieldController.FIELD_kD);
             telemetry.addData("INVERT_OUTPUT", TurretFieldController.INVERT_OUTPUT);
             telemetry.addLine();
 

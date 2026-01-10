@@ -9,55 +9,60 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 
 /**
- * Field-Centric Turret + Shooter Test (Optimized)
+ * Field-Centric Turret + Shooter Test (Simplified)
+ * Controls:
+ *   Left Stick = Drive forward/back
+ *   Right Stick = Turn
+ *   A = Toggle intake
+ *   B = Toggle transfer
+ *   X = Toggle uptake
+ *   Y = Toggle turret field tracking on/off
+ *   RB = Toggle speed mode
+ *   LB = Reset IMU
+ *   Shooter always runs at SHOOTER_RPM (tune in Dashboard)
  */
 @Config
 @TeleOp(name = "Field Turret + Shooter Test", group = "Test")
 public class FieldTurretShooterTest extends LinearOpMode {
 
-    // Field target
-    public static double TARGET_FIELD_ANGLE = 45.0; // needs tuning with limelight
-    public static double MANUAL_TURRET_POWER = 0.4;
+    // Field target (tune in Dashboard)
+    public static double TARGET_FIELD_ANGLE = 130.0;
 
-    // Shooter presets
+    // Shooter RPM (tune in Dashboard)
     public static double SHOOTER_RPM = 4600.0;
-    public static double RPM_STEP = 100.0;
-    public static boolean HOLD_TO_SHOOT = false;
 
-    // Telemetry update interval (ms)
-    public static double TELEMETRY_INTERVAL_MS = 100; // For PID update more frequent
+    // Telemetry update interval
+    public static double TELEMETRY_INTERVAL_MS = 100;
 
     // Controllers
     private SixWheelDriveController drive;
     private TurretController turret;
     private TurretFieldController fieldController;
     private NewShooterController shooter;
+    private NewIntakeController intake;
+    private NewTransferController transfer;
     private UptakeController uptake;
 
-    // Button states
-    private boolean lastDpadUp = false;
-    private boolean lastDpadDown = false;
-    private boolean lastDpadLeft = false;
-    private boolean lastDpadRight = false;
+    // Button states for toggle detection
+    private boolean lastA = false;
+    private boolean lastB = false;
+    private boolean lastX = false;
+    private boolean lastY = false;
     private boolean lastLB = false;
     private boolean lastRB = false;
-    private boolean lastBack = false;
-    private boolean lastStart = false;
-    private boolean lastRTrigger = false;
-
-    private static final double TRIGGER_THRESHOLD = 0.3;
 
     // Loop timing
     private ElapsedTime loopTimer = new ElapsedTime();
     private ElapsedTime telemetryTimer = new ElapsedTime();
-    private double loopTimeMs = 0;
     private double avgLoopTimeMs = 0;
 
     @Override
@@ -75,32 +80,53 @@ public class FieldTurretShooterTest extends LinearOpMode {
         try {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
         } catch (Exception e) {
-            telemetry.addLine("WARNING: shooter not found");
+            telemetry.addLine("WARNING: shooter1 not found");
         }
         try {
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
-            telemetry.addLine("(shooter2 not found - single motor mode)");
+            telemetry.addLine("(shooter2 not found)");
         }
         shooter = new NewShooterController(shooterMotor1, shooterMotor2);
-        shooter.setTargetRPM(SHOOTER_RPM);
 
-        // Initialize uptake
-        CRServo uptakeServo = null;
+        // Initialize intake
+        DcMotor intakeMotor = null;
         try {
-            uptakeServo = hardwareMap.get(CRServo.class, "uptake");
+            intakeMotor = hardwareMap.get(DcMotor.class, "intake");
         } catch (Exception e) {
-            telemetry.addLine("WARNING: uptake not found");
+            telemetry.addLine("WARNING: intake not found");
         }
-        uptake = new UptakeController(uptakeServo);
+        intake = new NewIntakeController(intakeMotor);
+
+        // Initialize transfer
+        DcMotor transferMotor = null;
+        try {
+            transferMotor = hardwareMap.get(DcMotor.class, "transfer");
+        } catch (Exception e) {
+            telemetry.addLine("WARNING: transfer not found");
+        }
+        transfer = new NewTransferController(transferMotor);
+
+        CRServo uptakeServo1 = hardwareMap.get(CRServo.class, "servo1");
+        CRServo uptakeServo2 = hardwareMap.get(CRServo.class, "servo2");
+        uptake = new UptakeController(uptakeServo1, uptakeServo2);
+
+        telemetry.addLine("=== FIELD TURRET + SHOOTER ===");
+        telemetry.addLine("A=Intake | B=Transfer | X=Uptake");
+        telemetry.addLine("Y=Toggle Turret Tracking");
         telemetry.update();
 
         waitForStart();
 
-        // Initialize once at start
+        // Initialize at start
         drive.resetOdometry();
         turret.initialize();
 
+        // Start shooter immediately (always spinning)
+        shooter.setTargetRPM(SHOOTER_RPM);
+        shooter.startShooting();
+
+        // Start turret tracking
         fieldController.setTargetFieldAngle(TARGET_FIELD_ANGLE);
         fieldController.enable();
 
@@ -109,14 +135,16 @@ public class FieldTurretShooterTest extends LinearOpMode {
 
         while (opModeIsActive()) {
             // Track loop time
-            loopTimeMs = loopTimer.milliseconds();
+            double loopTimeMs = loopTimer.milliseconds();
             loopTimer.reset();
-            avgLoopTimeMs = avgLoopTimeMs * 0.95 + loopTimeMs * 0.05;  // Smoothed average
+            avgLoopTimeMs = avgLoopTimeMs * 0.95 + loopTimeMs * 0.05;
 
-            // === UPDATE SENSORS (every loop - fast!) ===
+            // === UPDATE ALL CONTROLLERS ===
             drive.updateOdometry();
             turret.update();
             shooter.update();
+            intake.update();
+            transfer.update();
             if (uptake != null) uptake.update();
 
             double robotHeadingDeg = drive.getHeadingDegrees();
@@ -134,145 +162,62 @@ public class FieldTurretShooterTest extends LinearOpMode {
 
             drive.arcadeDrive(driveInput * speedMult, turnInput * turnMult);
 
-            // === TURRET MODE CONTROL ===
-            if (gamepad1.a) {
-                fieldController.enable();
+            // === A = TOGGLE INTAKE ===
+            if (gamepad1.a && !lastA) {
+                intake.toggle();
             }
-            if (gamepad1.b) {
-                fieldController.disable();
-            }
+            lastA = gamepad1.a;
 
-            // === ADJUST FIELD TARGET ===
-            if (gamepad1.dpad_up && !lastDpadUp) {
-                TARGET_FIELD_ANGLE += 10.0;
-                fieldController.setTargetFieldAngle(TARGET_FIELD_ANGLE);
+            // === B = TOGGLE TRANSFER ===
+            if (gamepad1.b && !lastB) {
+                transfer.toggle();
             }
-            lastDpadUp = gamepad1.dpad_up;
+            lastB = gamepad1.b;
 
-            if (gamepad1.dpad_down && !lastDpadDown) {
-                TARGET_FIELD_ANGLE -= 10.0;
-                fieldController.setTargetFieldAngle(TARGET_FIELD_ANGLE);
+            // === X = TOGGLE UPTAKE ===
+            if (gamepad1.x && !lastX) {
+                if (uptake != null) uptake.toggle();
             }
-            lastDpadDown = gamepad1.dpad_down;
+            lastX = gamepad1.x;
 
-            if (gamepad1.dpad_right && !lastDpadRight) {
-                TARGET_FIELD_ANGLE += 1.0;
-                fieldController.setTargetFieldAngle(TARGET_FIELD_ANGLE);
+            // === Y = TOGGLE TURRET TRACKING ===
+            if (gamepad1.y && !lastY) {
+                if (fieldController.isEnabled()) {
+                    fieldController.disable();
+                    turret.stop();
+                } else {
+                    fieldController.setTargetFieldAngle(TARGET_FIELD_ANGLE);
+                    fieldController.enable();
+                }
             }
-            lastDpadRight = gamepad1.dpad_right;
+            lastY = gamepad1.y;
 
-            if (gamepad1.dpad_left && !lastDpadLeft) {
-                TARGET_FIELD_ANGLE -= 1.0;
-                fieldController.setTargetFieldAngle(TARGET_FIELD_ANGLE);
-            }
-            lastDpadLeft = gamepad1.dpad_left;
-
-            // === RESET IMU ONLY ===
+            // === LB = RESET IMU ===
             if (gamepad1.left_bumper && !lastLB) {
                 drive.resetOdometry();
                 fieldController.resetPID();
             }
             lastLB = gamepad1.left_bumper;
 
-            // === SPEED MODE ===
+            // === RB = TOGGLE SPEED MODE ===
             if (gamepad1.right_bumper && !lastRB) {
                 drive.toggleSpeedMode();
             }
             lastRB = gamepad1.right_bumper;
 
             // === TURRET CONTROL ===
-            double turretPower = 0;
             if (fieldController.isEnabled()) {
-                turretPower = fieldController.update(robotHeadingDeg);
-            } else {
-                if (gamepad1.y) {
-                    turretPower = MANUAL_TURRET_POWER;
-                    turret.setPower(turretPower);
-                } else if (gamepad1.x) {
-                    turretPower = -MANUAL_TURRET_POWER;
-                    turret.setPower(turretPower);
-                } else {
-                    turret.stop();
-                }
+                fieldController.update(robotHeadingDeg);
             }
 
-            // === SHOOTER CONTROL (always running) ===
-            if (!shooter.isShootMode()) {
-                shooter.startShooting();
-            }
-
-            // === UPTAKE CONTROL (RT = feed ball to shoot) ===
-            boolean rtPressed = gamepad1.right_trigger > TRIGGER_THRESHOLD;
-            boolean ltPressed = gamepad1.left_trigger > TRIGGER_THRESHOLD;
-
-            if (HOLD_TO_SHOOT) {
-                if (rtPressed) {
-                    if (uptake != null && !uptake.isActive()) {
-                        uptake.reversed = false;
-                        uptake.toggle();
-                    }
-                } else {
-                    if (uptake != null && uptake.isActive()) {
-                        uptake.toggle();
-                    }
-                }
-            } else {
-                if (rtPressed && !lastRTrigger) {
-                    if (uptake != null) {
-                        uptake.reversed = false;
-                        if (!uptake.isActive()) uptake.toggle();
-                    }
-                }
-                if (ltPressed) {
-                    if (uptake != null && uptake.isActive()) {
-                        uptake.toggle();
-                    }
-                }
-            }
-            lastRTrigger = rtPressed;
-
-            // RPM adjustment
-            if (gamepad1.back && !lastBack) {
-                SHOOTER_RPM = Math.max(0, SHOOTER_RPM - RPM_STEP);
-                shooter.setTargetRPM(SHOOTER_RPM);
-            }
-            lastBack = gamepad1.back;
-
-            if (gamepad1.start && !lastStart) {
-                SHOOTER_RPM = Math.min(NewShooterController.MAX_RPM, SHOOTER_RPM + RPM_STEP);
-                shooter.setTargetRPM(SHOOTER_RPM);
-            }
-            lastStart = gamepad1.start;
-
-            // === TELEMETRY (only every TELEMETRY_INTERVAL_MS) ===
+            // === TELEMETRY (reduced rate) ===
             if (telemetryTimer.milliseconds() >= TELEMETRY_INTERVAL_MS) {
                 telemetryTimer.reset();
 
-                // Status summary
+                // Status
                 String turretStatus = fieldController.isEnabled() ?
-                        (fieldController.isAligned() ? "ALIGNED" : "TRACKING") : "MANUAL";
-                String shooterStatus = shooter.isShootMode() ?
-                        (shooter.isAtTargetRPM() ? "READY" : "SPIN UP") : "OFF";
-                String uptakeStatus = (uptake != null && uptake.isActive()) ? "FEED" : "WAIT";
-
-                telemetry.addData("Status", "%s | %s | %s", turretStatus, shooterStatus, uptakeStatus);
-                telemetry.addData("Loop", "%.1fms (%.0fHz)", avgLoopTimeMs, 1000.0 / avgLoopTimeMs);
-                telemetry.addLine();
-
-                telemetry.addData("Field Target", "%.1f", TARGET_FIELD_ANGLE);
-                telemetry.addData("Field Error", "%.1f", fieldController.getFieldError());
-                telemetry.addLine();
-
-                telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), SHOOTER_RPM);
-                telemetry.addData("RPM Error", "%.0f", shooter.getRPMError());
-                telemetry.addLine();
-
-                telemetry.addData("Robot", "%.1f", robotHeadingDeg);
-                telemetry.addData("Turret", "%.1f", turret.getTurretAngle());
-                telemetry.addLine();
-
-                telemetry.addLine("RT=Shoot | LT=Stop | DPad=Aim");
-                telemetry.update();
+                        (fieldController.isAligned() ? "ALIGNED" : "TRACKING") : "OFF";
+                String shooterStatus = shooter.isAtTargetRPM() ? "READY" : "SPIN";
             }
         }
 
@@ -280,6 +225,13 @@ public class FieldTurretShooterTest extends LinearOpMode {
         drive.stopDrive();
         turret.stop();
         shooter.stopShooting();
-        if (uptake != null && uptake.isActive()) uptake.toggle();
+        intake.setState(false);
+        intake.update();
+        transfer.setState(false);
+        transfer.update();
+        if (uptake != null) {
+            uptake.setState(false);
+            uptake.update();
+        }
     }
 }
