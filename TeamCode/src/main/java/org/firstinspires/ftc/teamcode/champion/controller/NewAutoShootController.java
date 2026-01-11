@@ -319,7 +319,7 @@ public class NewAutoShootController {
                 }
             }
         } catch (Exception e) {
-            // Ignore exceptions
+            // AprilTag detection failed - will return -1
         }
 
         return -1;

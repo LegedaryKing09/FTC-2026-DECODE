@@ -4,13 +4,13 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 
 @Config
 @TeleOp(name = "Transfer Test", group = "Test")
 public class TransferTest extends LinearOpMode {
 
-    TransferController transferController;
+    NewTransferController transferController;
 
     public static double TARGET_POWER = 0;
 
@@ -25,7 +25,7 @@ public class TransferTest extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        transferController = new TransferController(this);
+        transferController = new NewTransferController(this);
 
         waitForStart();
 

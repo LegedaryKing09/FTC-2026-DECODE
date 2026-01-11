@@ -11,7 +11,6 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
-import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
@@ -171,7 +170,7 @@ public class CloseBlue extends LinearOpMode {
         // Initialize limelight
         try {
             limelightController = new LimelightAlignmentController(this, driveController);
-            limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
+            limelightController.setTargetTag(NewAutoShootController.APRILTAG_ID);
             autoShootController = new NewAutoShootController(this, driveController, shooterController,
                     intakeController, transferController, uptakeController, limelightController, rampController);
         } catch (Exception e) {
@@ -427,7 +426,7 @@ public class CloseBlue extends LinearOpMode {
                 shooterThread.interrupt();
                 shooterThread.join(500);
             } catch (Exception e) {
-                // Ignore
+                // Thread cleanup failed - thread may have already stopped
             }
         }
 

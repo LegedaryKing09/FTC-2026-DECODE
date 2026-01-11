@@ -5,7 +5,6 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
@@ -66,8 +65,6 @@ public class AutonFarBlue extends LinearOpMode {
 
 
     public boolean intakeModeActive = false;
-
-    public boolean isShooting = false;
     public boolean uptakeStoppedBySwitch = false;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
@@ -114,7 +111,7 @@ public class AutonFarBlue extends LinearOpMode {
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Intake: " + e.getMessage());
         }
         intakeController = new NewIntakeController(intakeMotor);
 
@@ -123,7 +120,7 @@ public class AutonFarBlue extends LinearOpMode {
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Transfer: " + e.getMessage());
         }
         transferController = new NewTransferController(transferMotor);
 
@@ -132,7 +129,7 @@ public class AutonFarBlue extends LinearOpMode {
         try {
             uptakeServo = hardwareMap.get(CRServo.class, "uptake");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Uptake: " + e.getMessage());
         }
         uptakeController = new UptakeController(uptakeServo);
 
@@ -140,7 +137,7 @@ public class AutonFarBlue extends LinearOpMode {
         try {
             uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Uptake Switch: " + e.getMessage());
         }
 
         // Initialize shooter
@@ -150,7 +147,7 @@ public class AutonFarBlue extends LinearOpMode {
             shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
             shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
         }
         shooterController = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
 
@@ -159,13 +156,13 @@ public class AutonFarBlue extends LinearOpMode {
             rampController = new NewRampController(this);
             rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Ramp: " + e.getMessage());
         }
 
         // Initialize limelight
         try {
             limelightController = new LimelightAlignmentController(this, driveController);
-            limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
+            limelightController.setTargetTag(NewAutoShootController.APRILTAG_ID);
             autoShootController = new NewAutoShootController(this, driveController, shooterController,
                     intakeController, transferController, uptakeController, limelightController, rampController);
         } catch (Exception e) {
@@ -350,16 +347,6 @@ public class AutonFarBlue extends LinearOpMode {
         return Math.abs(currentRPM - targetRPM) < rpmTolerance;
     }
 
-    private int detectPattern() {
-        if (autonController != null) {
-            return autonController.detectPattern();
-        }
-
-        telemetry.addLine("Pattern detection failed, using default (22)");
-        telemetry.update();
-        return 1;
-    }
-
     private void driveDistance(double distanceInches, double power) {
         // FIXED: Negate distance to correct reversed direction
         if (autonController != null) {
@@ -483,7 +470,7 @@ public class AutonFarBlue extends LinearOpMode {
                 shooterThread.interrupt();
                 shooterThread.join(500);
             } catch (Exception e) {
-                // Ignore
+                // Thread cleanup failed - thread may have already stopped
             }
         }
 

@@ -7,12 +7,10 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
-import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -36,7 +34,6 @@ public class AutonCloseBlue extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
-    TurretController turret;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -57,7 +54,6 @@ public class AutonCloseBlue extends LinearOpMode {
     public static double INTAKE_FORWARD = 30.0;
     public static double INTAKE_BACKWARD = 30.0;
     public static double SECOND_PICKUP = 24.0;
-    public static double THIRD_PICKUP = 48.0;
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 2000;
@@ -69,7 +65,6 @@ public class AutonCloseBlue extends LinearOpMode {
 
     public boolean intakeModeActive = false;
 
-    public boolean isShooting = false;
     public boolean uptakeStoppedBySwitch = false;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
@@ -118,7 +113,7 @@ public class AutonCloseBlue extends LinearOpMode {
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Intake: " + e.getMessage());
         }
         intakeController = new NewIntakeController(intakeMotor);
 
@@ -127,24 +122,26 @@ public class AutonCloseBlue extends LinearOpMode {
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Transfer: " + e.getMessage());
         }
         transferController = new NewTransferController(transferMotor);
 
         // Initialize uptake
         CRServo uptakeServo = null;
+        CRServo uptakeServo2 = null;
         try {
             uptakeServo = hardwareMap.get(CRServo.class, "uptake");
+            uptakeServo2 = hardwareMap.get(CRServo.class, "uptake2");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Uptake: " + e.getMessage());
         }
-        uptakeController = new UptakeController(uptakeServo);
+        uptakeController = new UptakeController(uptakeServo, uptakeServo2);
 
         // Initialize uptake ball detection switch
         try {
             uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Uptake Switch: " + e.getMessage());
         }
 
         // Initialize shooter
@@ -154,7 +151,7 @@ public class AutonCloseBlue extends LinearOpMode {
             shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
             shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
         }
         shooterController = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
 
@@ -163,13 +160,13 @@ public class AutonCloseBlue extends LinearOpMode {
             rampController = new NewRampController(this);
             rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Ramp: " + e.getMessage());
         }
 
         // Initialize limelight
         try {
             limelightController = new LimelightAlignmentController(this, driveController);
-            limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
+            limelightController.setTargetTag(NewAutoShootController.APRILTAG_ID);
             autoShootController = new NewAutoShootController(this, driveController, shooterController,
                     intakeController, transferController, uptakeController, limelightController, rampController);
         } catch (Exception e) {
@@ -177,12 +174,6 @@ public class AutonCloseBlue extends LinearOpMode {
             autoShootController = null;
         }
 
-        try {
-            turret = new TurretController(this);
-        } catch (Exception ignored) {
-        }
-
-        // Initialize autoncontroller
         autonController = new NewAutonController(
                 this,
                 driveController,
@@ -212,7 +203,7 @@ public class AutonCloseBlue extends LinearOpMode {
         turnAngle(LEFT_TURN_ANGLE, TURN_POWER);
         sleep(500);
 
-        //go forward while intaking
+        //go forward while running intake
         intakeForward();
         sleep(500);
 
@@ -240,7 +231,7 @@ public class AutonCloseBlue extends LinearOpMode {
         turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
         sleep(500);
 
-        //go forward while intaking
+        //go forward while running intake
         intakeForward();
         sleep(500);
 
@@ -292,21 +283,8 @@ public class AutonCloseBlue extends LinearOpMode {
         uptakeController.update();
 
         timer.reset();
-        int ballsShotCount = 0;
-        boolean lastBallState = false;
 
         while (opModeIsActive() && timer.milliseconds() < SHOOT_TIME_MS) {
-            // Get current values for monitoring only
-            boolean ballDetected = isBallAtUptake();
-            boolean shooterReady = isShooterReady();
-            double switchVoltage = (uptakeSwitch != null) ? uptakeSwitch.getVoltage() : -1.0;
-
-            // Count balls shot (detect when ball passes through)
-            if (ballDetected && !lastBallState) {
-                ballsShotCount++;
-            }
-            lastBallState = ballDetected;
-
             // Update all controllers to keep them running
             intakeController.update();
             transferController.update();
@@ -402,31 +380,6 @@ public class AutonCloseBlue extends LinearOpMode {
 
         uptakeController.setState(false);
         uptakeController.update();
-    }
-
-    private boolean isBallAtUptake() {
-        if (uptakeSwitch == null) return true; // If no switch, assume ready
-        return uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
-    }
-
-    private boolean isShooterReady() {
-        if (shooterController == null) return true;
-
-        double currentRPM = shooterController.getRPM();
-        double targetRPM = shooterController.getTargetRPM();
-        double rpmTolerance = 100.0;
-
-        return Math.abs(currentRPM - targetRPM) < rpmTolerance;
-    }
-
-    private int detectPattern() {
-        if (autonController != null) {
-            return autonController.detectPattern();
-        }
-
-        telemetry.addLine("Pattern detection failed, using default (22)");
-        telemetry.update();
-        return 1;
     }
 
     private void driveDistance(double distanceInches, double power) {
@@ -545,7 +498,7 @@ public class AutonCloseBlue extends LinearOpMode {
                 shooterThread.interrupt();
                 shooterThread.join(500);
             } catch (Exception e) {
-                // Ignore
+                // Thread cleanup failed - thread may have already stopped
             }
         }
 

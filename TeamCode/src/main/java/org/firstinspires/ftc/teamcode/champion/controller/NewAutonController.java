@@ -119,7 +119,7 @@ public class NewAutonController {
             try {
                 pidThread.interrupt();
             } catch (Exception e) {
-                // Ignore
+                // Thread interruption failed - thread may have already stopped
             }
         }
     }

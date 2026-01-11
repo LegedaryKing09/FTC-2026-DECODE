@@ -5,27 +5,27 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
-import org.firstinspires.ftc.teamcode.champion.controller.AutonController;
-import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
-import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
-import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
-import org.firstinspires.ftc.teamcode.champion.controller.RampController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 
 @Config
 @Autonomous(name = "Basic Auton Running", group = "Competition")
 public class BasicAuton extends LinearOpMode {
     // Controllers
     SixWheelDriveController driveController;
-    TransferController transferController;
-    ShooterController shooterController;
-    IntakeController intakeController;
+    NewTransferController transferController;
+    NewShooterController shooterController;
+    NewIntakeController intakeController;
     LimelightAlignmentController limelightController;
-    AutoShootController autoShootController;
-    RampController rampController;
-    AutonController autonController;
+    NewAutoShootController autoShootController;
+    NewRampController rampController;
+    NewAutonController autonController;
 
     public static double CONSTANT_SHOOTER_RPM = 2700.0;
     public static double CONSTANT_RAMP_ANGLE = 119.0;
@@ -78,10 +78,10 @@ public class BasicAuton extends LinearOpMode {
 
     private void initializeRobot() {
         driveController = new SixWheelDriveController(this);
-        transferController = new TransferController(this);
-        shooterController = new ShooterController(this);
-        intakeController = new IntakeController(this);
-        rampController = new RampController(this);
+        transferController = new NewTransferController(this);
+        shooterController = new NewShooterController(this);
+        intakeController = new NewIntakeController(this);
+        rampController = new NewRampController(this);
 
         // Set initial ramp angle
         rampController.setAngle(CONSTANT_RAMP_ANGLE);
@@ -89,8 +89,8 @@ public class BasicAuton extends LinearOpMode {
         // Try to initialize Limelight
         try {
             limelightController = new LimelightAlignmentController(this, driveController);
-            limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
-            autoShootController = new AutoShootController(this, driveController, shooterController,
+            limelightController.setTargetTag(NewAutoShootController.APRILTAG_ID);
+            autoShootController = new NewAutoShootController(this, driveController, shooterController,
                     intakeController, transferController, limelightController, rampController);
         } catch (Exception e) {
             telemetry.addLine("⚠ Vision system unavailable");
@@ -98,7 +98,7 @@ public class BasicAuton extends LinearOpMode {
         }
 
         // Initialize AutonController
-        autonController = new AutonController(this, driveController, transferController,
+        autonController = new NewAutonController(this, driveController, transferController,
                 shooterController, intakeController, limelightController, autoShootController);
 
         // CRITICAL: Set the RampController so real-time RPM compensation can work

@@ -4,13 +4,13 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 
 @Config
 @TeleOp(name = "Intake Test", group = "Test")
 public class IntakeTest extends LinearOpMode {
 
-    IntakeController intakeController;
+    NewIntakeController intakeController;
 
     public static double TARGET_POWER = 0;
 
@@ -25,7 +25,7 @@ public class IntakeTest extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        intakeController = new IntakeController(this);
+        intakeController = new NewIntakeController(this);
 
         waitForStart();
 

@@ -6,10 +6,10 @@ import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.RampController;
-import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
-import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 
 /**
  * IMMEDIATE RESPONSE Test OpMode for RPM Compensation
@@ -38,10 +38,10 @@ public class ShootingTest extends LinearOpMode {
 
     }
 
-    private ShooterController shooterController;
-    private RampController rampController;
-    private TransferController transferController;
-    private IntakeController intakeController;
+    private NewShooterController shooterController;
+    private NewRampController rampController;
+    private NewTransferController transferController;
+    private NewIntakeController intakeController;
     private final ElapsedTime timer = new ElapsedTime();
 
     // Real-time tracking - volatile for thread safety
@@ -60,10 +60,10 @@ public class ShootingTest extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        shooterController = new ShooterController(this);
-        rampController = new RampController(this);
-        transferController = new TransferController(this);
-        intakeController = new IntakeController(this);
+        shooterController = new NewShooterController(this);
+        rampController = new NewRampController(this);
+        transferController = new NewTransferController(this);
+        intakeController = new NewIntakeController(this);
 
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 

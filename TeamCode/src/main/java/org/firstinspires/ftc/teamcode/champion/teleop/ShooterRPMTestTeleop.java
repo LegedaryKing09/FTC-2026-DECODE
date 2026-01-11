@@ -7,9 +7,9 @@ import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
-import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 
@@ -33,9 +33,9 @@ public class ShooterRPMTestTeleop extends LinearOpMode {
 
     // Controllers
     SixWheelDriveController driveController;
-    TransferController transferController;
-    ShooterController shooterController;
-    IntakeController intakeController;
+    NewTransferController transferController;
+    NewShooterController shooterController;
+    NewIntakeController intakeController;
     LimelightAlignmentController limelightController;
 
     // Dashboard config values - change these in real-time via FTC Dashboard
@@ -64,9 +64,9 @@ public class ShooterRPMTestTeleop extends LinearOpMode {
     public void runOpMode() {
         // Initialize controllers
         driveController = new SixWheelDriveController(this);
-        transferController = new TransferController(this);
-        shooterController = new ShooterController(this);
-        intakeController = new IntakeController(this);
+        transferController = new NewTransferController(this);
+        shooterController = new NewShooterController(this);
+        intakeController = new NewIntakeController(this);
 
         try {
             limelightController = new LimelightAlignmentController(this, driveController);

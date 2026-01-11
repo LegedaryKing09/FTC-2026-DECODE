@@ -3,12 +3,12 @@ package org.firstinspires.ftc.teamcode.champion.tests;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 
 @TeleOp(name = "Shooter Test", group = "Test")
 public class ShooterTest extends LinearOpMode {
 
-    private ShooterController shooterController;
+    private NewShooterController shooterController;
     private ElapsedTime runtime = new ElapsedTime();
 
     // Custom RPM control variables
@@ -31,7 +31,7 @@ public class ShooterTest extends LinearOpMode {
 
         // Initialize the shooter controller
         try {
-            shooterController = new ShooterController(this);
+            shooterController = new NewShooterController(this);
             telemetry.addData("Status", "Shooter Initialized Successfully");
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to initialize shooter: " + e.getMessage());
@@ -102,7 +102,7 @@ public class ShooterTest extends LinearOpMode {
 
             // Fine RPM control with left trigger (0-100% of max RPM)
             if (gamepad1.left_trigger > 0.1) {
-                double triggerRPM = gamepad1.left_trigger * ShooterController.SHOOTER_FULL_RPM;
+                double triggerRPM = gamepad1.left_trigger * NewShooterController.SHOOTER_FULL_RPM;
                 shooterController.setShooterRPM(triggerRPM);
                 telemetry.addData("Trigger Control", "%.0f RPM (%.1f%%)", triggerRPM, gamepad1.left_trigger * 100);
             }
@@ -127,7 +127,7 @@ public class ShooterTest extends LinearOpMode {
             telemetry.addData("Custom RPM Setting", "%.0f", customRPM);
             telemetry.addData("Trigger Input", "%.3f (%.0f RPM)",
                     gamepad1.left_trigger,
-                    gamepad1.left_trigger * ShooterController.SHOOTER_FULL_RPM);
+                    gamepad1.left_trigger * NewShooterController.SHOOTER_FULL_RPM);
 
             // Performance indicators
             if (shooterController.isAtTargetRPM()) {

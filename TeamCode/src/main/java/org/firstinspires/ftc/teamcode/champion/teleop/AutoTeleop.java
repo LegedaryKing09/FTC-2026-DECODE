@@ -348,7 +348,7 @@ public class AutoTeleop extends LinearOpMode {
                 pidThread.interrupt();
                 pidThread.join(100);
             } catch (Exception e) {
-                // Ignore
+                // Thread cleanup failed - thread may have already stopped
             }
         }
 

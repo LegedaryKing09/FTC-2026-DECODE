@@ -484,7 +484,8 @@ public class LimelightAlignmentController {
                 return true;
             }
 
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            // Target acquisition failed - will be handled by returning false
         }
 
         hasTarget = false;

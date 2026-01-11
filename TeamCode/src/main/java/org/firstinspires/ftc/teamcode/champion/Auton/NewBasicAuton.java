@@ -4,7 +4,6 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -141,7 +140,7 @@ public class NewBasicAuton extends LinearOpMode {
 
         try {
             limelightController = new LimelightAlignmentController(this, driveController);
-            limelightController.setTargetTag(AutoShootController.APRILTAG_ID);
+            limelightController.setTargetTag(NewAutoShootController.APRILTAG_ID);
             autoShootController = new NewAutoShootController(this, driveController, shooterController,
                     intakeController, transferController, uptakeController, limelightController, rampController);
         } catch (Exception e) {

@@ -268,22 +268,26 @@ public class OdometrySystemShoot extends LinearOpMode {
         DcMotor shooterMotor2 = null;
         try {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
-        } catch (Exception ignored) {}
-        try {
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
+        }
         shooter = new NewShooterController(shooterMotor1, shooterMotor2);
 
         DcMotor intakeMotor = null;
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Intake: " + e.getMessage());
+        }
         intake = new NewIntakeController(intakeMotor);
 
         DcMotor transferMotor = null;
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Transfer: " + e.getMessage());
+        }
         transfer = new NewTransferController(transferMotor);
 
         CRServo uptakeServo1 = hardwareMap.get(CRServo.class, "servo1");

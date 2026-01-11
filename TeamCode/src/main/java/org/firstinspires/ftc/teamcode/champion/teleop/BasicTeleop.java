@@ -6,25 +6,25 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 
-import org.firstinspires.ftc.teamcode.champion.controller.AutoShootController;
-import org.firstinspires.ftc.teamcode.champion.controller.IntakeController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
-import org.firstinspires.ftc.teamcode.champion.controller.TransferController;
-import org.firstinspires.ftc.teamcode.champion.controller.ShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
-import org.firstinspires.ftc.teamcode.champion.controller.RampController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 
 @Config
 @TeleOp
 public class BasicTeleop extends LinearOpMode {
 
     SixWheelDriveController driveController;
-    TransferController transferController;
-    ShooterController shooterController;
-    IntakeController intakeController;
+    NewTransferController transferController;
+    NewShooterController shooterController;
+    NewIntakeController intakeController;
     LimelightAlignmentController limelightController;
-    AutoShootController autoShootController;
-    RampController rampController;
+    NewAutoShootController autoShootController;
+    NewRampController rampController;
 
     public static double SHOOTING_POWER = 0.55;
     public static double INTAKE_POWER = 0;
@@ -50,23 +50,23 @@ public class BasicTeleop extends LinearOpMode {
     public void runOpMode() {
 
         driveController = new SixWheelDriveController(this);
-        transferController = new TransferController(this);
-        shooterController = new ShooterController(this);
-        intakeController = new IntakeController(this);
-        rampController = new RampController(this);
+        transferController = new NewTransferController(this);
+        shooterController = new NewShooterController(this);
+        intakeController = new NewIntakeController(this);
+        rampController = new NewRampController(this);
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         LimelightAlignmentController tempLimelight = null;
         try {
             tempLimelight = new LimelightAlignmentController(this, driveController);
-            tempLimelight.setTargetTag(AutoShootController.APRILTAG_ID);
+            tempLimelight.setTargetTag(NewAutoShootController.APRILTAG_ID);
         } catch (Exception e) {
             telemetry.addData("ERROR", "Failed to init Limelight: " + e.getMessage());
             telemetry.update();
         }
         limelightController = tempLimelight;
 
-        autoShootController = new AutoShootController(
+        autoShootController = new NewAutoShootController(
                 this,
                 driveController,
                 shooterController,
@@ -188,9 +188,9 @@ public class BasicTeleop extends LinearOpMode {
             }
 
             if (isManualAligning) {
-                limelightController.align(AutoShootController.APRILTAG_ID);
+                limelightController.align(NewAutoShootController.APRILTAG_ID);
                 if (limelightController.hasTarget() &&
-                        limelightController.getTargetError() <= AutoShootController.ALIGNMENT_THRESHOLD) {
+                        limelightController.getTargetError() <= NewAutoShootController.ALIGNMENT_THRESHOLD) {
                     telemetry.addLine(">>> ALIGNED - Ready to shoot!");
                 }
             }
@@ -223,7 +223,7 @@ public class BasicTeleop extends LinearOpMode {
                 telemetry.addData("Expected Right Power", "%.2f", rightPower);
 
                 telemetry.addData("Shooting Power", "%.2f%% (%.0f RPM)",
-                        SHOOTING_POWER * 100, SHOOTING_POWER * ShooterController.SHOOTER_FULL_RPM);
+                        SHOOTING_POWER * 100, SHOOTING_POWER * NewShooterController.SHOOTER_FULL_RPM);
                 telemetry.addData("Intake Power:", INTAKE_POWER);
 
                 telemetry.addData("Shooter Encoder Velocity(MPS):", shooterController.getShooterMPS());

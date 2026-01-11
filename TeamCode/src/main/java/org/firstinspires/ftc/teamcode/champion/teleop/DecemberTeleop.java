@@ -10,7 +10,13 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.controller.*;
+import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
+import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 
 @Config
 @TeleOp(name = "December Teleop", group = "Competition")
@@ -168,20 +174,23 @@ public class DecemberTeleop extends LinearOpMode {
         // Initialize turret (use 'this' for LinearOpMode constructor)
         try {
             turret = new TurretController(this);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Turret: " + e.getMessage());
         }
 
         // Initialize ramp
         try {
             ramp = new NewRampController(this);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Ramp: " + e.getMessage());
         }
 
         // Initialize intake
         DcMotor intakeMotor = null;
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Intake: " + e.getMessage());
         }
         intake = new NewIntakeController(intakeMotor);
 
@@ -189,7 +198,8 @@ public class DecemberTeleop extends LinearOpMode {
         DcMotor transferMotor = null;
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Transfer: " + e.getMessage());
         }
         transfer = new NewTransferController(transferMotor);
 
@@ -197,14 +207,16 @@ public class DecemberTeleop extends LinearOpMode {
         CRServo uptakeServo = null;
         try {
             uptakeServo = hardwareMap.get(CRServo.class, "uptake");
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Uptake: " + e.getMessage());
         }
         uptake = new UptakeController(uptakeServo);
 
         // Initialize uptake ball detection switch
         try {
             uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Uptake Switch: " + e.getMessage());
         }
 
         // Initialize shooter (fixed motor names: "shooter" not "shooter1")
@@ -212,11 +224,9 @@ public class DecemberTeleop extends LinearOpMode {
         DcMotor shooterMotor2 = null;
         try {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
-        } catch (Exception ignored) {
-        }
-        try {
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
         }
         shooter = new NewShooterController(shooterMotor1, shooterMotor2);
     }
@@ -584,11 +594,4 @@ public class DecemberTeleop extends LinearOpMode {
         telemetry.update();
     }
 
-    private double getBatteryVoltage() {
-        double voltage = 0;
-        for (com.qualcomm.robotcore.hardware.VoltageSensor sensor : hardwareMap.voltageSensor) {
-            voltage = Math.max(voltage, sensor.getVoltage());
-        }
-        return voltage;
-    }
 }
