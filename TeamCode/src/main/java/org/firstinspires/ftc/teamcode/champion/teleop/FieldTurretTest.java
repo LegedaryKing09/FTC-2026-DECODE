@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.teleop;
 
+import android.annotation.SuppressLint;
+
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
@@ -12,22 +14,18 @@ import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 
 /**
  * Field-Centric Turret Test with PID Tuning
- *
  * Drive the robot while the turret automatically maintains aim at a fixed field direction.
  * The turret angle is set to 0° ONCE at startup and remains absolute throughout.
- *
  * SETUP:
  * 1. Position robot at starting location
  * 2. Point turret at the target (this will be 0° turret angle)
  * 3. Press Start
  * 4. Set TARGET_FIELD_ANGLE = 0° (since turret starts pointing at target)
  * 5. Drive around - turret should stay aimed at target!
- *
  * ALTERNATIVE SETUP:
  * 1. Position robot, turret centered on robot
  * 2. Measure angle from robot forward to target (e.g., -30° if target is right)
  * 3. Set TARGET_FIELD_ANGLE = -30°
- *
  * Controls:
  *   Left Stick = Drive forward/back
  *   Right Stick = Turn robot
@@ -39,7 +37,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
  *   DPad Left/Right = Adjust field target ±1°
  *   Left Bumper = Reset IMU only (NOT turret!)
  *   Right Bumper = Toggle drive speed
- *
  * NOTE: There is NO way to reset turret angle during operation!
  * This is intentional - turret angle must stay absolute.
  */
@@ -213,7 +210,7 @@ public class FieldTurretTest extends LinearOpMode {
             telemetry.addData("Enabled", TurretFieldController.USE_WIRE_SAFETY);
             telemetry.addData("Threshold", "±%.1f°", TurretFieldController.WIRE_SAFETY_THRESHOLD);
             double safetyMargin = TurretFieldController.WIRE_SAFETY_THRESHOLD - Math.abs(turret.getTurretAngle());
-            String safetyStatus = safetyMargin > 0 ? String.format("SAFE (%.1f° margin)", safetyMargin) : "⚠ UNSAFE";
+            @SuppressLint("DefaultLocale") String safetyStatus = safetyMargin > 0 ? String.format("SAFE (%.1f° margin)", safetyMargin) : "⚠ UNSAFE";
             telemetry.addData("Status", safetyStatus);
             telemetry.addLine();
 

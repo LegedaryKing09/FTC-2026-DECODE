@@ -468,6 +468,7 @@ public class AutonCloseBlue extends LinearOpMode {
         return Math.toDegrees(driveController.getHeading());
     }
 
+    /** @noinspection BusyWait*/
     private void startShooterThread() {
         runShooter = true;
         shooterThread = new Thread(() -> {

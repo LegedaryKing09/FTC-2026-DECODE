@@ -18,24 +18,19 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 
 /**
  * Testing teleop using newer controllers with BasicTeleop-style manual controls
- *
  * Controls (single gamepad):
  * - Left Stick Y: Drive forward/backward
  * - Right Stick X: Turn
- *
  * - A: Decrease ramp angle
  * - B: Increase ramp angle
  * - Y: Start shooter at current target RPM
  * - X: Stop all (shooter, intake, transfer, uptake)
- *
  * - Dpad Up: Increase target RPM
  * - Dpad Down: Decrease target RPM
- *
  * - Right Trigger: Run transfer (hold)
  * - Right Bumper: Run intake (hold)
  * - Left Bumper: Reverse intake/eject (hold)
  * - Left Trigger: Run uptake (hold)
- *
  * - Back: Toggle fast/slow drive speed
  * - Start: Toggle telemetry display
  */
@@ -200,13 +195,15 @@ public class DecemberTesting extends LinearOpMode {
         }
 
         // Initialize uptake
+        CRServo uptakeServo = null;
+        CRServo uptakeServo2 = null;
         try {
-            CRServo uptakeServo = hardwareMap.get(CRServo.class, "uptake");
-            uptake = new UptakeController(uptakeServo);
-            telemetry.addData("✓ Uptake", "OK");
+            uptakeServo = hardwareMap.get(CRServo.class, "uptake");
+            uptakeServo2 = hardwareMap.get(CRServo.class, "uptake2");
         } catch (Exception e) {
-            telemetry.addData("✗ Uptake", "NOT FOUND: " + e.getMessage());
+            telemetry.addData("Hardware Init Error", "Uptake: " + e.getMessage());
         }
+        uptake = new UptakeController(uptakeServo, uptakeServo2);
     }
 
     /**

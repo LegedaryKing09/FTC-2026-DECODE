@@ -19,7 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package fr.charleslabs.simplypid;
+package org.firstinspires.ftc.teamcode.champion.util;
 
 
 public class SimplyPID {

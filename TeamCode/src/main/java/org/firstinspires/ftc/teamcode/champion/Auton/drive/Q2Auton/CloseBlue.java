@@ -134,12 +134,14 @@ public class CloseBlue extends LinearOpMode {
 
         // Initialize uptake
         CRServo uptakeServo = null;
+        CRServo uptakeServo2 = null;
         try {
             uptakeServo = hardwareMap.get(CRServo.class, "uptake");
+            uptakeServo2 = hardwareMap.get(CRServo.class, "uptake2");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Uptake: " + e.getMessage());
         }
-        uptakeController = new UptakeController(uptakeServo);
+        uptakeController = new UptakeController(uptakeServo, uptakeServo2);
 
         // Initialize uptake ball detection switch
         try {
