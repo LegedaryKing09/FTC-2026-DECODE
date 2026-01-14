@@ -122,8 +122,15 @@ public class TurretController {
 
         double currentServoAngle = getRawServoAngle();
 
+        // Calculate the shortest angular difference accounting for wraparound
+        double angleDiff = currentServoAngle - zeroServoAngle;
+
+        // Normalize the difference to -180 to +180 range
+        while (angleDiff > 180) angleDiff -= 360;
+        while (angleDiff < -180) angleDiff += 360;
+
         // Calculate servo angle relative to start (accounting for wraparound)
-        double servoAngleFromStart = (servoRotationCount * 360.0) + (currentServoAngle - zeroServoAngle);
+        double servoAngleFromStart = (servoRotationCount * 360.0) + angleDiff;
 
         // Convert servo angle to turret angle using gear ratio
         double turretAngle = servoAngleFromStart / GEAR_RATIO;
