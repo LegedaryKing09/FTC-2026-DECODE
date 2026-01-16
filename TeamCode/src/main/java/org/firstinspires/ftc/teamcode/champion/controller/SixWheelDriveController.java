@@ -134,9 +134,9 @@ public class SixWheelDriveController {
     private void initializeMotors() {
         // Set directions (left side forward, right side reversed)
         lf.setDirection(DcMotorSimple.Direction.FORWARD);
-        lb.setDirection(DcMotorSimple.Direction.FORWARD);
+        lb.setDirection(DcMotorSimple.Direction.REVERSE);
         rf.setDirection(DcMotorSimple.Direction.REVERSE);
-        rb.setDirection(DcMotorSimple.Direction.REVERSE);
+        rb.setDirection(DcMotorSimple.Direction.FORWARD);
 
         // Set brake mode
         lf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);

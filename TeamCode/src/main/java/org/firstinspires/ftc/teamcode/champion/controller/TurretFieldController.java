@@ -30,7 +30,7 @@ public class TurretFieldController {
     private final FtcDashboard dashboard;
 
     // ========== FIELD TARGET ==========
-    public static double TARGET_FIELD_ANGLE = 35.0;
+    public static double TARGET_FIELD_ANGLE = 27.0;
 
     // ========== DIRECTION-DEPENDENT PID ==========
     // Clockwise (positive error → positive power)

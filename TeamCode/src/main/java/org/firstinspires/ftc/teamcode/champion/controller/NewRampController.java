@@ -6,6 +6,20 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+/**
+ * Ramp Controller with Continuous Angle Tracking
+ *
+ * PROBLEM SOLVED:
+ * - Analog servo reads 0-360° then resets
+ * - We need continuous tracking beyond 360°
+ * - Starting position = 0° reference
+ *
+ * HOW IT WORKS:
+ * 1. At initialize(), record current raw angle as "zero reference"
+ * 2. Track wraparounds (when servo crosses 0°/360° boundary)
+ * 3. Calculate continuous angle = (rotations * 360) + (raw - zero)
+ * 4. All commands use this continuous angle (can go negative or >360)
+ */
 @Config
 public class NewRampController {
 
@@ -23,6 +37,9 @@ public class NewRampController {
     public static double MIN_POWER = 0.05;          // Minimum power to overcome friction
     public static double TIMEOUT_SECONDS = 3.0;     // Timeout for moves
 
+    // Set to true if positive power makes angle go negative
+    public static boolean INVERT_OUTPUT = true;
+
     // Constants for Axon mini servo
     public static double VOLTAGE_TO_DEGREES = 360.0 / 3.3;
 
@@ -30,8 +47,14 @@ public class NewRampController {
     private final AnalogInput rampAnalog;
     private final ElapsedTime runtime;
 
+    // === CONTINUOUS ANGLE TRACKING ===
+    private double zeroRawAngle = 0;      // Raw angle at startup (our "zero" reference)
+    private double lastRawAngle = 0;      // Previous raw angle (for wraparound detection)
+    private int rotationCount = 0;        // How many full rotations from start
+    private boolean initialized = false;
+
     // PID state
-    private double targetAngle = 0;
+    private double targetAngle = 0;       // Target in continuous angle (can be negative or >360)
     private double integral = 0;
     private double lastError = 0;
     private double lastTime = 0;
@@ -39,87 +62,96 @@ public class NewRampController {
     private double moveStartTime = 0;
 
     // Velocity tracking
-    private double lastAngle = 0;
+    private double lastAngleForVelocity = 0;
     private double lastVelocityTime = 0;
     private double velocity = 0;
-
-    // Initialization state
-    private boolean isInitialized = false;
-    private static final double INIT_TARGET_ANGLE = 0.0;  // Target angle for initialization
 
     public NewRampController(LinearOpMode opMode) {
         rampServo = opMode.hardwareMap.get(CRServo.class, RAMP_SERVO_NAME);
         rampAnalog = opMode.hardwareMap.get(AnalogInput.class, RAMP_ANALOG_NAME);
         runtime = new ElapsedTime();
 
-        // REVERSE the servo direction since only negative power works
-        rampServo.setDirection(CRServo.Direction.REVERSE);
+        // Don't reverse - let positive power = positive angle change
+        rampServo.setDirection(CRServo.Direction.FORWARD);
 
-        lastAngle = getCurrentAngle();
         lastTime = runtime.seconds();
         lastVelocityTime = lastTime;
-        targetAngle = getCurrentAngle();
     }
 
     /**
-     * Initialize ramp to 0 degrees
-     * Call this during initialization or at the start of autonomous/teleop
+     * Initialize ramp - sets current position as 0°
+     * Call this at the start of teleop/auto
      */
     public void initialize() {
-        targetAngle = INIT_TARGET_ANGLE;
-        pidActive = true;
-        resetPID();
-        moveStartTime = runtime.seconds();
-        isInitialized = false;
+        zeroRawAngle = getRawAngle();
+        lastRawAngle = zeroRawAngle;
+        rotationCount = 0;
+        targetAngle = 0;  // Start position is now 0°
+        initialized = true;
+
+        lastAngleForVelocity = 0;
+        lastVelocityTime = runtime.seconds();
     }
 
     /**
      * Check if initialization is complete
      */
     public boolean isInitialized() {
-        return isInitialized;
+        return initialized;
     }
 
     /**
-     * Update method - handles PID control and velocity calculation
+     * Update method - handles angle tracking and PID control
      * MUST be called every loop!
      */
     public void update() {
-        // Update velocity
+        if (!initialized) {
+            initialize();
+            return;
+        }
+
+        // === UPDATE CONTINUOUS ANGLE TRACKING ===
+        double currentRawAngle = getRawAngle();
+
+        // Detect wraparound (servo crossing 0°/360° boundary)
+        double delta = currentRawAngle - lastRawAngle;
+
+        // If delta is large negative, servo wrapped from ~360° to ~0° (increasing angle)
+        if (delta < -180) {
+            rotationCount++;
+        }
+        // If delta is large positive, servo wrapped from ~0° to ~360° (decreasing angle)
+        else if (delta > 180) {
+            rotationCount--;
+        }
+
+        lastRawAngle = currentRawAngle;
+
+        // === UPDATE VELOCITY ===
         double currentTime = runtime.seconds();
         double deltaTime = currentTime - lastVelocityTime;
 
         if (deltaTime > 0.1) {
             double currentAngle = getCurrentAngle();
-            double deltaAngle = currentAngle - lastAngle;
-
-            // Handle wraparound
-            if (deltaAngle > 180) deltaAngle -= 360;
-            if (deltaAngle < -180) deltaAngle += 360;
-
+            double deltaAngle = currentAngle - lastAngleForVelocity;
             velocity = deltaAngle / deltaTime;
-            lastAngle = currentAngle;
+            lastAngleForVelocity = currentAngle;
             lastVelocityTime = currentTime;
         }
 
-        // Handle PID control
+        // === PID CONTROL ===
         double power = 0;
         if (pidActive) {
             power = calculatePID();
 
             // Check if target reached
             double currentAngle = getCurrentAngle();
-            double error = getShortestAngleError(targetAngle, currentAngle);
+            double error = targetAngle - currentAngle;
 
             if (Math.abs(error) < ANGLE_TOLERANCE) {
                 pidActive = false;
                 power = 0;
                 integral = 0;
-
-                // Mark as initialized if we were initializing
-                if (!isInitialized && Math.abs(targetAngle - INIT_TARGET_ANGLE) < ANGLE_TOLERANCE) {
-                    isInitialized = true;
-                }
             }
 
             // Check for timeout
@@ -130,6 +162,10 @@ public class NewRampController {
             }
         }
 
+        // Apply inversion if needed (when positive power makes angle go negative)
+        if (INVERT_OUTPUT) {
+            power = -power;
+        }
         rampServo.setPower(power);
     }
 
@@ -143,15 +179,14 @@ public class NewRampController {
         if (deltaTime <= 0) return 0;
 
         double currentAngle = getCurrentAngle();
-        double error = getShortestAngleError(targetAngle, currentAngle);
+        double error = targetAngle - currentAngle;
 
         // Proportional term
         double P = Kp * error;
 
         // Integral term (with anti-windup)
         integral += error * deltaTime;
-        // Limit integral to prevent windup
-        double maxIntegral = MAX_POWER / (Ki + 0.0001); // Avoid division by zero
+        double maxIntegral = MAX_POWER / (Ki + 0.0001);
         integral = Math.max(-maxIntegral, Math.min(maxIntegral, integral));
         double I = Ki * integral;
 
@@ -177,19 +212,6 @@ public class NewRampController {
     }
 
     /**
-     * Calculate shortest angle error (handles wraparound)
-     */
-    private double getShortestAngleError(double target, double current) {
-        double error = target - current;
-
-        // Normalize to [-180, 180]
-        while (error > 180) error -= 360;
-        while (error < -180) error += 360;
-
-        return error;
-    }
-
-    /**
      * Reset PID state
      */
     private void resetPID() {
@@ -199,37 +221,54 @@ public class NewRampController {
     }
 
     /**
-     * Increment ramp angle by specified degrees (increases angle)
+     * Get raw angle from analog feedback (0-360°, resets at 360)
+     */
+    public double getRawAngle() {
+        double voltage = rampAnalog.getVoltage();
+        return voltage * VOLTAGE_TO_DEGREES;
+    }
+
+    /**
+     * Get current continuous angle (relative to start position)
+     * This can be negative or greater than 360°
+     * Start position = 0°
+     */
+    public double getCurrentAngle() {
+        double currentRawAngle = getRawAngle();
+
+        // Calculate angle relative to zero reference
+        double angleFromZero = currentRawAngle - zeroRawAngle;
+
+        // Add full rotations
+        double continuousAngle = (rotationCount * 360.0) + angleFromZero;
+
+        return continuousAngle;
+    }
+
+    /**
+     * Increment ramp angle by specified degrees
      */
     public void incrementAngle(double degrees) {
-        targetAngle = getCurrentAngle() + degrees;  // FIXED: now ADDS degrees
-
-        // Wrap target angle to [0, 360]
-        while (targetAngle >= 360) targetAngle -= 360;
-        while (targetAngle < 0) targetAngle += 360;
-
+        targetAngle = getCurrentAngle() + degrees;
         pidActive = true;
         resetPID();
         moveStartTime = runtime.seconds();
     }
 
     /**
-     * Decrement ramp angle by specified degrees (decreases angle)
+     * Decrement ramp angle by specified degrees
      */
     public void decrementAngle(double degrees) {
-        incrementAngle(-degrees);  // Now correctly subtracts
+        incrementAngle(-degrees);
     }
 
     /**
-     * Set absolute target angle
+     * Set absolute target angle (relative to start position)
+     * Example: setTargetAngle(90) moves to 90° from start
+     *          setTargetAngle(-45) moves to -45° from start
      */
     public void setTargetAngle(double angle) {
         targetAngle = angle;
-
-        // Wrap target angle to [0, 360]
-        while (targetAngle >= 360) targetAngle -= 360;
-        while (targetAngle < 0) targetAngle += 360;
-
         pidActive = true;
         resetPID();
         moveStartTime = runtime.seconds();
@@ -264,15 +303,7 @@ public class NewRampController {
      * Check if target has been reached
      */
     public boolean atTarget() {
-        return !pidActive && Math.abs(getShortestAngleError(targetAngle, getCurrentAngle())) < ANGLE_TOLERANCE;
-    }
-
-    /**
-     * Get current angle from analog feedback
-     */
-    public double getCurrentAngle() {
-        double voltage = rampAnalog.getVoltage();
-        return voltage * VOLTAGE_TO_DEGREES;
+        return !pidActive && Math.abs(targetAngle - getCurrentAngle()) < ANGLE_TOLERANCE;
     }
 
     /**
@@ -286,7 +317,7 @@ public class NewRampController {
      * Get angle error
      */
     public double getAngleError() {
-        return getShortestAngleError(targetAngle, getCurrentAngle());
+        return targetAngle - getCurrentAngle();
     }
 
     /**
@@ -308,5 +339,19 @@ public class NewRampController {
      */
     public double getPower() {
         return rampServo.getPower();
+    }
+
+    /**
+     * Get rotation count (for debugging)
+     */
+    public int getRotationCount() {
+        return rotationCount;
+    }
+
+    /**
+     * Get zero reference angle (for debugging)
+     */
+    public double getZeroReference() {
+        return zeroRawAngle;
     }
 }

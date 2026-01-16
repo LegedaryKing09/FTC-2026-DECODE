@@ -51,7 +51,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 @Config
 @TeleOp(name = "Auto-Aim Shooter", group = "Competition")
 public class OdometrySystemShoot extends LinearOpMode {
-    public static double angleToGoal= 35;
+    public static double angleToGoal= 23;
     // === FIELD CONFIGURATION ===
     public static double GOAL_X = 0.0;
     public static double GOAL_Y = 0.0;
@@ -268,26 +268,22 @@ public class OdometrySystemShoot extends LinearOpMode {
         DcMotor shooterMotor2 = null;
         try {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
+        } catch (Exception ignored) {}
+        try {
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
-        } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
-        }
+        } catch (Exception ignored) {}
         shooter = new NewShooterController(shooterMotor1, shooterMotor2);
 
         DcMotor intakeMotor = null;
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-        } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Intake: " + e.getMessage());
-        }
+        } catch (Exception ignored) {}
         intake = new NewIntakeController(intakeMotor);
 
         DcMotor transferMotor = null;
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
-        } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Transfer: " + e.getMessage());
-        }
+        } catch (Exception ignored) {}
         transfer = new NewTransferController(transferMotor);
 
         CRServo uptakeServo1 = hardwareMap.get(CRServo.class, "servo1");
