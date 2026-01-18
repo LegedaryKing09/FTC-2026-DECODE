@@ -9,23 +9,19 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 /**
  * Turret Controller for Axon Mini servo with 2.5:1 gear ratio
  *
- * PROBLEM SOLVED:
- * - Axon servo analog reads 0-360° for the SERVO
- * - With 2.5:1 gear ratio, turret only moves 144° per servo rotation
- * - Servo analog resets every 360° (servo) = 144° (turret)
- * - This controller tracks accumulated rotation to give continuous 0-360° turret reading
- *
  * HOW IT WORKS:
- * 1. At startup, we record the initial servo angle as "zero reference"
- * 2. Each update, we detect when servo crosses 0°/360° boundary (wraparound)
- * 3. We count full servo rotations and add them to get total turret angle
- * 4. Final turret angle = (servo rotations * 144°) + (current servo segment / gear ratio)
+ * 1. Each update, calculate servo delta from last reading
+ * 2. Handle wraparound: if servo jumps from 359° to 5°, delta should be +6°, not -354°
+ * 3. Convert servo delta to turret delta: turretDelta = servoDelta / gearRatio
+ * 4. Accumulate: turretAngle += turretDelta
  *
- * EXAMPLE:
- * - Turret starts at some position → we call this 0°
- * - Turret rotates 200° clockwise
- * - Servo has done 200° * 2.5 = 500° = 1 full rotation + 140°
- * - We track: 1 rotation (144° turret) + (140° / 2.5) = 144° + 56° = 200° ✓
+ * EXAMPLE (starting at servo=300°, turning clockwise):
+ * | Servo | Delta | Turret Delta | Turret Angle |
+ * |-------|-------|--------------|--------------|
+ * | 300°  | 0     | 0            | 0°           |
+ * | 359°  | +59°  | +23.6°       | 23.6°        |
+ * | 5°    | +6°*  | +2.4°        | 26°          |  (* wraparound: 5-359+360=6)
+ * | 10°   | +5°   | +2°          | 28°          |
  */
 @Config
 public class TurretController {
@@ -37,20 +33,19 @@ public class TurretController {
     // Configuration
     public static double VOLTAGE_MAX = 3.3;
     public static double GEAR_RATIO = 2.5;
-    public static double TURRET_DEGREES_PER_SERVO_ROTATION = 360.0 / GEAR_RATIO;
 
     // Hardware
     private final CRServo servo;
     private final AnalogInput analog;
 
     // === ANGLE TRACKING STATE ===
-    private double zeroServoAngle = 0;      // Servo angle at startup (our "zero" reference)
-    private double lastServoAngle = 0;      // Previous servo angle (for wraparound detection)
-    private int servoRotationCount = 0;     // How many full servo rotations from start
+    private double lastServoAngle = 0;          // Previous servo angle
+    private double accumulatedTurretAngle = 0;  // The turret angle we're tracking
+    private int servoRotationCount = 0;         // For debugging
     private boolean initialized = false;
 
     /**
-     * Constructor using LinearOpMode (backwards compatible)
+     * Constructor using LinearOpMode
      */
     public TurretController(LinearOpMode opMode) {
         this(opMode.hardwareMap);
@@ -69,8 +64,8 @@ public class TurretController {
      * Sets current position as 0° reference
      */
     public void initialize() {
-        zeroServoAngle = getRawServoAngle();
-        lastServoAngle = zeroServoAngle;
+        lastServoAngle = getRawServoAngle();
+        accumulatedTurretAngle = 0;
         servoRotationCount = 0;
         initialized = true;
     }
@@ -84,7 +79,7 @@ public class TurretController {
 
     /**
      * Update angle tracking - MUST call this every loop!
-     * Detects wraparound and updates rotation count
+     * Calculates delta, handles wraparound, accumulates turret angle
      */
     public void update() {
         if (!initialized) {
@@ -94,48 +89,40 @@ public class TurretController {
 
         double currentServoAngle = getRawServoAngle();
 
-        // Detect wraparound (servo crossing 0°/360° boundary)
-        double delta = currentServoAngle - lastServoAngle;
+        // Calculate raw delta
+        double servoDelta = currentServoAngle - lastServoAngle;
 
-        // If delta is large negative, servo wrapped from ~360° to ~0° (turning positive/CW)
-        if (delta < -180) {
+        // Handle wraparound
+        // If delta is very negative (like -354), servo wrapped forward (359° → 5°)
+        // Actual delta should be positive: -354 + 360 = +6°
+        if (servoDelta < -180) {
+            servoDelta += 360;
             servoRotationCount++;
         }
-        // If delta is large positive, servo wrapped from ~0° to ~360° (turning negative/CCW)
-        else if (delta > 180) {
+        // If delta is very positive (like +354), servo wrapped backward (5° → 359°)
+        // Actual delta should be negative: +354 - 360 = -6°
+        else if (servoDelta > 180) {
+            servoDelta -= 360;
             servoRotationCount--;
         }
 
+        // Convert servo delta to turret delta and accumulate
+        double turretDelta = servoDelta / GEAR_RATIO;
+        accumulatedTurretAngle += turretDelta;
+
+        // Save for next iteration
         lastServoAngle = currentServoAngle;
     }
 
     /**
-     * Get turret angle in degrees (0-360° for full turret rotation)
-     * Continuous tracking - no resets at 144°
-     *
-     * @return Turret angle in degrees (0 = starting position)
+     * Get turret angle in degrees
+     * 0° = starting position
      */
     public double getTurretAngle() {
         if (!initialized) {
             initialize();
         }
-
-        double currentServoAngle = getRawServoAngle();
-
-        // Calculate the shortest angular difference accounting for wraparound
-        double angleDiff = currentServoAngle - zeroServoAngle;
-
-        // Normalize the difference to -180 to +180 range
-        while (angleDiff > 180) angleDiff -= 360;
-        while (angleDiff < -180) angleDiff += 360;
-
-        // Calculate servo angle relative to start (accounting for wraparound)
-        double servoAngleFromStart = (servoRotationCount * 360.0) + angleDiff;
-
-        // Convert servo angle to turret angle using gear ratio
-        double turretAngle = servoAngleFromStart / GEAR_RATIO;
-
-        return turretAngle;
+        return accumulatedTurretAngle;
     }
 
     /**
@@ -150,8 +137,6 @@ public class TurretController {
 
     /**
      * Set servo power directly (-1.0 to 1.0)
-     * Positive = clockwise (turret angle increases)
-     * Negative = counter-clockwise (turret angle decreases)
      */
     public void setPower(double power) {
         servo.setPower(power);
@@ -166,7 +151,6 @@ public class TurretController {
 
     /**
      * Get raw servo angle (0-360°) directly from analog
-     * This resets every 360° of SERVO rotation
      */
     public double getRawServoAngle() {
         double voltage = analog.getVoltage();
@@ -192,13 +176,6 @@ public class TurretController {
      */
     public int getServoRotationCount() {
         return servoRotationCount;
-    }
-
-    /**
-     * Get the zero reference angle (for debugging)
-     */
-    public double getZeroReference() {
-        return zeroServoAngle;
     }
 
     /**
