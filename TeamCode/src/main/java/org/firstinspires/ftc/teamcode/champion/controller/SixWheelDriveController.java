@@ -43,9 +43,9 @@ public class SixWheelDriveController {
 
     // Speed mode settings
     public static double FAST_SPEED_MULTIPLIER = 0.8;
-    public static double FAST_TURN_MULTIPLIER = 0.4;
-    public static double SLOW_SPEED_MULTIPLIER = 0.3;
-    public static double SLOW_TURN_MULTIPLIER = 0.25;
+    public static double FAST_TURN_MULTIPLIER = 0.6;
+    public static double SLOW_SPEED_MULTIPLIER = 0.4;
+    public static double SLOW_TURN_MULTIPLIER = 0.4;
 
     // Acceleration ramping
     public static double ACCELERATION_RATE = 0.15;

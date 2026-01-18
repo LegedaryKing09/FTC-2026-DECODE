@@ -27,7 +27,7 @@ public class NewRampController {
     public static String RAMP_ANALOG_NAME = "ramp_analog";
 
     // PID Constants (tunable via FTC Dashboard)
-    public static double Kp = 0.03;
+    public static double Kp = 0.02;
     public static double Ki = 0.0;
     public static double Kd = 0.0;
 
