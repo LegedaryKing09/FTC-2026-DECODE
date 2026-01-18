@@ -1,11 +1,12 @@
-package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q1Auton;
-
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2Auton;
 import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-
+import org.firstinspires.ftc.teamcode.champion.controller.AutonTurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
@@ -22,8 +23,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "Blue Close Auton", group = "Competition")
-public class AutonCloseBlue extends LinearOpMode {
+@Autonomous(name = "Blue Far Auton Q2", group = "Competition")
+public class FarBlue extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -34,37 +35,31 @@ public class AutonCloseBlue extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
+    AutonTurretController turret;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 3650.0;
-    public static double CONSTANT_RAMP_ANGLE = 171.0;
-
-    // Movement parameters (tunable via dashboard)
-    public static double DRIVE_POWER = 0.5;
-    public static double TURN_POWER = 0.3;
-    public static double INTAKE_POWER = 0.35;
+    public static double CONSTANT_SHOOTER_RPM = 4550.0;
+    public static double CONSTANT_RAMP_ANGLE = -175.0;
 
     // Distance parameters (in INCHES)
-    public static double INITIAL_BACKWARD = 50.0;
-    public static double LEFT_TURN_ANGLE = 50.0;
+    public static double FIRST_FORWARD = 30.0;
+    public static double SHOOTING_BACKWARD = 25.0;
+    public static double SECOND_SHOOTING_BACKWARD = 48.0;
+    public static double PICK_UP_ANGLE = 90.0;
     public static double INTAKE_FORWARD = 30.0;
     public static double INTAKE_BACKWARD = 30.0;
-    public static double SECOND_PICKUP = 24.0;
-
+    public static double SECOND_FORWARD = 48.0;
+    public static double ENDING_DISTANCE = 40.0;
     // Timing parameters
-    public static long INTAKE_TIME_MS = 2000;
+    public static long INTAKE_TIME_MS = 1400;
     public static long SHOOT_TIME_MS = 3600;
 
-    // Turning tolerance
-    public static double TURN_TOLERANCE_DEGREES = 3.0;
-
-
     public boolean intakeModeActive = false;
-
+    public boolean isShooting = false;
     public boolean uptakeStoppedBySwitch = false;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
@@ -76,6 +71,11 @@ public class AutonCloseBlue extends LinearOpMode {
     @Override
     public void runOpMode() {
         initializeRobot();
+
+
+        // Define starting pose
+        Pose2d startPose = new Pose2d(0, 0, 0);
+        tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         waitForStart();
         if (!opModeIsActive()) return;
@@ -94,7 +94,7 @@ public class AutonCloseBlue extends LinearOpMode {
 
         sleep(1000);
 
-        // Execute autonomous sequence
+        // Execute autonomous sequence using RoadRunner
         executeAutonomousSequence();
 
         // Cleanup
@@ -106,14 +106,12 @@ public class AutonCloseBlue extends LinearOpMode {
         driveController = new SixWheelDriveController(this);
         driveController.setDriveMode(SixWheelDriveController.DriveMode.POWER);
 
-        Pose2d startPose = new Pose2d(0, 0, 0);
-        tankDrive = new AutoTankDrive(hardwareMap, startPose);
         // Initialize intake
         DcMotor intakeMotor = null;
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Intake: " + e.getMessage());
+            //
         }
         intakeController = new NewIntakeController(intakeMotor);
 
@@ -122,7 +120,7 @@ public class AutonCloseBlue extends LinearOpMode {
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Transfer: " + e.getMessage());
+            //
         }
         transferController = new NewTransferController(transferMotor);
 
@@ -130,8 +128,8 @@ public class AutonCloseBlue extends LinearOpMode {
         CRServo uptakeServo = null;
         CRServo uptakeServo2 = null;
         try {
-            uptakeServo = hardwareMap.get(CRServo.class, "uptake");
-            uptakeServo2 = hardwareMap.get(CRServo.class, "uptake2");
+            uptakeServo = hardwareMap.get(CRServo.class, "servo1");
+            uptakeServo2 = hardwareMap.get(CRServo.class, "servo2");
         } catch (Exception e) {
             telemetry.addData("Hardware Init Error", "Uptake: " + e.getMessage());
         }
@@ -141,7 +139,7 @@ public class AutonCloseBlue extends LinearOpMode {
         try {
             uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Uptake Switch: " + e.getMessage());
+            //
         }
 
         // Initialize shooter
@@ -151,7 +149,7 @@ public class AutonCloseBlue extends LinearOpMode {
             shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
             shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
+            //
         }
         shooterController = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
 
@@ -160,7 +158,7 @@ public class AutonCloseBlue extends LinearOpMode {
             rampController = new NewRampController(this);
             rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Ramp: " + e.getMessage());
+            //
         }
 
         // Initialize limelight
@@ -174,6 +172,7 @@ public class AutonCloseBlue extends LinearOpMode {
             autoShootController = null;
         }
 
+        // Initialize autoncontroller
         autonController = new NewAutonController(
                 this,
                 driveController,
@@ -188,76 +187,127 @@ public class AutonCloseBlue extends LinearOpMode {
 
         telemetry.update();
         sleep(1000);
+
+        try {
+            turret = new AutonTurretController(this);
+            telemetry.addData("Turret Initial Angle", "%.1f°", turret.getCurrentAngle());
+        } catch (Exception e) {
+            telemetry.addData("Turret Init Error", e.getMessage());
+        }
+
     }
 
     private void executeAutonomousSequence() {
-        // Go backward
-        driveDistance(-INITIAL_BACKWARD, DRIVE_POWER);
-        sleep(500);
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // Shoot 3 preloaded balls
+        // 1. shoot 3 balls
         shootBalls();
-        sleep(500);
+        sleep(150);
 
-        //turn left (first pick up)
-        turnAngle(LEFT_TURN_ANGLE, TURN_POWER);
-        sleep(500);
+        // 2. Go forward for pick up (first)
+        Action moveForward = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + FIRST_FORWARD)
+                .build();
+        Actions.runBlocking(moveForward);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        sleep(150);
 
-        //go forward while running intake
-        intakeForward();
-        sleep(500);
+        // 3. turn left for first pickup
+        Action turnLeft1 = tankDrive.actionBuilder(currentPose)
+                .turn(Math.toRadians(PICK_UP_ANGLE))
+                .build();
+        Actions.runBlocking(turnLeft1);
+        sleep(150);
 
-        //go backward after intake
-        driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
-        sleep(500);
+        // 4. Go forward while intake (first)
+        intakeForwardRoadRunner();
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        sleep(150);
 
-        //turn right
-        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
-        sleep(500);
+        // 5. Go backward after intake (first)
+        Action moveBackward2 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - INTAKE_BACKWARD)
+                .build();
+        Actions.runBlocking(moveBackward2);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        sleep(150);
 
-        //shoot balls
+        // 6. turn right (first)
+        Action turnRight = tankDrive.actionBuilder(currentPose)
+                .turn(Math.toRadians(-PICK_UP_ANGLE))
+                .build();
+        Actions.runBlocking(turnRight);
+        sleep(150);
+
+        // 7. Go backward (first)
+        Action moveBackward3 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - SHOOTING_BACKWARD)
+                .build();
+        Actions.runBlocking(moveBackward3);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        sleep(150);
+
+        // 8. Shoot balls
+        turret.setAngleAndWait(turret.getCurrentAngle() - 8.0);
         shootBalls();
-        sleep(500);
+        sleep(150);
 
-        //turn right
-        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
-        sleep(500);
+        // 9. forward move for second pickup
+        Action moveForward2 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + SECOND_FORWARD)
+                .build();
+        Actions.runBlocking(moveForward2);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        sleep(150);
 
-        //go back to get the second line (second pickup)
-        driveDistance(-SECOND_PICKUP, DRIVE_POWER);
-        sleep(500);
+        // 10. turn left for first pickup
+        Action turnLeft2 = tankDrive.actionBuilder(currentPose)
+                .turn(Math.toRadians(PICK_UP_ANGLE))
+                .build();
+        Actions.runBlocking(turnLeft2);
+        sleep(150);
 
-        // turn left to face the balls
-        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
-        sleep(500);
+        // 11. Go forward while intake (first)
+        intakeForwardRoadRunner();
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        sleep(150);
 
-        //go forward while running intake
-        intakeForward();
-        sleep(500);
+        // 12. Go backward after intake (first)
+        Action moveBackward4 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - INTAKE_BACKWARD)
+                .build();
+        Actions.runBlocking(moveBackward4);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        sleep(150);
 
-        //go backward after intake
-        driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
-        sleep(500);
+        // 13. turn right  (first)
+        Action turnRight2 = tankDrive.actionBuilder(currentPose)
+                .turn(Math.toRadians(-PICK_UP_ANGLE))
+                .build();
+        Actions.runBlocking(turnRight2);
+        sleep(150);
 
-        //go to shooting position
-        driveDistance(SECOND_PICKUP, DRIVE_POWER);
-        sleep(500);
+        // 14. Go backward (first)
+        Action moveBackward5 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - SECOND_FORWARD)
+                .build();
+        Actions.runBlocking(moveBackward5);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        sleep(150);
 
-        //facing shooting place
-        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
-        sleep(500);
+        // 15. Shoot balls
+        shootBalls();
+        sleep(150);
 
+        turret.setAngleAndWait(turret.getCurrentAngle() + 82.0);
 
-        // exiting
-        turnAngle(-LEFT_TURN_ANGLE, TURN_POWER);
-        sleep(500);
+        // 16. ENDING POSE
+        Action moveForward5 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + ENDING_DISTANCE)
+                .build();
+        Actions.runBlocking(moveForward5);
 
-        driveDistance(-INTAKE_BACKWARD, DRIVE_POWER);
-        sleep(500);
-
-
-        telemetry.addLine("COMPLETE!");
-        telemetry.update();
+        sleep(150);
     }
 
     private void shootBalls() {
@@ -281,13 +331,23 @@ public class AutonCloseBlue extends LinearOpMode {
         uptakeController.update();
 
         timer.reset();
+//        int ballsShotCount = 0;
+//        boolean lastBallState = false;
 
         while (opModeIsActive() && timer.milliseconds() < SHOOT_TIME_MS) {
+            // Get current values for monitoring only
+//            boolean ballDetected = isBallAtUptake();
+//
+//            // Count balls shot (detect when ball passes through)
+//            if (ballDetected && !lastBallState) {
+//                ballsShotCount++;
+//            }
+//            lastBallState = ballDetected;
+
             // Update all controllers to keep them running
             intakeController.update();
             transferController.update();
             uptakeController.update();
-
 
             sleep(50);
         }
@@ -304,9 +364,12 @@ public class AutonCloseBlue extends LinearOpMode {
         sleep(1000);
     }
 
-    private void intakeForward() {
+    private void turretAngleTurn(){
+
+    }
+    private void intakeForwardRoadRunner() {
         intakeModeActive = true;
-        uptakeStoppedBySwitch = false;
+//        uptakeStoppedBySwitch = false;
 
         // Start all systems
         intakeController.setState(true);
@@ -315,60 +378,50 @@ public class AutonCloseBlue extends LinearOpMode {
         transferController.setState(true);
         transferController.update();
 
-        // Start uptake ON (will be controlled by switch during movement)
-        uptakeController.setState(true);
-        uptakeController.update();
+//        uptakeController.setState(true);
+//        uptakeController.update();
 
-        // Simple movement with switch checking DURING the drive
-        driveController.updateOdometry();
-        double startX = driveController.getX();
+        // Get current pose and build trajectory
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action moveForward = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + INTAKE_FORWARD)
+                .build();
 
-        timer.reset();
+        // Create a custom action that combines RoadRunner movement with intake control
+        Action intakeAction = new Action() {
+            private Action moveAction = moveForward;
 
-        while (opModeIsActive()) {
-            driveController.updateOdometry();
-            double distanceTraveled = Math.abs(driveController.getX() - startX);
+            @Override
+            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+                // Check uptake switch during movement
+//                checkUptakeSwitch();
 
-            // Check if we've reached target
-            if (distanceTraveled >= INTAKE_FORWARD) {
-                break;
+                // Update all controllers
+                intakeController.update();
+                transferController.update();
+//                uptakeController.update();
+
+                // Continue the movement action
+                return moveAction.run(packet);
             }
+        };
 
-            // Timeout safety (10 seconds)
-            if (timer.seconds() > 10.0) {
-                break;
-            }
-
-            // Drive forward at constant power
-            driveController.tankDrive(INTAKE_POWER, INTAKE_POWER);
-
-            checkUptakeSwitch();
-
-            // Update all controllers
-            intakeController.update();
-            transferController.update();
-            uptakeController.update();
-
-            sleep(20);  // Check switch every 20ms
-        }
-
-        driveController.stopDrive();
+        // Run the combined action
+        Actions.runBlocking(intakeAction);
 
         // Keep intake and transfer running for 2 more seconds after stopping
         timer.reset();
         while (opModeIsActive() && timer.milliseconds() < INTAKE_TIME_MS) {
-            // Still check switch even after stopping
-            checkUptakeSwitch();
-
+//            checkUptakeSwitch();
             intakeController.update();
             transferController.update();
-            uptakeController.update();
+//            uptakeController.update();
             sleep(50);
         }
 
         // Stop all systems
         intakeModeActive = false;
-        uptakeStoppedBySwitch = false;
+//        uptakeStoppedBySwitch = false;
 
         intakeController.setState(false);
         intakeController.update();
@@ -376,97 +429,15 @@ public class AutonCloseBlue extends LinearOpMode {
         transferController.setState(false);
         transferController.update();
 
-        uptakeController.setState(false);
-        uptakeController.update();
+//        uptakeController.setState(false);
+//        uptakeController.update();
     }
 
-    private void driveDistance(double distanceInches, double power) {
-        if (autonController != null) {
-            autonController.moveRobot(-distanceInches, power);
-        } else {
-            // Fallback to simple odometry-based movement
-            double direction = Math.signum(distanceInches);
-            driveController.updateOdometry();
-            double startX = driveController.getX();
-
-            timer.reset();
-
-            while (opModeIsActive()) {
-                driveController.updateOdometry();
-                double distanceTraveled = Math.abs(driveController.getX() - startX);
-
-                if (distanceTraveled >= Math.abs(distanceInches)) {
-                    break;
-                }
-
-                if (timer.seconds() > 10.0) {
-                    break;
-                }
-
-                driveController.tankDrive(power * direction, power * direction);
-
-                telemetry.addData("Target", "%.1f in", Math.abs(distanceInches));
-                telemetry.addData("Current", "%.1f in", distanceTraveled);
-                telemetry.update();
-
-                sleep(20);
-            }
-            driveController.stopDrive();
-            sleep(100);
-        }
+    private boolean isBallAtUptake() {
+        if (uptakeSwitch == null) return true;
+        return uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
     }
 
-    public void turnAngle(double angleDegrees, double power) {
-        driveController.setDriveMode(SixWheelDriveController.DriveMode.POWER);
-
-        driveController.updateOdometry();
-        double startHeading = driveController.getHeadingDegrees();
-
-        double kP = 0.02;
-        double minPower = 0.15;
-        timer.reset();
-
-        while (opModeIsActive()) {
-            driveController.updateOdometry();
-            double currentHeading = driveController.getHeadingDegrees();
-
-            double turnedAngle = currentHeading - startHeading;
-            while (turnedAngle > 180) turnedAngle -= 360;
-            while (turnedAngle < -180) turnedAngle += 360;
-
-            double error = angleDegrees - turnedAngle;
-
-            if (Math.abs(error) < TURN_TOLERANCE_DEGREES) {
-                break;
-            }
-
-            if (timer.seconds() > 5.0) {
-                break;
-            }
-
-            double turnPower = error * kP;
-
-            if (Math.abs(turnPower) > power) {
-                turnPower = Math.signum(turnPower) * power;
-            } else if (Math.abs(turnPower) < minPower) {
-                turnPower = Math.signum(turnPower) * minPower;
-            }
-
-            driveController.tankDrive(-turnPower, turnPower);
-
-            sleep(10);
-        }
-
-        driveController.stopDrive();
-        sleep(100);
-    }
-
-    public double getCurrentHeading() {
-        driveController.updateOdometry();
-        return Math.toDegrees(driveController.getHeading());
-    }
-
-    /** @noinspection BusyWait*/
     private void startShooterThread() {
         runShooter = true;
         shooterThread = new Thread(() -> {
@@ -508,7 +479,6 @@ public class AutonCloseBlue extends LinearOpMode {
         transferController.update();
         uptakeController.setState(false);
         uptakeController.update();
-        driveController.stopDrive();
 
         if (rampController != null) {
             rampController.stop();
@@ -524,16 +494,13 @@ public class AutonCloseBlue extends LinearOpMode {
             return;
         }
 
-        // Ball detected when voltage is BELOW threshold (switch pressed)
         boolean ballDetected = uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
 
         if (ballDetected && !uptakeStoppedBySwitch) {
-            // Ball just arrived - STOP uptake (keep intake/transfer running)
             uptakeController.setState(false);
             uptakeController.update();
             uptakeStoppedBySwitch = true;
         } else if (!ballDetected && uptakeStoppedBySwitch) {
-            // Ball removed/shot - RESTART uptake if still in intake mode
             uptakeController.setState(true);
             uptakeController.update();
             uptakeStoppedBySwitch = false;
