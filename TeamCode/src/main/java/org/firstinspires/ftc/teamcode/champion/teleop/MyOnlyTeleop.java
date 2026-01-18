@@ -5,6 +5,7 @@ import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -24,7 +25,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
  * === DRIVER 1 (gamepad1) ===
  * Left Stick Y:   Drive forward/backward
  * Right Stick X:  Turn left/right
- * Right Bumper:   Toggle intake + transfer
+ * Right Bumper:   Toggle intake + transfer + uptake (all three)
+ *                 Ball switch auto-stops uptake when ball detected
  *
  * === DRIVER 2 (gamepad2) ===
  * Right Trigger:  Hold to run intake + transfer + uptake (all three)
@@ -60,11 +62,14 @@ public class MyOnlyTeleop extends LinearOpMode {
     public static double IDLE_RPM = 2000.0;
 
     // === ADJUSTMENTS ===
-    // RAMP: Extending = more negative angle, so increment should be negative
-    public static double RAMP_INCREMENT_DEGREES = -10.0;  // Larger increment like December Teleop
+    public static double RAMP_INCREMENT_DEGREES = -10.0;
     public static double TURRET_TARGET_INCREMENT = 1.0;
     public static double RPM_INCREMENT = 100.0;
     public static double TURRET_MANUAL_SENSITIVITY = 0.5;
+
+    // === BALL DETECTION ===
+    // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
+    public static double UPTAKE_SWITCH_THRESHOLD = 0.5;
 
     // === TELEMETRY ===
     public static double TELEMETRY_INTERVAL_MS = 100;
@@ -78,6 +83,9 @@ public class MyOnlyTeleop extends LinearOpMode {
     private UptakeController uptake;
     private NewShooterController shooter;
     private NewRampController ramp;
+
+    // Ball detection switch
+    private AnalogInput uptakeSwitch;
 
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
@@ -103,7 +111,7 @@ public class MyOnlyTeleop extends LinearOpMode {
 
     // === STATE TRACKING ===
     private boolean intakeModeActive = false;
-    private boolean allSystemsFromTrigger = false;  // Track if RT started intake+transfer+uptake
+    private boolean allSystemsFromTrigger = false;
     private double currentTargetRPM = 0;
 
     // Debug
@@ -157,6 +165,18 @@ public class MyOnlyTeleop extends LinearOpMode {
             handleDriveControls();
             handleDriver1Controls();
             handleDriver2Controls();
+
+            // === BALL DETECTION: Stop uptake when switch is pressed ===
+            // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
+            if (intakeModeActive && uptakeSwitch != null) {
+                double switchVoltage = uptakeSwitch.getVoltage();
+                if (switchVoltage < UPTAKE_SWITCH_THRESHOLD) {
+                    // Ball detected - stop uptake (intake + transfer keep running)
+                    if (uptake != null && uptake.isActive()) {
+                        uptake.toggle();
+                    }
+                }
+            }
 
             // Update all controllers
             updateAllSystems();
@@ -228,6 +248,13 @@ public class MyOnlyTeleop extends LinearOpMode {
         }
         uptake = new UptakeController(uptakeServo, uptakeServo2);
 
+        // Uptake ball detection switch
+        try {
+            uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
+        } catch (Exception e) {
+            telemetry.addData("Hardware Init Error", "Uptake Switch: " + e.getMessage());
+        }
+
         // Shooter
         DcMotor shooterMotor1 = null;
         DcMotor shooterMotor2 = null;
@@ -279,7 +306,7 @@ public class MyOnlyTeleop extends LinearOpMode {
      * Driver 1 controls
      */
     private void handleDriver1Controls() {
-        // Right bumper - toggle intake + transfer
+        // Right bumper - toggle intake + transfer + uptake (all three)
         boolean currentRB1 = gamepad1.right_bumper;
         if (currentRB1 && !lastRB1) {
             if (!intakeModeActive) {
@@ -292,7 +319,7 @@ public class MyOnlyTeleop extends LinearOpMode {
     }
 
     /**
-     * Start intake mode - intake + transfer only
+     * Start intake mode - intake + transfer + uptake (all three)
      */
     private void startIntakeMode() {
         intakeModeActive = true;
@@ -305,15 +332,21 @@ public class MyOnlyTeleop extends LinearOpMode {
             transfer.reversed = false;
             transfer.toggle();
         }
+        if (uptake != null && !uptake.isActive()) {
+            uptake.reversed = false;
+            uptake.toggle();
+        }
     }
 
     /**
-     * Stop intake mode - intake + transfer only
+     * Stop intake mode - intake + transfer + uptake (all three)
+     * If uptake is already off (from switch), it stays off
      */
     private void stopIntakeMode() {
         intakeModeActive = false;
         if (intake != null && intake.isActive()) intake.toggle();
         if (transfer != null && transfer.isActive()) transfer.toggle();
+        if (uptake != null && uptake.isActive()) uptake.toggle();
     }
 
     /**
@@ -350,7 +383,6 @@ public class MyOnlyTeleop extends LinearOpMode {
         }
 
         // === LB: EXTEND RAMP (more negative angle) ===
-        // Uses setTargetAngle with current + increment (same as working tester)
         boolean currentLB2 = gamepad2.left_bumper;
         if (currentLB2 && !lastLB2) {
             if (ramp != null) {
@@ -388,7 +420,7 @@ public class MyOnlyTeleop extends LinearOpMode {
         boolean currentDpadDown2 = gamepad2.dpad_down;
         if (currentDpadDown2 && !lastDpadDown2) {
             currentTargetRPM -= RPM_INCREMENT;
-            if (currentTargetRPM < IDLE_RPM) currentTargetRPM = IDLE_RPM;  // Don't go below idle
+            if (currentTargetRPM < IDLE_RPM) currentTargetRPM = IDLE_RPM;
             if (shooter != null) {
                 shooter.setTargetRPM(currentTargetRPM);
             }
@@ -414,7 +446,6 @@ public class MyOnlyTeleop extends LinearOpMode {
         lastDpadLeft2 = currentDpadLeft2;
 
         // === RIGHT STICK X: MANUAL TURRET ===
-        // Moving the joystick DISABLES auto-aim until next preset button is pressed
         double turretInput = gamepad2.right_stick_x;
         if (turret != null) {
             if (Math.abs(turretInput) > 0.1) {
@@ -549,7 +580,7 @@ public class MyOnlyTeleop extends LinearOpMode {
             telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
         }
 
-        // Ramp info - more detail for debugging
+        // Ramp info
         if (ramp != null) {
             telemetry.addData("Ramp", "%.1f° → %.1f°", ramp.getCurrentAngle(), ramp.getTargetAngle());
             telemetry.addData("Ramp Error", "%.1f°", ramp.getAngleError());
@@ -558,7 +589,7 @@ public class MyOnlyTeleop extends LinearOpMode {
             telemetry.addData("Ramp Debug", rampDebug);
         }
 
-        // Turret info - always show angle (tracks even in manual mode)
+        // Turret info
         if (turret != null) {
             telemetry.addData("Turret Angle", "%.1f° (rot: %d)",
                     turret.getTurretAngle(), turret.getServoRotationCount());
@@ -573,11 +604,13 @@ public class MyOnlyTeleop extends LinearOpMode {
             }
         }
 
-        // System status
+        // System status with ball switch
         String intakeStr = (intake != null && intake.isActive()) ? "ON" : "off";
         String transferStr = (transfer != null && transfer.isActive()) ? "ON" : "off";
         String uptakeStr = (uptake != null && uptake.isActive()) ? "ON" : "off";
+        double switchV = (uptakeSwitch != null) ? uptakeSwitch.getVoltage() : -1;
         telemetry.addData("Systems", "In:%s Tr:%s Up:%s", intakeStr, transferStr, uptakeStr);
+        telemetry.addData("Ball Switch", "%.2fV %s", switchV, switchV < UPTAKE_SWITCH_THRESHOLD ? "(BALL)" : "");
 
         telemetry.update();
     }

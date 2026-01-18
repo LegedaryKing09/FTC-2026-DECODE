@@ -57,45 +57,9 @@ public class UptakeSwitch extends LinearOpMode {
     @Override
     public void runOpMode() {
 
-        // Try to find the switch
-        boolean switchFound = false;
+        // Initialize the switch
+        uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
 
-        // Try different possible names
-        String[] possibleNames = {"uptakeSwitch", "switch", "ball_switch", "uptake_sensor", "ballSwitch"};
-
-        for (String name : possibleNames) {
-            try {
-                uptakeSwitch = hardwareMap.get(AnalogInput.class, name);
-                telemetry.addLine("SUCCESS: Found switch as '" + name + "'");
-                switchFound = true;
-                break;
-            } catch (Exception e) {
-                // Try next name
-            }
-        }
-
-        if (!switchFound) {
-            telemetry.addLine("!!! ERROR: Switch not found !!!");
-            telemetry.addLine();
-            telemetry.addLine("Tried these names:");
-            for (String name : possibleNames) {
-                telemetry.addLine("  - " + name);
-            }
-            telemetry.addLine();
-            telemetry.addLine("Check your hardwareMap configuration!");
-            telemetry.update();
-
-            waitForStart();
-            while (opModeIsActive()) {
-                telemetry.addLine("!!! SWITCH NOT FOUND !!!");
-                telemetry.addLine("Check configuration and restart");
-                telemetry.update();
-                sleep(100);
-            }
-            return;
-        }
-
-        telemetry.addLine();
         telemetry.addLine("=== UPTAKE SWITCH TESTER ===");
         telemetry.addLine();
         telemetry.addLine("INSTRUCTIONS:");
@@ -176,7 +140,13 @@ public class UptakeSwitch extends LinearOpMode {
             telemetry.addData("Current Voltage", "%.3f V", currentVoltage);
             telemetry.addData("Min / Max", "%.3f / %.3f V", minVoltage, maxVoltage);
             telemetry.addData("Average", "%.3f V", avgVoltage);
-            telemetry.addData("Stability", stability < 0.05 ? "STABLE" : "FLUCTUATING (%.3f)");
+
+            // Fixed stability display
+            if (stability < 0.05) {
+                telemetry.addData("Stability", "STABLE");
+            } else {
+                telemetry.addData("Stability", "FLUCTUATING (%.3f)", stability);
+            }
             telemetry.addLine();
 
             // Recorded values
