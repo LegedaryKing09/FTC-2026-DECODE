@@ -20,7 +20,7 @@ public final class PinpointLocalizer implements Localizer {
 
     public final GoBildaPinpointDriver driver;
     public static boolean X_ENCODER_REVERSED = false;
-    public static boolean Y_ENCODER_REVERSED = false;
+    public static boolean Y_ENCODER_REVERSED = true;
     private Pose2d txWorldPinpoint;//world coordinate system
     private Pose2d txPinpointRobot = new Pose2d(0, 0, 0);//robot coordinate system
     private long lastUpdateTime = System.nanoTime();
@@ -45,7 +45,28 @@ public final class PinpointLocalizer implements Localizer {
 
         driver.resetPosAndIMU();
 
+        try {
+            Thread.sleep(1000); // Give IMU time to initialize
+//            GoBildaPinpointDriver.DeviceStatus status = driver.getDeviceStatus();
+//            if (status != GoBildaPinpointDriver.DeviceStatus.READY) {
+//                throw new RuntimeException("Pinpoint IMU not ready! Status: " + status);
+//            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         txWorldPinpoint = initialPose;
+    }
+
+    public void resetPinpoint() {
+        driver.resetPosAndIMU();
+        txPinpointRobot = new Pose2d(0, 0, 0);
+        // Give IMU time to stabilize
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
