@@ -9,7 +9,9 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.acmerobotics.roadrunner.Pose2d;
 
+import org.firstinspires.ftc.teamcode.champion.RobotState;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
@@ -126,9 +128,37 @@ public class MyOnlyTeleop extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        // Get starting pose from auton
+        Pose2d startPose;
+        if (RobotState.isPoseValid()) {
+            startPose = RobotState.getLastAutonPose();
+            telemetry.addData("Starting from Auton", "x=%.1f, y=%.1f, heading=%.1f°",
+                    startPose.position.x, startPose.position.y, Math.toDegrees(startPose.heading.log()));
+        } else {
+            startPose = new Pose2d(0, 0, 0);
+            telemetry.addData("Starting from", "Default (0,0,0)");
+        }
+        telemetry.update();
+
+        // Setup dashboard telemetry
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
+        // Initialize hardware
         initializeHardware();
+
+        // CRITICAL FIX: Set the drive position from auton after initialization
+        if (drive != null) {
+            drive.setPosition(
+                    startPose.position.x,
+                    startPose.position.y,
+                    startPose.heading.log()  // Converts Rotation2d to radians
+            );
+            telemetry.addData("Drive Position Set", "x=%.1f, y=%.1f, heading=%.1f°",
+                    drive.getX(), drive.getY(), drive.getHeadingDegrees());
+        } else {
+            telemetry.addLine("WARNING: Drive controller is null, position not set");
+        }
+
         telemetry.update();
 
         waitForStart();
@@ -202,6 +232,7 @@ public class MyOnlyTeleop extends LinearOpMode {
             drive = new SixWheelDriveController(this);
         } catch (Exception e) {
             telemetry.addLine("WARNING: Drive controller failed to initialize");
+            telemetry.addData("Error", e.getMessage());
         }
 
         // Turret

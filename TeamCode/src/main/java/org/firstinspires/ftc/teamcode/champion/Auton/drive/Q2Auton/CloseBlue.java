@@ -6,6 +6,8 @@ import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
+
+import org.firstinspires.ftc.teamcode.champion.RobotState;
 import org.firstinspires.ftc.teamcode.champion.controller.AutonTurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
@@ -481,6 +483,10 @@ public class CloseBlue extends LinearOpMode {
     }
 
     private void cleanup() {
+        // Save final pose before cleaning up
+        Pose2d finalPose = tankDrive.pinpointLocalizer.getPose();
+        RobotState.saveAutonPose(finalPose);
+
         if (autonController != null) {
             autonController.stopPidUpdateThread();
         }
@@ -506,6 +512,10 @@ public class CloseBlue extends LinearOpMode {
         if (rampController != null) {
             rampController.stop();
         }
+
+        telemetry.addData("Final Pose Saved", "x=%.1f, y=%.1f, heading=%.1f°",
+                finalPose.position.x, finalPose.position.y, Math.toDegrees(finalPose.heading.log()));
+        telemetry.update();
 
         telemetry.addLine("Cleanup complete");
         telemetry.addData("Total Time", "%.1f sec", globalTimer.seconds());
