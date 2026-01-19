@@ -49,15 +49,15 @@ public class CloseBlue extends LinearOpMode {
     public static double INITIAL_BACKWARD = -50.0;
     public static double LEFT_TURN_ANGLE = 45.0;
     public static double PICK_UP_ANGLE = 90.0;
-    public static double INTAKE_FORWARD = 30.0;
+    public static double INTAKE_FORWARD = -30.0;
     public static double INTAKE_BACKWARD = 30.0;
     public static double SECOND_BACKWARD = 14.0;
     public static double ENDING_DISTANCE = 30.0;
+    public static double LEFT_TURN_38 = 38.0;
+    public static double LEFT_TURN_56 = 56.0;
     // Timing parameters
     public static long INTAKE_TIME_MS = 1000;
     public static long SHOOT_TIME_MS = 3600;
-    public static double TURRET_TURN_ANGLE = 45.0;
-    public static double SECOND_TURRET_TURN_ANGLE = 90.0;
 
     public boolean intakeModeActive = false;
     public boolean isShooting = false;
@@ -207,6 +207,13 @@ public class CloseBlue extends LinearOpMode {
                 .build();
         Actions.runBlocking(moveBackward1);
         currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 3. turn left
+        Action turnLeft1 = tankDrive.actionBuilder(currentPose)
+                .turn(Math.toRadians(LEFT_TURN_38))
+                .build();
+        Actions.runBlocking(turnLeft1);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
         sleep(50);
 
         // 2. shoot 3 balls
@@ -214,10 +221,11 @@ public class CloseBlue extends LinearOpMode {
         sleep(50);
 
         // 3. turn left for first pickup
-        Action turnLeft1 = tankDrive.actionBuilder(currentPose)
-                .turn(Math.toRadians(LEFT_TURN_ANGLE))
+        Action turnLeft2 = tankDrive.actionBuilder(currentPose)
+                .turn(Math.toRadians(LEFT_TURN_56))
                 .build();
-        Actions.runBlocking(turnLeft1);
+        Actions.runBlocking(turnLeft2);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
         sleep(50);
 
         // 4. Go forward while intake (first)
@@ -266,6 +274,8 @@ public class CloseBlue extends LinearOpMode {
                 .turn(Math.toRadians(PICK_UP_ANGLE))
                 .build();
         Actions.runBlocking(turnLeft3);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        sleep(50);
 
         // 10. Go forward while intake (second)
         intakeForwardRoadRunner();
@@ -316,7 +326,6 @@ public class CloseBlue extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         sleep(50);
 
-
         // 15. ENDING POSE
         Action moveForward5 = tankDrive.actionBuilder(currentPose)
                 .lineToX(currentPose.position.x - ENDING_DISTANCE)
@@ -325,6 +334,7 @@ public class CloseBlue extends LinearOpMode {
 
         sleep(50);
     }
+
 
     private void shootBalls() {
         // Wait for RPM stabilization
@@ -347,18 +357,18 @@ public class CloseBlue extends LinearOpMode {
         uptakeController.update();
 
         timer.reset();
-//        int ballsShotCount = 0;
-//        boolean lastBallState = false;
+        int ballsShotCount = 0;
+        boolean lastBallState = false;
 
         while (opModeIsActive() && timer.milliseconds() < SHOOT_TIME_MS) {
-            // Get current values for monitoring only
-//            boolean ballDetected = isBallAtUptake();
-//
-//            // Count balls shot (detect when ball passes through)
-//            if (ballDetected && !lastBallState) {
-//                ballsShotCount++;
-//            }
-//            lastBallState = ballDetected;
+            // Get current values for monitoring
+            boolean ballDetected = isBallAtUptake();
+
+            // Count balls shot (detect when ball passes through)
+            if (ballDetected && !lastBallState) {
+                ballsShotCount++;
+            }
+            lastBallState = ballDetected;
 
             // Update all controllers to keep them running
             intakeController.update();
@@ -380,12 +390,9 @@ public class CloseBlue extends LinearOpMode {
         sleep(1000);
     }
 
-    private void turretAngleTurn(){
-
-    }
     private void intakeForwardRoadRunner() {
         intakeModeActive = true;
-//        uptakeStoppedBySwitch = false;
+        uptakeStoppedBySwitch = false;
 
         // Start all systems
         intakeController.setState(true);
@@ -394,8 +401,8 @@ public class CloseBlue extends LinearOpMode {
         transferController.setState(true);
         transferController.update();
 
-//        uptakeController.setState(true);
-//        uptakeController.update();
+        uptakeController.setState(true);
+        uptakeController.update();
 
         // Get current pose and build trajectory
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -410,12 +417,12 @@ public class CloseBlue extends LinearOpMode {
             @Override
             public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 // Check uptake switch during movement
-//                checkUptakeSwitch();
+                checkUptakeSwitch();
 
                 // Update all controllers
                 intakeController.update();
                 transferController.update();
-//                uptakeController.update();
+                uptakeController.update();
 
                 // Continue the movement action
                 return moveAction.run(packet);
@@ -428,16 +435,16 @@ public class CloseBlue extends LinearOpMode {
         // Keep intake and transfer running for 2 more seconds after stopping
         timer.reset();
         while (opModeIsActive() && timer.milliseconds() < INTAKE_TIME_MS) {
-//            checkUptakeSwitch();
+            checkUptakeSwitch();
             intakeController.update();
             transferController.update();
-//            uptakeController.update();
+            uptakeController.update();
             sleep(50);
         }
 
         // Stop all systems
         intakeModeActive = false;
-//        uptakeStoppedBySwitch = false;
+        uptakeStoppedBySwitch = false;
 
         intakeController.setState(false);
         intakeController.update();
@@ -445,8 +452,8 @@ public class CloseBlue extends LinearOpMode {
         transferController.setState(false);
         transferController.update();
 
-//        uptakeController.setState(false);
-//        uptakeController.update();
+        uptakeController.setState(false);
+        uptakeController.update();
     }
 
     private boolean isBallAtUptake() {
