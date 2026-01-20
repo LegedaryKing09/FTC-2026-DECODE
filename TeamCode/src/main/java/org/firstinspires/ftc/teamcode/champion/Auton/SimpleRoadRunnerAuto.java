@@ -34,28 +34,11 @@ public class SimpleRoadRunnerAuto extends LinearOpMode {
         Pose2d startPose = new Pose2d(0, 0, 0);
         drive.setPose(startPose);
 
-        // Display startup info
-        telemetry.addLine("====================================");
-        telemetry.addLine("SIMPLE ROADRUNNER AUTONOMOUS");
-        telemetry.addLine("====================================");
-        telemetry.addLine("");
-        telemetry.addLine("STARTING POSITION:");
-        telemetry.addData("  X", "%.2f inches", startPose.position.x);
-        telemetry.addData("  Y", "%.2f inches", startPose.position.y);
-        telemetry.addData("  Heading", "%.1f degrees", Math.toDegrees(startPose.heading.toDouble()));
-        telemetry.addLine("");
-        telemetry.addLine("PLANNED MOVEMENTS:");
-        telemetry.addData("  1. Drive to", "(%.1f, %.1f)", TARGET_X, TARGET_Y);
-        telemetry.addData("  2. Turn to", "%.1f degrees", SECOND_HEADING);
-        telemetry.addLine("");
-        drive.displayTuningParams();
-        telemetry.addLine("");
-        telemetry.addLine("PURE RAMSETE CONTROL:");
-        telemetry.addLine("No fixed STOP_DISTANCE needed!");
-        telemetry.addLine("Velocity automatically scales");
-        telemetry.addLine("with distance to target");
-        telemetry.addLine("");
-        telemetry.addLine("Press START to begin");
+        telemetry.addData("Start Pose", "(%.1f, %.1f) @ %.1f°",
+            startPose.position.x, startPose.position.y, Math.toDegrees(startPose.heading.toDouble()));
+        telemetry.addData("Target 1", "(%.1f, %.1f)", TARGET_X, TARGET_Y);
+        telemetry.addData("Target 2 Heading", "%.1f°", SECOND_HEADING);
+        telemetry.addData("Status", "Ready - Press START");
         telemetry.update();
 
         waitForStart();
@@ -67,12 +50,7 @@ public class SimpleRoadRunnerAuto extends LinearOpMode {
         // ============================================
 
         telemetry.clear();
-        telemetry.addLine("====================================");
-        telemetry.addLine("EXECUTING AUTONOMOUS...");
-        telemetry.addLine("====================================");
-        telemetry.addLine("");
-        telemetry.addLine("Watch both Driver Station AND");
-        telemetry.addLine("FTC Dashboard - values should match!");
+        telemetry.addData("Status", "Executing autonomous...");
         telemetry.update();
 
         // Movement 1: Drive to target position (no heading change)
@@ -140,63 +118,18 @@ public class SimpleRoadRunnerAuto extends LinearOpMode {
         Pose2d finalPose = drive.getPose();
 
         telemetry.clear();
-        telemetry.addLine("====================================");
-        telemetry.addLine("AUTONOMOUS COMPLETE!");
-        telemetry.addLine("====================================");
-        telemetry.addLine("");
+        telemetry.addData("Result", "Autonomous Complete");
 
-        telemetry.addLine("STARTING POSITION:");
-        telemetry.addData("  X", "%.2f inches", startPose.position.x);
-        telemetry.addData("  Y", "%.2f inches", startPose.position.y);
-        telemetry.addData("  Heading", "%.1f degrees", Math.toDegrees(startPose.heading.toDouble()));
-        telemetry.addLine("");
-
-        telemetry.addLine("TARGET POSITION:");
-        telemetry.addData("  X", "%.2f inches", TARGET_X);
-        telemetry.addData("  Y", "%.2f inches", TARGET_Y);
-        telemetry.addData("  Heading", "%.1f degrees", SECOND_HEADING);
-        telemetry.addLine("");
-
-        telemetry.addLine("FINAL POSITION:");
-        telemetry.addData("  X", "%.2f inches", finalPose.position.x);
-        telemetry.addData("  Y", "%.2f inches", finalPose.position.y);
-        telemetry.addData("  Heading", "%.1f degrees", Math.toDegrees(finalPose.heading.toDouble()));
-        telemetry.addLine("");
-
-        telemetry.addLine("ERRORS:");
         double errorX = TARGET_X - finalPose.position.x;
         double errorY = TARGET_Y - finalPose.position.y;
         double errorHeading = SECOND_HEADING - Math.toDegrees(finalPose.heading.toDouble());
         double totalError = Math.sqrt(errorX * errorX + errorY * errorY);
 
-        telemetry.addData("  X Error", "%.2f inches", errorX);
-        telemetry.addData("  Y Error", "%.2f inches", errorY);
-        telemetry.addData("  Total Position Error", "%.2f inches", totalError);
-        telemetry.addData("  Heading Error", "%.1f degrees", errorHeading);
-        telemetry.addLine("");
-
-        // Provide RAMSETE tuning feedback
-        telemetry.addLine("RAMSETE TUNING GUIDE:");
-        if (totalError > 1.0) {
-            telemetry.addLine("    (Higher = more damping)");
-        } else {
-            telemetry.addLine("  ✓ Position accuracy is EXCELLENT!");
-            telemetry.addLine("  ✓ RAMSETE parameters well tuned!");
-            telemetry.addLine("");
-            telemetry.addLine("Current settings:");
-        }
-        telemetry.addLine("");
-
-        telemetry.addLine("HOW IT WORKS:");
-        telemetry.addLine("• Velocity = Max × tanh(gain × distance)");
-        telemetry.addLine("• Naturally slows as distance → 0");
-        telemetry.addLine("• Works for ANY target distance!");
-        telemetry.addLine("• No manual STOP_DISTANCE tuning");
-        telemetry.addLine("");
-
-        telemetry.addLine("VERIFY TELEMETRY SYNC:");
-        telemetry.addLine("Check that Driver Station values");
-        telemetry.addLine("match FTC Dashboard values!");
+        telemetry.addData("Final Position", "(%.2f, %.2f) @ %.1f°",
+            finalPose.position.x, finalPose.position.y, Math.toDegrees(finalPose.heading.toDouble()));
+        telemetry.addData("Position Error", "X:%.2f Y:%.2f Total:%.2f in", errorX, errorY, totalError);
+        telemetry.addData("Heading Error", "%.1f°", errorHeading);
+        telemetry.addData("Accuracy", totalError < 1.0 ? "EXCELLENT" : "NEEDS TUNING");
         telemetry.update();
 
         // Keep telemetry visible - continuously update to show live values

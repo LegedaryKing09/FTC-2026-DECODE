@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
 
 @TeleOp(name = "AxonMiniServoTest", group = "Test")
-public class AxonMiniServoTest extends LinearOpMode {
+public class AxonServoTest extends LinearOpMode {
 
     private Servo testServo;
     private double servoPosition = 0.5;

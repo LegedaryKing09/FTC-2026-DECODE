@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.util;
+package org.firstinspires.ftc.teamcode.champion.utils;
 
 public class SimplyPID {
     private double setPoint;

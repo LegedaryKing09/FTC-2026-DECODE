@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @TeleOp(name = "Axon Mini MK2 Continuous Test", group = "Test")
-public class AxonMiniContinuousTest extends LinearOpMode {
+public class AxonServoContinuousTest extends LinearOpMode {
 
     private CRServo axonServo;
     private AnalogInput axonAnalog;

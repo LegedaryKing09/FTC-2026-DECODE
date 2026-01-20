@@ -14,7 +14,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 
 @Config
 @TeleOp(name = "Motor Test", group = "Test")
-public class MotorTest extends LinearOpMode {
+public class DualMotorTest extends LinearOpMode {
 
     // Configure your motor name here
     public static String MOTOR1_NAME = "motor1";
@@ -163,7 +163,7 @@ public class MotorTest extends LinearOpMode {
             sampleCount = 0;
             velocitySum = 0;
 
-            telemetry.speak("Motor started at full power");
+
         }
     }
 
@@ -173,7 +173,7 @@ public class MotorTest extends LinearOpMode {
             motor2.setPower(0);
             motorRunning = false;
 
-            telemetry.speak("Motor stopped");
+
         }
     }
 
@@ -185,7 +185,7 @@ public class MotorTest extends LinearOpMode {
             motor2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
             motorRunning = false;
 
-            telemetry.speak("Emergency stop activated");
+
         }
     }
 
@@ -216,10 +216,7 @@ public class MotorTest extends LinearOpMode {
             avgVelocity = velocitySum / sampleCount;
         }
 
-        // Display status
-        telemetry.addData("═══════════════════════════", "");
-        telemetry.addData("🔋 MOTOR STATUS", motorRunning ? "⚡ RUNNING" : "⏸ STOPPED");
-        telemetry.addData("═══════════════════════════", "");
+        telemetry.addData("Motor Status", motorRunning ? "RUNNING" : "STOPPED");
 
         // Power and control
         telemetry.addData("🎚️ Target Power", "%.3f (%.1f%%)", TARGET_POWER, TARGET_POWER * 100);
@@ -227,8 +224,6 @@ public class MotorTest extends LinearOpMode {
         telemetry.addData("⚡ Current Power2", "%.3f (%.1f%%)", currentPower2, currentPower2 * 100);
 
         // Performance metrics
-        telemetry.addData("═══════════════════════════", "");
-        telemetry.addData("📊 PERFORMANCE", "");
         telemetry.addData("🔄 Velocity1", "%.2f RPM", velocity1);
         telemetry.addData("🔄 Velocity2", "%.2f RPM", velocity2);
         telemetry.addData("🔄 Vel1", "%.2f TPS", vel1);
@@ -242,8 +237,6 @@ public class MotorTest extends LinearOpMode {
         }
 
         // Controls
-        telemetry.addData("═══════════════════════════", "");
-        telemetry.addData("🎮 CONTROLS", "");
         telemetry.addData("🟢 A Button", "Start Full Power");
         telemetry.addData("🔴 B Button", "Stop Motor");
         telemetry.addData("🛑 X Button", "Emergency Stop");
