@@ -1,10 +1,10 @@
-package org.firstinspires.ftc.teamcode.champion.teleop;
+package org.firstinspires.ftc.teamcode.champion.tests;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
 
-@TeleOp(name = "AxonMiniServoTest", group = "Test")
+@TeleOp(name = "Axon Servo Test", group = "Test")
 public class AxonServoTest extends LinearOpMode {
 
     private Servo testServo;
