@@ -8,8 +8,8 @@ import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
  * Field-Centric Turret Controller with PID + Hysteresis Deadband + Dashboard Graphing
  *
  * ANTI-JITTER FEATURE:
- * - When error < DEADBAND_ENTER (1.5°), turret STOPS and enters "locked" state
- * - Turret stays locked until error > DEADBAND_EXIT (2.5°)
+ * - When error < DEADBAND_ENTER (1.5Â°), turret STOPS and enters "locked" state
+ * - Turret stays locked until error > DEADBAND_EXIT (2.5Â°)
  * - This prevents oscillation when robot is stationary
  *
  * DASHBOARD GRAPHING:
@@ -33,12 +33,12 @@ public class TurretFieldController {
     public static double TARGET_FIELD_ANGLE = 27.0;
 
     // ========== DIRECTION-DEPENDENT PID ==========
-    // Clockwise (positive error → positive power)
-    public static double CW_kP = 0.05;
+    // Clockwise (positive error â†’ positive power)
+    public static double CW_kP = 0.04;
     public static double CW_kI = 0.0;
     public static double CW_kD = 0.0;
 
-    // Counter-clockwise (negative error → negative power)
+    // Counter-clockwise (negative error â†’ negative power)
     public static double CCW_kP = 0.06;
     public static double CCW_kI = 0.0;
     public static double CCW_kD = 0.005;
@@ -51,8 +51,8 @@ public class TurretFieldController {
     // ========== HYSTERESIS DEADBAND (anti-jitter!) ==========
     // Enter locked state when error < DEADBAND_ENTER
     // Exit locked state when error > DEADBAND_EXIT
-    public static double DEADBAND_ENTER = 1.5;   // Stop when within 1.5°
-    public static double DEADBAND_EXIT = 2.5;    // Restart when error exceeds 2.5°
+    public static double DEADBAND_ENTER = 1.5;   // Stop when within 1.5Â°
+    public static double DEADBAND_EXIT = 2.5;    // Restart when error exceeds 2.5Â°
 
     // Legacy tolerance (for isAligned() check)
     public static double FIELD_TOLERANCE_DEG = 1.5;
@@ -306,9 +306,6 @@ public class TurretFieldController {
 
         dt = Math.max(0.001, Math.min(0.1, dt));
 
-        // Select PID gains based on error direction
-        // Positive error = need to turn clockwise
-        // Negative error = need to turn counter-clockwise
         double kP, kI, kD;
         if (error >= 0) {
             // Clockwise

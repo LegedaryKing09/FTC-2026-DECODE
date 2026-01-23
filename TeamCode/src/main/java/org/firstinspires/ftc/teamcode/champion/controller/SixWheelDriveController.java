@@ -8,7 +8,6 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.Range;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 
@@ -42,9 +41,9 @@ public class SixWheelDriveController {
     private double robotHeading = 0.0;
 
     // Speed mode settings
-    public static double FAST_SPEED_MULTIPLIER = 0.8;
-    public static double FAST_TURN_MULTIPLIER = 0.6;
-    public static double SLOW_SPEED_MULTIPLIER = 0.4;
+    public static double FAST_SPEED_MULTIPLIER = 1;
+    public static double FAST_TURN_MULTIPLIER = 0.7;
+    public static double SLOW_SPEED_MULTIPLIER = 0.5;
     public static double SLOW_TURN_MULTIPLIER = 0.4;
 
     // Acceleration ramping
@@ -82,6 +81,15 @@ public class SixWheelDriveController {
         public static double VELOCITY_I = 0.0;
         public static double VELOCITY_D = 0.5;
         public static double VELOCITY_F = 12.0;
+
+        // === ENCODER CONFIGURATION ===
+        // Which motor to use for encoder reading on each side
+        public static boolean USE_FRONT_ENCODER_LEFT = true;   // true = LF, false = LB
+        public static boolean USE_FRONT_ENCODER_RIGHT = true;  // true = RF, false = RB
+
+        // Invert encoder readings if needed (set to true if reading is negated)
+        public static boolean INVERT_LEFT_ENCODER = false;
+        public static boolean INVERT_RIGHT_ENCODER = true;
     }
 
     @Config
@@ -94,6 +102,13 @@ public class SixWheelDriveController {
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
     }
+
+    // === DRIVE ENCODER CONFIGURATION ===
+    // Which motor encoder to use for velocity reading (front or back)
+    public static boolean USE_FRONT_ENCODERS = true;  // true = LF/RF, false = LB/RB
+    // Invert encoder readings if they're negated (change these if readings are wrong)
+    public static boolean INVERT_LEFT_ENCODER = false;
+    public static boolean INVERT_RIGHT_ENCODER = false;
 
     // Constructor for LinearOpMode
     public SixWheelDriveController(LinearOpMode opMode) {
@@ -341,11 +356,21 @@ public class SixWheelDriveController {
     }
 
     public double getLeftVelocity() {
-        return (lf.getVelocity() + lb.getVelocity()) / 2.0;
+        // Use single encoder based on configuration
+        double velocity = VelocityParams.USE_FRONT_ENCODER_LEFT ?
+                lf.getVelocity() : lb.getVelocity();
+
+        // Apply inversion if needed
+        return VelocityParams.INVERT_LEFT_ENCODER ? -velocity : velocity;
     }
 
     public double getRightVelocity() {
-        return (rf.getVelocity() + rb.getVelocity()) / 2.0;
+        // Use single encoder based on configuration
+        double velocity = VelocityParams.USE_FRONT_ENCODER_RIGHT ?
+                rf.getVelocity() : rb.getVelocity();
+
+        // Apply inversion if needed
+        return VelocityParams.INVERT_RIGHT_ENCODER ? -velocity : velocity;
     }
 
     /**
