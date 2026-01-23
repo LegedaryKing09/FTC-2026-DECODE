@@ -8,7 +8,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.champion.controller.DistanceController;
 
 @Autonomous(name = "Distance Sensor Test", group = "Test")
-public class DistanceTest extends LinearOpMode {
+public class DistanceSensorTest extends LinearOpMode {
     private DistanceController distanceController;
     private final ElapsedTime runtime = new ElapsedTime();
 

@@ -47,14 +47,16 @@ import java.util.LinkedList;
 import java.util.List;
 
 @Config
-public final class AutoTankDrive {
+public final class FastAutoTankDrive {
     /* Fix y offset
     check trackwidth
      */
 
-    public static class Params {
 
-        public double inPerTick = 0.0019041574103; //  0.0019588638589618022
+    public static class Params {
+        // Drive wheel physical parameters
+        public double inPerTick = 0.0019588638589618022; // (wheelRadius * 2 * Math.PI * gearRatio) / ticksPerRev;
+        // 0.0.015610638834161764
 
         // Track width for kinematics (distance between wheels in inches)
         public double physicalTrackWidthInches = 12.267583262898228; // 14.5; //New Track Width = Current Track Width × (Target Angle / Actual Angle)
@@ -133,7 +135,7 @@ public final class AutoTankDrive {
     public final Localizer localizer;
 
 
-    public AutoTankDrive(HardwareMap hardwareMap, Pose2d pose) {
+    public FastAutoTankDrive(HardwareMap hardwareMap, Pose2d pose) {
 //        this.telemetry = telemetry;
 
 
@@ -168,9 +170,9 @@ public final class AutoTankDrive {
 
         // Configure motor directions (right side reversed for tank drive)
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
-        leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
-        rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
+        rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
 
         // Configure motor braking behavior

@@ -72,7 +72,6 @@ public class SixWheelDriveController {
         public static double WHEEL_DIAMETER_INCHES = WHEEL_DIAMETER_MM / 25.4;  // ~2.697 inches
         public static double WHEEL_CIRCUMFERENCE_INCHES = WHEEL_DIAMETER_INCHES * Math.PI;  // ~8.47 inches
         public static double TICKS_PER_INCH = TICKS_PER_REV / WHEEL_CIRCUMFERENCE_INCHES;  // ~88.7
-
         // Robot dimensions
         public static double TRACK_WIDTH_INCHES = 11.5;
 

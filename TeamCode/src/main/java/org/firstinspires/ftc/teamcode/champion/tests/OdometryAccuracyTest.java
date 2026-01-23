@@ -50,7 +50,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
  */
 @Config
 @TeleOp(name = "Odometry Basic Test (No PID)", group = "Test")
-public class BasicOdometryTest extends LinearOpMode {
+public class OdometryAccuracyTest extends LinearOpMode {
 
     // Movement parameters (tunable via dashboard)
     public static double FORWARD_POWER = 0.5;      // Power for forward movement
@@ -81,17 +81,14 @@ public class BasicOdometryTest extends LinearOpMode {
         driveController = new SixWheelDriveController(this);
         driveController.resetOdometry();
 
-        displayInstructions();
-        telemetry.addLine();
-        telemetry.addLine("✓ Ready! Press START");
+        telemetry.addData("Status", "Ready - Press START to begin odometry accuracy test");
         telemetry.update();
 
         waitForStart();
         runtime.reset();
 
         telemetry.clear();
-        telemetry.addLine("STARTED");
-        telemetry.addLine("Use DPAD to test movements");
+        telemetry.addData("Test", "Started - Use DPAD to test odometry accuracy");
         telemetry.update();
 
         while (opModeIsActive()) {
@@ -232,9 +229,7 @@ public class BasicOdometryTest extends LinearOpMode {
         double errorPercent = (error / lastTestTargetDistance) * 100;
 
         telemetry.clear();
-        telemetry.addLine("╔═══════════════════════════════╗");
-        telemetry.addLine("║  TEST COMPLETE                ║");
-        telemetry.addLine("╚═══════════════════════════════╝");
+        telemetry.addData("Test", "Complete");
         telemetry.addLine();
         telemetry.addData("Test", lastTestName);
         telemetry.addData("Target Distance", "%.1f in", lastTestTargetDistance);
@@ -242,31 +237,10 @@ public class BasicOdometryTest extends LinearOpMode {
         telemetry.addData("Error", "%.1f in (%.1f%%)", error, errorPercent);
         telemetry.addData("Duration", "%.1f sec", lastTestDuration);
         telemetry.addLine();
-
-        // Analysis
-        telemetry.addLine("═══ ANALYSIS ═══");
-        if (errorPercent < 5.0) {
-            telemetry.addLine("✅ EXCELLENT - Odometry accurate!");
-        } else if (errorPercent < 10.0) {
-            telemetry.addLine("⚠️ ACCEPTABLE - Minor error");
-        } else if (errorPercent < 20.0) {
-            telemetry.addLine("⚠️ NEEDS ATTENTION");
-            telemetry.addLine("Check:");
-            telemetry.addLine("  • Encoder directions");
-            telemetry.addLine("  • Pod offsets");
-            telemetry.addLine("  • Wheel slippage");
-        } else {
-            telemetry.addLine("❌ SIGNIFICANT ERROR");
-            telemetry.addLine("Odometry may be misconfigured!");
-            telemetry.addLine("Check:");
-            telemetry.addLine("  • Encoder resolution setting");
-            telemetry.addLine("  • Encoder directions (X/Y)");
-            telemetry.addLine("  • Pod offset measurements");
-            telemetry.addLine("  • Physical pod alignment");
-        }
-        telemetry.addLine();
-        telemetry.addLine("⚠️ IMPORTANT: Measure actual");
-        telemetry.addLine("distance with tape measure!");
+        telemetry.addData("Accuracy", errorPercent < 5.0 ? "EXCELLENT" :
+                         errorPercent < 10.0 ? "ACCEPTABLE" :
+                         errorPercent < 20.0 ? "NEEDS ATTENTION" : "SIGNIFICANT ERROR");
+        telemetry.addData("Note", "Measure actual distance with tape measure");
 
         telemetry.update();
         sleep(3000);
@@ -278,22 +252,10 @@ public class BasicOdometryTest extends LinearOpMode {
      */
     private void runVerificationTest() {
         telemetry.clear();
-        telemetry.addLine("╔═══════════════════════════════╗");
-        telemetry.addLine("║  DISTANCE VERIFICATION TEST   ║");
-        telemetry.addLine("╚═══════════════════════════════╝");
-        telemetry.addLine();
-        telemetry.addLine("This will test:");
-        telemetry.addLine("1. Forward 12 inches");
-        telemetry.addLine("2. Forward 24 inches");
-        telemetry.addLine("3. Forward 48 inches");
-        telemetry.addLine("4. Backward 24 inches");
-        telemetry.addLine();
-        telemetry.addLine("⚠️ MAKE SURE:");
-        telemetry.addLine("  • Robot has 8+ feet clearance");
-        telemetry.addLine("  • You have tape measure ready");
-        telemetry.addLine("  • Starting position is marked");
-        telemetry.addLine();
-        telemetry.addLine("Press A to start, B to cancel");
+        telemetry.addData("Test", "Distance Verification");
+        telemetry.addData("Tests", "12\", 24\", 48\" forward, 24\" backward");
+        telemetry.addData("Requirement", "8+ feet clearance, tape measure ready");
+        telemetry.addData("Controls", "A: Start, B: Cancel");
         telemetry.update();
 
         // Wait for confirmation
@@ -332,9 +294,7 @@ public class BasicOdometryTest extends LinearOpMode {
 
         // Display summary
         telemetry.clear();
-        telemetry.addLine("╔═══════════════════════════════╗");
-        telemetry.addLine("║  VERIFICATION COMPLETE        ║");
-        telemetry.addLine("╚═══════════════════════════════╝");
+        telemetry.addData("Test", "Verification Complete");
         telemetry.addLine();
 
         double totalError = 0;
@@ -348,29 +308,17 @@ public class BasicOdometryTest extends LinearOpMode {
         telemetry.addData("Average Error", "%.1f in", avgError);
         telemetry.addLine();
 
-        if (avgError < 2.0) {
-            telemetry.addLine("✅ ODOMETRY EXCELLENT");
-            telemetry.addLine("Ready for autonomous!");
-        } else if (avgError < 4.0) {
-            telemetry.addLine("⚠️ ODOMETRY ACCEPTABLE");
-            telemetry.addLine("May need minor tuning");
-        } else {
-            telemetry.addLine("❌ ODOMETRY NEEDS WORK");
-            telemetry.addLine("Requires troubleshooting");
-        }
-
-        telemetry.addLine();
-        telemetry.addLine("NOW: Measure actual distances");
-        telemetry.addLine("with tape measure and compare!");
+        telemetry.addData("Overall Accuracy",
+            avgError < 2.0 ? "EXCELLENT" :
+            avgError < 4.0 ? "ACCEPTABLE" : "NEEDS WORK");
+        telemetry.addData("Next Step", "Measure actual distances with tape measure");
 
         telemetry.update();
         sleep(5000);
     }
 
     private void displayStatus() {
-        telemetry.addLine("╔═══════════════════════════════╗");
-        telemetry.addLine("║  ODOMETRY STATUS              ║");
-        telemetry.addLine("╚═══════════════════════════════╝");
+        telemetry.addData("Status", "Odometry Test Active");
         telemetry.addLine();
 
         // Current position
@@ -422,30 +370,18 @@ public class BasicOdometryTest extends LinearOpMode {
                 SixWheelDriveController.OdometryParams.Y_OFFSET_MM);
         telemetry.addLine();
 
-        telemetry.addLine("Use DPAD to test movements");
-        telemetry.addLine("LB: Reset | RB: Verify Test");
+        telemetry.addData("Controls", "DPAD: Move | LB: Reset | RB: Verify");
 
         telemetry.update();
     }
 
     private void displayInstructions() {
-        telemetry.addLine("═══ INSTRUCTIONS ═══");
-        telemetry.addLine("1. Mark robot start position");
-        telemetry.addLine("2. Test forward/backward");
-        telemetry.addLine("3. Measure ACTUAL distance");
-        telemetry.addLine("4. Compare to odometry reading");
-        telemetry.addLine();
-        telemetry.addLine("═══ CONTROLS ═══");
-        telemetry.addLine("DPAD UP: Forward 24\"");
-        telemetry.addLine("DPAD DOWN: Backward 24\"");
-        telemetry.addLine("X: Forward 48\"");
-        telemetry.addLine("A: Forward 12\"");
-        telemetry.addLine("B: Backward 48\"");
-        telemetry.addLine("Y: Backward 12\"");
-        telemetry.addLine("LB: Reset Odometry");
-        telemetry.addLine("RB: Run Verification Test");
-        telemetry.addLine("START: Emergency Stop");
-        telemetry.addLine();
-        telemetry.addLine("⚠️ No PID - Simple movement!");
+        telemetry.addData("Instructions", "Mark start position, test movements, measure actual distance");
+        telemetry.addData("DPAD UP", "Forward 24\"");
+        telemetry.addData("DPAD DOWN", "Backward 24\"");
+        telemetry.addData("X/A/B/Y", "48\"/12\"/48\"/12\" tests");
+        telemetry.addData("LB", "Reset Odometry");
+        telemetry.addData("RB", "Run Verification Test");
+        telemetry.addData("Note", "Simple movement, no PID");
     }
 }

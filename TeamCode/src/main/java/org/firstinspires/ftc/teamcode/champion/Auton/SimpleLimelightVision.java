@@ -11,7 +11,8 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
  * Simple Limelight Vision for FTC
  * Uses YawPitchRollAngles from Pose3D
  */
-public class SimpleLimelightVision {
+public class
+SimpleLimelightVision {
 
     private final Limelight3A limelight;
     private static final double METERS_TO_INCHES = 39.3701;

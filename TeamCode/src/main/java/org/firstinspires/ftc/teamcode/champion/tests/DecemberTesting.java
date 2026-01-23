@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.teleop;
+package org.firstinspires.ftc.teamcode.champion.tests;
 
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;

@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 
 @TeleOp(name = "Dual CRServo Test", group = "Tests")
-public class AxonMiniServoTest extends LinearOpMode {
+public class DoubleCRServoTest extends LinearOpMode {
 
     private CRServo servo1;
     private CRServo servo2;
