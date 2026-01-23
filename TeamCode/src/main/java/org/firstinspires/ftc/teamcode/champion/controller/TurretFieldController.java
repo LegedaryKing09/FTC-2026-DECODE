@@ -442,4 +442,149 @@ public class TurretFieldController {
     public double getLastPTerm() { return lastPTerm; }
     public double getLastITerm() { return lastITerm; }
     public double getLastDTerm() { return lastDTerm; }
+
+    // ========== AUTO-AIM FOR AUTONOMOUS ==========
+
+    /**
+     * Functional interface for getting current robot heading during auto-aim.
+     */
+    public interface HeadingProvider {
+        double getHeadingDegrees();
+    }
+
+    /**
+     * Functional interface for checking if opmode is still active.
+     */
+    public interface OpModeChecker {
+        boolean isActive();
+    }
+
+    // Auto-aim parameters (configurable via Dashboard)
+    public static double AUTO_AIM_TIMEOUT_MS = 1500.0;
+    public static double AUTO_AIM_STABLE_TIME_MS = 100.0;
+
+    /**
+     * Auto-aim the turret to the current TARGET_FIELD_ANGLE.
+     * Blocks until aligned or timeout.
+     *
+     * Example usage in autonomous:
+     * <pre>
+     * boolean aligned = turretFieldController.autoAim(
+     *     () -> Math.toDegrees(localizer.getPose().heading.toDouble()),
+     *     () -> opModeIsActive()
+     * );
+     * if (aligned) {
+     *     // shoot!
+     * }
+     * </pre>
+     *
+     * @param headingProvider Lambda to get current robot heading in degrees
+     * @param opModeChecker Lambda to check if opmode is still active
+     * @return true if successfully aligned, false if timed out
+     */
+    public boolean autoAim(HeadingProvider headingProvider, OpModeChecker opModeChecker) {
+        return autoAim(TARGET_FIELD_ANGLE, headingProvider, opModeChecker, null);
+    }
+
+    /**
+     * Auto-aim to a specific field angle.
+     *
+     * @param targetFieldAngle The field angle to aim at (degrees)
+     * @param headingProvider Lambda to get current robot heading in degrees
+     * @param opModeChecker Lambda to check if opmode is still active
+     * @return true if successfully aligned, false if timed out
+     */
+    public boolean autoAim(double targetFieldAngle, HeadingProvider headingProvider, OpModeChecker opModeChecker) {
+        return autoAim(targetFieldAngle, headingProvider, opModeChecker, null);
+    }
+
+    /**
+     * Auto-aim with optional telemetry output for debugging.
+     *
+     * @param targetFieldAngle The field angle to aim at (degrees)
+     * @param headingProvider Lambda to get current robot heading in degrees
+     * @param opModeChecker Lambda to check if opmode is still active
+     * @param telemetry FTC Telemetry object (pass null to disable telemetry)
+     * @return true if successfully aligned, false if timed out
+     */
+    public boolean autoAim(double targetFieldAngle,
+                           HeadingProvider headingProvider,
+                           OpModeChecker opModeChecker,
+                           org.firstinspires.ftc.robotcore.external.Telemetry telemetry) {
+
+        // Set target and enable
+        setTargetFieldAngle(targetFieldAngle);
+        enable();
+
+        long startTime = System.currentTimeMillis();
+        long alignedStartTime = 0;
+        boolean wasAligned = false;
+
+        while (opModeChecker.isActive()) {
+            long currentTime = System.currentTimeMillis();
+            double elapsed = currentTime - startTime;
+
+            // Check timeout
+            if (elapsed > AUTO_AIM_TIMEOUT_MS) {
+                if (telemetry != null) {
+                    telemetry.addData("Auto-Aim", "TIMEOUT after %.0fms", elapsed);
+                    telemetry.addData("Final Error", "%.2f°", lastFieldError);
+                    telemetry.update();
+                }
+                disable();
+                return false;
+            }
+
+            // Update turret encoder
+            turret.update();
+
+            // Get current heading and update field controller
+            double heading = headingProvider.getHeadingDegrees();
+            update(heading);
+
+            // Telemetry if provided
+            if (telemetry != null) {
+                telemetry.addData("Auto-Aim", "Aiming... (%.0fms)", elapsed);
+                telemetry.addData("Field Error", "%.2f°", lastFieldError);
+                telemetry.addData("Turret Angle", "%.2f°", turret.getTurretAngle());
+                telemetry.addData("Robot Heading", "%.2f°", heading);
+                telemetry.addData("Power", "%.2f", lastPower);
+                telemetry.addData("Locked", isLocked);
+                telemetry.update();
+            }
+
+            // Check alignment with stability requirement
+            if (isAligned()) {
+                if (!wasAligned) {
+                    // Just became aligned, start stability timer
+                    alignedStartTime = currentTime;
+                    wasAligned = true;
+                } else if (currentTime - alignedStartTime >= AUTO_AIM_STABLE_TIME_MS) {
+                    // Been aligned long enough, success!
+                    if (telemetry != null) {
+                        telemetry.addData("Auto-Aim", "SUCCESS in %.0fms", elapsed);
+                        telemetry.addData("Final Error", "%.2f°", lastFieldError);
+                        telemetry.update();
+                    }
+                    // Keep enabled but stop updating - turret holds position
+                    return true;
+                }
+            } else {
+                // Lost alignment, reset stability timer
+                wasAligned = false;
+            }
+
+            // Small delay to prevent busy-waiting
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                disable();
+                return false;
+            }
+        }
+
+        // OpMode stopped
+        disable();
+        return false;
+    }
 }
