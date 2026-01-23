@@ -3,56 +3,123 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.tuning;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.PoseVelocity2d;
+import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 @Config
 @Autonomous(name = "Turn Tuning", group = "Tuning")
 public class TurnTest extends LinearOpMode {
-    public static double TURN_ANGLE = 90;  // Change via FTC Dashboard
+    AutoTankDrive tankDrive;
+    // If jerk happens mostly when the robot is far away from target angle → lower max vel.
+    // If jerk happens mostly near the target and looks like “hunting” → lower kP (and sometimes also max vel).
+    public static double HEADING_CORRECTION_KP = 0.01;
+    public static double HEADING_CORRECTION_MAX_VEL= 0.3;
+    public static int HEADING_STABLE_SAMPLES = 3;
+    public static double HEADING_TIMEOUT_MS = 300;
+    public static double TURN_90 = 90.0;
+    public static double TURN_38 = 38.0;
+    public static double TURN_45 = 45.0;
+    public static double TURN_0 = 0.0;
 
     @Override
     public void runOpMode() {
-        Pose2d start = new Pose2d(0, 0, 0);
-        AutoTankDrive drive = new AutoTankDrive(hardwareMap, start);
-
         waitForStart();
 
-        while (opModeIsActive()) {
-            // Reset position
-//            drive.pinpointLocalizer.setPose(start);
+        // Define starting pose
+        Pose2d startPose = new Pose2d(0, 0, 0);
+        tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
-            double turnRadians = Math.toRadians(TURN_ANGLE);
-            Action turnTest = drive.actionBuilder(start)
-                    .turn(turnRadians)
-                    .build();
+        turningMotion();
 
-            Actions.runBlocking(turnTest);
+        // Wait for settling
+        sleep(500);
 
-            // Show results
-            double finalHeading = Math.toDegrees(drive.pinpointLocalizer.getPose().heading.toDouble());
-            double error = TURN_ANGLE - finalHeading;
-
-            telemetry.addData("Target Heading", "%.1f°", TURN_ANGLE);
-            telemetry.addData("Final Heading", "%.1f°", finalHeading);
-            telemetry.addData("Error", "%.1f°", error);
-            telemetry.addData("", "");
-            telemetry.addData("turnKS", "%.3f", AutoTankDrive.PARAMS.kS);
-            telemetry.addData("turnKV", "%.3f", AutoTankDrive.PARAMS.kV);
-            telemetry.addData("turnKA", "%.4f", AutoTankDrive.PARAMS.kA);
-            telemetry.addData("", "");
-            telemetry.addData("Status", "Press START to run again");
-            telemetry.update();
-
-            // Wait for next run
-            while (opModeIsActive() && !gamepad1.start) {
-                sleep(20);
-            }
-            while (opModeIsActive() && gamepad1.start) {
-                sleep(20);
-            }
-        }
     }
+
+    // SEQUENCE : TURN TO 38, 90, 45
+    private void turningMotion() {
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        Action turnLeft1 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(TURN_45))
+                .build();
+        Actions.runBlocking(turnLeft1);
+        HeadingCorrection(TURN_45, 0.5);
+
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action turnLeft2 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(TURN_90))
+                .build();
+        Actions.runBlocking(turnLeft2);
+        HeadingCorrection(TURN_90, 0.5);
+
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action turnLeft3 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(TURN_45))
+                .build();
+        Actions.runBlocking(turnLeft3);
+        HeadingCorrection(TURN_45, 0.5);
+
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action turnLeft4 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(TURN_0))
+                .build();
+        Actions.runBlocking(turnLeft4);
+        HeadingCorrection(TURN_0, 0.5);
+
+
+    }
+
+
+        private void HeadingCorrection(double targetAngleDegrees, double toleranceDegrees) {
+        final double kP = HEADING_CORRECTION_KP;
+        final double maxAngularVel = HEADING_CORRECTION_MAX_VEL;
+        final int stableSamplesRequired = HEADING_STABLE_SAMPLES;
+        final double timeoutMs = HEADING_TIMEOUT_MS;
+
+        final int maxAttempts = 15;
+        int attemptCount = 0;
+        int stableCount = 0;
+
+        ElapsedTime timeout = new ElapsedTime();
+        timeout.reset();
+
+        while (opModeIsActive()
+                && attemptCount < maxAttempts
+                && timeout.milliseconds() < timeoutMs) {
+
+            tankDrive.updatePoseEstimate();
+            Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+            double currentAngleDeg = Math.toDegrees(currentPose.heading.toDouble());
+
+            // normalize error
+            double headingError = targetAngleDegrees - currentAngleDeg;
+            while (headingError > 180) headingError -= 360;
+            while (headingError <= -180) headingError += 360;
+
+            if (Math.abs(headingError) <= toleranceDegrees) {
+                stableCount++;
+                if (stableCount >= stableSamplesRequired) break;
+            } else {
+                stableCount = 0;
+            }
+
+            double angularVel = kP * headingError;
+            angularVel = Math.max(-maxAngularVel, Math.min(maxAngularVel, angularVel));
+
+            tankDrive.setDrivePowers(new PoseVelocity2d(new Vector2d(0, 0), angularVel));
+
+            sleep(10);
+            attemptCount++;
+        }
+
+        tankDrive.setDrivePowers(new PoseVelocity2d(new Vector2d(0, 0), 0));
+        sleep(50);
+    }
+
 }
