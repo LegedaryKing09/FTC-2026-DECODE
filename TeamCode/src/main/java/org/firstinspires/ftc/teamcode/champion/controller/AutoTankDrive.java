@@ -57,13 +57,13 @@ public final class AutoTankDrive {
         public double inPerTick = 0.0019041574103; //  0.0019588638589618022
 
         // Track width for kinematics (distance between wheels in inches)
-        public double physicalTrackWidthInches = 12.267583262898228; // 14.5; //New Track Width = Current Track Width × (Target Angle / Actual Angle)
+        public double physicalTrackWidthInches = 12.367583262898228; // 14.5; //New Track Width = Current Track Width × (Target Angle / Actual Angle)
 
 
         // Path profile parameters (velocity and acceleration limits)
-        public double maxWheelVel = 39;
-        public double minProfileAccel = -20; // Reduced for smoother motion
-        public double maxProfileAccel = 25; // Reduced for smoother motion
+        public double maxWheelVel = 70;
+        public double minProfileAccel = -35; // Reduced for smoother motion
+        public double maxProfileAccel = 35; // Reduced for smoother motion
 
         // Feedforward control gains for motor voltage compensation
         public double kS = 1.3289163351364959; // 0.22;
@@ -71,8 +71,8 @@ public final class AutoTankDrive {
         public double kA = 0.00003;
 
         // Turn profile parameters (angular velocity and acceleration limits)
-        public double maxAngVel = Math.PI; // Maximum angular velocity in radians per second
-        public double maxAngAccel = Math.PI ; // Maximum angular acceleration in radians per second squared
+        public double maxAngVel = 2.641592653589793; // Math.PI
+        public double maxAngAccel = 2.641592653589793; // Math.PI
 
 
         // Ramsete controller parameters for smooth path following
@@ -81,8 +81,8 @@ public final class AutoTankDrive {
 
 
         // Turn controller gains (proportional and velocity feedback)
-        public double turnGain = 18; // Proportional gain for turn error correction
-        public double turnVelGain = 1; // Velocity feedback gain for turn smoothing
+        public double turnGain = 23; // Proportional gain for turn error correction
+        public double turnVelGain = 0; // Velocity feedback gain for turn smoothing
 
         // Pinpoint odometry parameters for localization
         public double pinpointXOffset = 3418.7735965250777 * inPerTick; // -3.9; // X offset of Pinpoint sensor from robot center in inches
@@ -198,7 +198,7 @@ public final class AutoTankDrive {
         // Find the maximum power magnitude to normalize velocities if needed
         double maxPowerMag = 1.0;
         for (DualNum<Time> power : wheelVels.all()) {
-            maxPowerMag = Math.max(maxPowerMag, power.value());
+            maxPowerMag = Math.max(maxPowerMag, Math.abs(power.value()));
         }
 
 
@@ -478,6 +478,7 @@ public final class AutoTankDrive {
                     )
             );
 
+
             // Convert to wheel velocities and calculate feedforward powers
             TankKinematics.WheelVelocities<Time> wheelVelocities = kinematics.inverse(velocityCommand);
             double batteryVoltage = voltageSensor.getVoltage();
@@ -485,7 +486,11 @@ public final class AutoTankDrive {
             double leftPower = feedforward.compute(wheelVelocities.left) / batteryVoltage;
             double rightPower = feedforward.compute(wheelVelocities.right) / batteryVoltage;
 
-            // CRITICAL FIX: Clamp powers to [-1, 1]
+
+            double feedforwardComponent = targetPose.heading.velocity().value();
+            double proportionalComponent = PARAMS.turnGain * headingError;
+            double velocityComponent = PARAMS.turnVelGain * (currentVelocity.angVel - targetPose.heading.velocity().value());
+
             leftPower = Math.max(-1.0, Math.min(1.0, leftPower));
             rightPower = Math.max(-1.0, Math.min(1.0, rightPower));
 
@@ -494,20 +499,6 @@ public final class AutoTankDrive {
 
             // Draw visualizations
             drawTurnVisualizations(p, targetPose);
-
-            p.put("=== TURN TELEMETRY ===", "");
-            p.put("Commanded Turn Angle (deg)", commandedTurnAngleDeg);
-            p.put("Actual Turn Angle (deg)", actualTurnAngleDeg);
-            p.put("Turn Angle Error (deg)", turnAngleErrorDeg);
-            p.put("Normalized Heading Error (deg)", Math.toDegrees(headingError)); // NEW
-            p.put("Commanded Angular Vel (deg/s)", Math.toDegrees(targetPose.heading.velocity().value()));
-            p.put("Actual Angular Vel (deg/s)", Math.toDegrees(currentVelocity.angVel));
-            p.put("Left Power", leftPower);   // NEW
-            p.put("Right Power", rightPower); // NEW
-            p.put("Power Saturated", Math.abs(leftPower) >= 0.99 || Math.abs(rightPower) >= 0.99); // NEW
-
-            poseHistory.add(pinpointLocalizer.getPose());
-
             return true;
         }
 
