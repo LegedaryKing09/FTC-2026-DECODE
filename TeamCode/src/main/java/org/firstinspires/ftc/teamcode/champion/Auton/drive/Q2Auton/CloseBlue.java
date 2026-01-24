@@ -16,6 +16,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentCont
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -39,7 +41,8 @@ public class CloseBlue extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
-    AutonTurretController turret;
+    TurretFieldController turretField;
+    TurretController turret;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -79,6 +82,10 @@ public class CloseBlue extends LinearOpMode {
     private volatile boolean runShooter = false;
     public boolean intakeModeActive = false;
     public boolean uptakeStoppedBySwitch = false;
+
+    // turret angles
+    public static double AUTO_AIM = 45.0;
+
 
     @Override
     public void runOpMode() {
@@ -159,6 +166,14 @@ public class CloseBlue extends LinearOpMode {
         }
         shooterController = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
 
+        // initialize turret
+        try {
+            turret = new TurretController(this);
+            turretField = new TurretFieldController(turret);
+        } catch (Exception e) {
+            //
+        }
+
         // Initialize ramp
         try {
             rampController = new NewRampController(this);
@@ -181,13 +196,6 @@ public class CloseBlue extends LinearOpMode {
                 rampController
         );
 
-            try {
-                turret = new AutonTurretController(this);
-                telemetry.addData("Turret Initial Angle", "%.1f°", turret.getCurrentAngle());
-            } catch (Exception e) {
-                telemetry.addData("Turret Init Error", e.getMessage());
-            }
-
     }
 
     /* 1. FINISH TUNING FOR TURNING
@@ -203,14 +211,6 @@ public class CloseBlue extends LinearOpMode {
                 .lineToX(currentPose.position.x + INITIAL_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward1);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 2. turn left (now turning TO a certain angle, not relatively turning degrees)
-        Action turnLeft1 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(TURN_ANGLE_38))
-                .build();
-        Actions.runBlocking(turnLeft1);
-        HeadingCorrection(TURN_ANGLE_38, 0.5);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 3. shoot 3 balls
@@ -232,14 +232,6 @@ public class CloseBlue extends LinearOpMode {
                 .lineToY(currentPose.position.y - INTAKE_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward2);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 7. turn to 45 degree absolute angle for shooting
-        Action turnRight1 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(TURN_ANGLE_38))
-                .build();
-        Actions.runBlocking(turnRight1);
-        HeadingCorrection(TURN_ANGLE_38, 0.5);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 8. Shoot balls
@@ -291,12 +283,6 @@ public class CloseBlue extends LinearOpMode {
         Actions.runBlocking(moveForward4);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 16. turn left for shooting
-        Action turnRight3 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(LEFT_TURN_ANGLE))
-                .build();
-        Actions.runBlocking(turnRight3);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 17. shoot balls
         shootBalls();
