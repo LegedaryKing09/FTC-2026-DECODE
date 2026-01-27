@@ -53,7 +53,6 @@ public final class AutoTankDrive {
      */
 
     public static class Params {
-
         public double inPerTick = 0.0019041574103; //  0.0019588638589618022
 
         // Track width for kinematics (distance between wheels in inches)
@@ -61,9 +60,9 @@ public final class AutoTankDrive {
 
 
         // Path profile parameters (velocity and acceleration limits)
-        public double maxWheelVel = 70;
-        public double minProfileAccel = -35; // Reduced for smoother motion
-        public double maxProfileAccel = 35; // Reduced for smoother motion
+        public double maxWheelVel = 110;
+        public double minProfileAccel = -55; // Reduced for smoother motion
+        public double maxProfileAccel = 55; // Reduced for smoother motion
 
         // Feedforward control gains for motor voltage compensation
         public double kS = 1.3289163351364959; // 0.22;
@@ -79,14 +78,13 @@ public final class AutoTankDrive {
         public double ramseteZeta = 0.7;
         public double ramseteBBar = 2.0;
 
-
         // Turn controller gains (proportional and velocity feedback)
         public double turnGain = 23; // Proportional gain for turn error correction
         public double turnVelGain = 0; // Velocity feedback gain for turn smoothing
 
         // Pinpoint odometry parameters for localization
-        public double pinpointXOffset = 3418.7735965250777 * inPerTick; // -3.9; // X offset of Pinpoint sensor from robot center in inches
-        public double pinpointYOffset = 2032.035531016167 * inPerTick; // 6.614; // Y offset of Pinpoint sensor from robot center in inches
+        public double pinpointXOffset = 3418.7735965250777 * inPerTick;  // X offset of Pinpoint sensor from robot center in inches
+        public double pinpointYOffset = 2032.035531016167 * inPerTick;   // Y offset of Pinpoint sensor from robot center in inches
     }
 
 

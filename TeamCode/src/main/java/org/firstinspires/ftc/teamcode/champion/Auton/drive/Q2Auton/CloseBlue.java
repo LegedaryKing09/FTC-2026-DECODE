@@ -53,20 +53,19 @@ public class CloseBlue extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = -130.0;
 
     // Distance parameters
-    public static double INITIAL_BACKWARD = -44.0;
+    public static double INITIAL_BACKWARD = -40.0;
     public static double INTAKE_FORWARD = 40.0;
     public static double INTAKE_BACKWARD = 35.0;
-    public static double SECOND_BACKWARD = 24.0;
+
+    public static double SECOND_BACKWARD = 20.0;
     public static double ENDING_DISTANCE = 30.0;
 
     // turning angle parameters
-    public static double LEFT_TURN_ANGLE = 45.0;
-    public static double TURN_ANGLE_38 = 38.0;
     public static double DEGREE_ZERO = 0.0;
     public static double PICK_UP_ANGLE = 90.0;
 
     // turning perfection
-    public static double HEADING_CORRECTION_KP = 0.02;
+    public static double HEADING_CORRECTION_KP = 0.015;
     public static double HEADING_CORRECTION_MAX_VEL = 0.3;
     public static int HEADING_STABLE_SAMPLES = 3;
     public static double HEADING_TIMEOUT_MS = 300;
@@ -84,7 +83,8 @@ public class CloseBlue extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM = 45.0;
+    public static double AUTO_AIM_LEFT = 43.0;
+    public static double AUTO_AIM_RIGHT = -43.0;
 
 
     @Override
@@ -104,6 +104,8 @@ public class CloseBlue extends LinearOpMode {
         shooterController.setTargetRPM(CONSTANT_SHOOTER_RPM);
         shooterController.startShooting();
         startShooterThread();
+
+
 
         sleep(100);
 
@@ -214,14 +216,15 @@ public class CloseBlue extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 3. shoot 3 balls
+        autoAimTurretLeft();
         shootBalls();
 
         // 4. turn to pickup angle (90)
         Action turnLeft2 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
                 .build();
-       HeadingCorrection(PICK_UP_ANGLE, 0.5);
         Actions.runBlocking(turnLeft2);
+       HeadingCorrection(PICK_UP_ANGLE, 0.5);
 
         // 5. Go forward while intake (first line)
         intakeForwardRoadRunner();
@@ -235,6 +238,7 @@ public class CloseBlue extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 8. Shoot balls
+        autoAimTurretLeft();
         shootBalls();
 
         // 9. turn to 0 degree for going backward
@@ -257,6 +261,7 @@ public class CloseBlue extends LinearOpMode {
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
                 .build();
         Actions.runBlocking(turnLeft3);
+        HeadingCorrection(PICK_UP_ANGLE, 0.5);
 
         // 12. forward intake for pickup (second line)
         intakeForwardRoadRunner();
@@ -274,6 +279,7 @@ public class CloseBlue extends LinearOpMode {
                 .turnTo(Math.toRadians(DEGREE_ZERO))
                 .build();
         Actions.runBlocking(turnRight);
+        HeadingCorrection(DEGREE_ZERO, 0.5);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 15. forward move
@@ -285,6 +291,7 @@ public class CloseBlue extends LinearOpMode {
 
 
         // 17. shoot balls
+        autoAimTurretLeft();
         shootBalls();
 
         // 18. face zero degree
@@ -292,6 +299,7 @@ public class CloseBlue extends LinearOpMode {
                 .turnTo(Math.toRadians(DEGREE_ZERO))
                 .build();
         Actions.runBlocking(turnRight4);
+        HeadingCorrection(DEGREE_ZERO, 0.5);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 19. Ending pose
@@ -301,7 +309,6 @@ public class CloseBlue extends LinearOpMode {
         Actions.runBlocking(moveForward5);
 
     }
-
 
     private void shootBalls() {
         // Wait for RPM stabilization
@@ -541,5 +548,16 @@ public class CloseBlue extends LinearOpMode {
         tankDrive.setDrivePowers(new PoseVelocity2d(new Vector2d(0, 0), 0));
         sleep(50);
     }
+
+    private void autoAimTurretLeft () {
+        if (turretField == null) return;
+
+        turretField.autoAim(
+                AUTO_AIM_LEFT,
+                () -> Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble()),
+                () -> opModeIsActive()
+        );
+    }
+
 
 }

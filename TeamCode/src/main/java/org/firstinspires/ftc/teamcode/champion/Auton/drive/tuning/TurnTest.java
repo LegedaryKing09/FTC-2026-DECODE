@@ -21,9 +21,8 @@ public class TurnTest extends LinearOpMode {
     public static double HEADING_CORRECTION_MAX_VEL= 0.3;
     public static int HEADING_STABLE_SAMPLES = 3;
     public static double HEADING_TIMEOUT_MS = 300;
-    public static double TURN_90 = 90.0;
-    public static double TURN_38 = 38.0;
-    public static double TURN_45 = 45.0;
+    public static double TURN_90 = 180.0;
+    public static double TURN_45 = 90.0;
     public static double TURN_0 = 0.0;
 
     @Override
