@@ -9,6 +9,8 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.acmerobotics.roadrunner.Pose2d;
+import org.firstinspires.ftc.teamcode.champion.RobotState;
 
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
@@ -18,6 +20,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
+
+
 
 /**
  * 超级无敌高级Teleop
@@ -128,9 +132,29 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        Pose2d startPose;
+        if (RobotState.isPoseValid()) {
+            startPose = RobotState.getLastAutonPose();
+            telemetry.addData("Starting from Auton", "x=%.1f, y=%.1f, heading=%.1f°",
+                    startPose.position.x, startPose.position.y, Math.toDegrees(startPose.heading.log()));
+        } else {
+            startPose = new Pose2d(0, 0, 0);
+            telemetry.addData("Starting from", "Default (0,0,0)");
+        }
+        telemetry.update();
+
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
         initializeHardware();
+        // SET THE POSITION AFTER INITIALIZING HARDWARE
+        if (drive != null) {
+            drive.setPosition(
+                    startPose.position.x,
+                    startPose.position.y,
+                    startPose.heading.log()
+            );
+            telemetry.addData("Drive Position Set", "Success");
+        }
         telemetry.update();
 
         waitForStart();
