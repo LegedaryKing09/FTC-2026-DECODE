@@ -458,6 +458,16 @@ public class CloseBlue extends LinearOpMode {
         Pose2d finalPose = tankDrive.pinpointLocalizer.getPose();
         RobotState.saveAutonPose(finalPose);
 
+        // ADD THIS - Show what was saved
+        telemetry.addLine("=== AUTON COMPLETE ===");
+        telemetry.addData("Final Pose SAVED", "x=%.1f, y=%.1f, heading=%.1f°",
+                finalPose.position.x,
+                finalPose.position.y,
+                Math.toDegrees(finalPose.heading.toDouble()));
+        telemetry.addData("Total Time", "%.1f sec", globalTimer.seconds());
+        telemetry.update();
+        sleep(2000); // Keep telemetry visible for 2 seconds
+
         if (autonController != null) {
             autonController.stopPidUpdateThread();
         }
