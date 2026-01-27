@@ -5,23 +5,21 @@ import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 
 /**
- * Field-Centric Turret Controller with PID + Hysteresis Deadband + Dashboard Graphing
+ * Field-Centric Turret Controller with Dead Zone Handling
  *
- * ANTI-JITTER FEATURE:
- * - When error < DEADBAND_ENTER (1.5Â°), turret STOPS and enters "locked" state
- * - Turret stays locked until error > DEADBAND_EXIT (2.5Â°)
- * - This prevents oscillation when robot is stationary
+ * TURRET RANGE:
+ * - From 0°, can go CCW (positive) up to CCW_LIMIT (default 90°)
+ * - From 0°, can go CW (negative) down to CW_LIMIT (default -90°)
+ * - Dead zone is between CCW_LIMIT and CW_LIMIT (going the long way)
  *
- * DASHBOARD GRAPHING:
- * - Graphs error, power, P/I/D terms over time for PID tuning
- * - View in FTC Dashboard under "Turret PID" graph
+ * DEAD ZONE BEHAVIOR:
+ * - When target would require entering dead zone, turret STOPS at limit
+ * - Turret resumes tracking when target moves back into reachable range
+ * - No automatic unwrapping - turret simply waits at the edge
  *
- * PID TUNING GUIDE:
- * 1. Set kI=0, kD=0, start with low kP (0.02)
- * 2. Increase kP until turret oscillates
- * 3. Reduce kP by 30-40%
- * 4. Add kD to dampen oscillation (start 0.005)
- * 5. Add small kI only if steady-state error persists
+ * DIRECTION-DEPENDENT CONTROL:
+ * - CCW (negative error): Uses PID
+ * - CW (positive error): Uses PIDF with feedforward
  */
 @Config
 public class TurretFieldController {
@@ -32,78 +30,65 @@ public class TurretFieldController {
     // ========== FIELD TARGET ==========
     public static double TARGET_FIELD_ANGLE = 27.0;
 
-    // ========== DIRECTION-DEPENDENT PID ==========
-    // Clockwise (positive error â†’ positive power)
-    public static double CW_kP = 0.04;
-    public static double CW_kI = 0.0;
-    public static double CW_kD = 0.0;
+    // ========== TURRET LIMITS (Dead Zone) ==========
+    // From 0°, turret can go:
+    // - CCW (positive direction): up to CCW_LIMIT
+    // - CW (negative direction): down to CW_LIMIT
+    public static double CCW_LIMIT = 270.0;    // Max CCW position
+    public static double CW_LIMIT = -90.0;    // Max CW position (negative)
+    public static boolean USE_LIMITS = true;
 
-    // Counter-clockwise (negative error â†’ negative power)
+    // ========== CCW PID (negative error - the smooth one!) ==========
     public static double CCW_kP = 0.06;
     public static double CCW_kI = 0.0;
     public static double CCW_kD = 0.005;
 
-    public static double FIELD_INTEGRAL_LIMIT = 20.0;
+    // ========== CW PIDF (positive error - with feedforward) ==========
+    public static double CW_kP = 0.05;
+    public static double CW_kI = 0.0;
+    public static double CW_kD = 0.003;
+    public static double CW_kF = 0.015;
 
-    public static double MAX_POWER = 0.6;
-    public static double MIN_POWER = 0.08;
+    // ========== POWER LIMITS ==========
+    public static double MAX_POWER = 0.7;
+    public static double MIN_POWER = 0.06;
+    public static double INTEGRAL_LIMIT = 15.0;
 
-    // ========== HYSTERESIS DEADBAND (anti-jitter!) ==========
-    // Enter locked state when error < DEADBAND_ENTER
-    // Exit locked state when error > DEADBAND_EXIT
-    public static double DEADBAND_ENTER = 1.5;   // Stop when within 1.5Â°
-    public static double DEADBAND_EXIT = 2.5;    // Restart when error exceeds 2.5Â°
-
-    // Legacy tolerance (for isAligned() check)
+    // ========== ALIGNMENT ==========
     public static double FIELD_TOLERANCE_DEG = 1.5;
 
+    // ========== OUTPUT ==========
     public static boolean INVERT_OUTPUT = true;
-
-    // ========== TURRET LIMITS ==========
-    public static double TURRET_MIN_ANGLE = -200.0;
-    public static double TURRET_MAX_ANGLE = 200.0;
-    public static boolean USE_LIMITS = true;
-
-    // ========== WIRE SAFETY ==========
-    public static double WIRE_SAFETY_THRESHOLD = 180.0;
-    public static boolean USE_WIRE_SAFETY = true;
 
     // ========== OFFSET ==========
     public static double TURRET_OFFSET = 0.0;
 
-    // ========== DASHBOARD GRAPHING ==========
+    // ========== DASHBOARD ==========
     public static boolean ENABLE_GRAPHING = true;
-
-    // ========== PID STATE ==========
-    private double integralSum = 0.0;
-    private double lastError = 0.0;
-    private long lastUpdateTime = 0;
 
     // ========== STATE ==========
     private boolean enabled = false;
-    private boolean isLocked = false;  // Hysteresis lock state
+    private boolean inDeadZone = false;  // True when target is unreachable
     private double lastRobotHeading = 0.0;
-    private double calculatedTurretTarget = 0.0;
+    private double lastFieldError = 0.0;
     private double lastPower = 0.0;
 
-    // For graphing
+    // PID state
+    private double lastError = 0.0;
+    private double integralSum = 0.0;
+    private long lastUpdateTime = 0;
+
+    // For telemetry
     private double lastPTerm = 0.0;
     private double lastITerm = 0.0;
     private double lastDTerm = 0.0;
-    private double lastFieldError = 0.0;
-
-    // Wire safety unwrapping state
-    private boolean isUnwrapping = false;
-    private double unwrapTarget = 0.0;
+    private double lastFTerm = 0.0;
 
     public TurretFieldController(TurretController turret) {
         this.turret = turret;
         this.dashboard = FtcDashboard.getInstance();
     }
 
-    /**
-     * Set the field angle the turret should face
-     */
     public void setTargetFieldAngle(double fieldAngleDegrees) {
         TARGET_FIELD_ANGLE = fieldAngleDegrees;
     }
@@ -112,22 +97,15 @@ public class TurretFieldController {
         return TARGET_FIELD_ANGLE;
     }
 
-    /**
-     * Enable field-centric control
-     */
     public void enable() {
         enabled = true;
-        isLocked = false;
+        inDeadZone = false;
         resetPID();
     }
 
-    /**
-     * Disable field-centric control
-     */
     public void disable() {
         enabled = false;
-        isUnwrapping = false;
-        isLocked = false;
+        inDeadZone = false;
         turret.stop();
     }
 
@@ -136,206 +114,107 @@ public class TurretFieldController {
     }
 
     /**
-     * Check if turret is currently locked (within deadband)
+     * Check if target is currently in dead zone (unreachable)
      */
-    public boolean isLocked() {
-        return isLocked;
+    public boolean isInDeadZone() {
+        return inDeadZone;
     }
 
-    /**
-     * Reset PID state (does NOT reset turret angle!)
-     */
     public void resetPID() {
-        integralSum = 0.0;
         lastError = 0.0;
+        integralSum = 0.0;
         lastUpdateTime = 0;
         lastPTerm = 0.0;
         lastITerm = 0.0;
         lastDTerm = 0.0;
+        lastFTerm = 0.0;
     }
 
     /**
-     * Update the controller - call every loop!
-     * Make sure to call turret.update() BEFORE this!
-     *
-     * @param robotHeadingDegrees Current robot heading from IMU
-     * @return The turret power being applied
+     * Main update - call every loop!
+     * Call turret.update() BEFORE this!
      */
     public double update(double robotHeadingDegrees) {
         if (!enabled) {
             lastPower = 0.0;
-            sendGraphData(0, 0, 0, 0, 0);
+            sendGraphData(0, 0, 0, 0, 0, 0, false);
             return 0.0;
         }
 
-        lastRobotHeading = robotHeadingDegrees;
-
-        // Get current turret angle (absolute, never reset during operation)
-        double currentTurretAngle = turret.getTurretAngle();
-
-        // ========== WIRE SAFETY CHECK ==========
-        if (USE_WIRE_SAFETY && !isUnwrapping) {
-            if (Math.abs(currentTurretAngle) > WIRE_SAFETY_THRESHOLD) {
-                isUnwrapping = true;
-                if (currentTurretAngle > WIRE_SAFETY_THRESHOLD) {
-                    unwrapTarget = currentTurretAngle - 225.0;
-                } else {
-                    unwrapTarget = currentTurretAngle + 225.0;
-                }
-            }
-        }
-
-        // ========== UNWRAPPING MODE ==========
-        if (isUnwrapping) {
-            double unwrapError = unwrapTarget - currentTurretAngle;
-
-            if (Math.abs(unwrapError) <= FIELD_TOLERANCE_DEG) {
-                isUnwrapping = false;
-                turret.stop();
-                integralSum = 0;
-                lastPower = 0.0;
-                calculatedTurretTarget = unwrapTarget;
-                return 0.0;
-            }
-
-            double power = calculatePID(unwrapError);
-            if (INVERT_OUTPUT) power = -power;
-
-            turret.setPower(power);
-            lastPower = power;
-            calculatedTurretTarget = unwrapTarget;
-
-            sendGraphData(unwrapError, power, lastPTerm, lastITerm, lastDTerm);
-            return power;
-        }
-
-        // ========== NORMAL FIELD TRACKING MODE ==========
-        // Calculate current field facing
-        double currentFieldFacing = normalizeAngle(robotHeadingDegrees + currentTurretAngle + TURRET_OFFSET);
-
-        // Calculate field error
-        double fieldError = normalizeAngle(TARGET_FIELD_ANGLE - currentFieldFacing);
-        lastFieldError = fieldError;
-
-        // Calculate optimal turret target (shortest path)
-        double rawTurretTarget = TARGET_FIELD_ANGLE - robotHeadingDegrees - TURRET_OFFSET;
-        double targetOption1 = rawTurretTarget;
-        double targetOption2 = rawTurretTarget + 360.0;
-        double targetOption3 = rawTurretTarget - 360.0;
-
-        double diff1 = Math.abs(targetOption1 - currentTurretAngle);
-        double diff2 = Math.abs(targetOption2 - currentTurretAngle);
-        double diff3 = Math.abs(targetOption3 - currentTurretAngle);
-
-        if (diff2 < diff1 && diff2 < diff3) {
-            calculatedTurretTarget = targetOption2;
-        } else if (diff3 < diff1 && diff3 < diff2) {
-            calculatedTurretTarget = targetOption3;
-        } else {
-            calculatedTurretTarget = targetOption1;
-        }
-
-        // Recalculate field error based on optimized target
-        double optimizedFieldTarget = normalizeAngle(robotHeadingDegrees + calculatedTurretTarget + TURRET_OFFSET);
-        fieldError = optimizedFieldTarget - currentFieldFacing;
-        lastFieldError = fieldError;
-
-        // Check turret limits
-        if (USE_LIMITS) {
-            if (calculatedTurretTarget < TURRET_MIN_ANGLE) {
-                double limitedFieldTarget = normalizeAngle(robotHeadingDegrees + TURRET_MIN_ANGLE + TURRET_OFFSET);
-                fieldError = limitedFieldTarget - currentFieldFacing;
-                calculatedTurretTarget = TURRET_MIN_ANGLE;
-            } else if (calculatedTurretTarget > TURRET_MAX_ANGLE) {
-                double limitedFieldTarget = normalizeAngle(robotHeadingDegrees + TURRET_MAX_ANGLE + TURRET_OFFSET);
-                fieldError = limitedFieldTarget - currentFieldFacing;
-                calculatedTurretTarget = TURRET_MAX_ANGLE;
-            }
-        }
-
-        // ========== HYSTERESIS DEADBAND (anti-jitter!) ==========
-        double absError = Math.abs(fieldError);
-
-        if (isLocked) {
-            // Currently locked - only unlock if error exceeds exit threshold
-            if (absError > DEADBAND_EXIT) {
-                isLocked = false;
-                // Continue to PID control below
-            } else {
-                // Stay locked - don't move
-                turret.stop();
-                lastPower = 0.0;
-                integralSum = 0;  // Reset integral while locked
-                sendGraphData(fieldError, 0, 0, 0, 0);
-                return 0.0;
-            }
-        } else {
-            // Currently active - lock if error is small enough
-            if (absError <= DEADBAND_ENTER) {
-                isLocked = true;
-                turret.stop();
-                lastPower = 0.0;
-                integralSum = 0;
-                sendGraphData(fieldError, 0, 0, 0, 0);
-                return 0.0;
-            }
-        }
-
-        // ========== PID CONTROL ==========
-        double power = calculatePID(fieldError);
-
-        if (INVERT_OUTPUT) {
-            power = -power;
-        }
-
-        turret.setPower(power);
-        lastPower = power;
-
-        sendGraphData(fieldError, power, lastPTerm, lastITerm, lastDTerm);
-        return power;
-    }
-
-    /**
-     * Calculate PID output based on field error
-     * Uses different PID gains for clockwise vs counter-clockwise
-     */
-    private double calculatePID(double error) {
+        // Time delta
         long currentTime = System.currentTimeMillis();
         double dt = (lastUpdateTime == 0) ? 0.02 : (currentTime - lastUpdateTime) / 1000.0;
         lastUpdateTime = currentTime;
+        dt = Math.max(0.005, Math.min(0.1, dt));
 
-        dt = Math.max(0.001, Math.min(0.1, dt));
+        // Store previous heading for feedforward
+        double prevRobotHeading = lastRobotHeading;
+        lastRobotHeading = robotHeadingDegrees;
 
-        double kP, kI, kD;
-        if (error >= 0) {
-            // Clockwise
-            kP = CW_kP;
-            kI = CW_kI;
-            kD = CW_kD;
+        double currentTurretAngle = turret.getTurretAngle();
+
+        // Calculate where turret needs to be to face field target
+        double requiredTurretAngle = TARGET_FIELD_ANGLE - robotHeadingDegrees - TURRET_OFFSET;
+
+        // Normalize to find shortest path
+        requiredTurretAngle = normalizeToRange(requiredTurretAngle, currentTurretAngle);
+
+        // ========== DEAD ZONE CHECK ==========
+        if (USE_LIMITS) {
+            if (requiredTurretAngle > CCW_LIMIT) {
+                // Target is in dead zone (past CCW limit)
+                inDeadZone = true;
+                // Stop at CCW limit
+                requiredTurretAngle = CCW_LIMIT;
+            } else if (requiredTurretAngle < CW_LIMIT) {
+                // Target is in dead zone (past CW limit)
+                inDeadZone = true;
+                // Stop at CW limit
+                requiredTurretAngle = CW_LIMIT;
+            } else {
+                // Target is reachable
+                inDeadZone = false;
+            }
         } else {
-            // Counter-clockwise
-            kP = CCW_kP;
-            kI = CCW_kI;
-            kD = CCW_kD;
+            inDeadZone = false;
         }
 
-        // P term
-        lastPTerm = kP * error;
+        // Calculate error (how far turret needs to move)
+        double error = requiredTurretAngle - currentTurretAngle;
+        lastFieldError = error;
 
-        // I term with anti-windup
-        integralSum += error * dt;
-        integralSum = Math.max(-FIELD_INTEGRAL_LIMIT, Math.min(FIELD_INTEGRAL_LIMIT, integralSum));
-        lastITerm = kI * integralSum;
+        // If in dead zone and at limit, stop
+        if (inDeadZone) {
+            // Check if we're already at the limit (within tolerance)
+            boolean atCCWLimit = Math.abs(currentTurretAngle - CCW_LIMIT) < 3.0;
+            boolean atCWLimit = Math.abs(currentTurretAngle - CW_LIMIT) < 3.0;
 
-        // D term
-        double derivative = (error - lastError) / dt;
-        lastDTerm = kD * derivative;
-        lastError = error;
+            if ((requiredTurretAngle >= CCW_LIMIT && atCCWLimit) ||
+                    (requiredTurretAngle <= CW_LIMIT && atCWLimit)) {
+                // At limit, stop and wait
+                turret.stop();
+                lastPower = 0.0;
+                resetPID();
+                sendGraphData(error, 0, 0, 0, 0, 0, true);
+                return 0.0;
+            }
+            // Otherwise, continue moving toward the limit
+        }
 
-        // Sum
-        double output = lastPTerm + lastITerm + lastDTerm;
+        // Calculate robot rotation rate for feedforward
+        double robotRotationRate = normalizeAngle(robotHeadingDegrees - prevRobotHeading) / dt;
 
-        // Apply limits
+        // ========== DIRECTION-DEPENDENT CONTROL ==========
+        double output;
+        if (error >= 0) {
+            // CW direction (positive error) - use PIDF
+            output = calculateCW_PIDF(error, robotRotationRate, dt);
+        } else {
+            // CCW direction (negative error) - use PID only
+            output = calculateCCW_PID(error, dt);
+        }
+
+        // Apply power limits
         double absOutput = Math.abs(output);
         if (absOutput > MAX_POWER) {
             output = Math.copySign(MAX_POWER, output);
@@ -343,238 +222,209 @@ public class TurretFieldController {
             output = Math.copySign(MIN_POWER, output);
         }
 
+        // Apply inversion
+        if (INVERT_OUTPUT) {
+            output = -output;
+        }
+
+        turret.setPower(output);
+        lastPower = output;
+
+        sendGraphData(error, output, lastPTerm, lastITerm, lastDTerm, lastFTerm, inDeadZone);
         return output;
     }
 
     /**
-     * Send data to FTC Dashboard for graphing
+     * Normalize angle to be closest to reference angle
+     * This finds the equivalent angle that minimizes distance to current position
      */
-    private void sendGraphData(double error, double power, double pTerm, double iTerm, double dTerm) {
-        if (!ENABLE_GRAPHING) return;
-
-        TelemetryPacket packet = new TelemetryPacket();
-
-        // These will show as separate lines on the graph
-        packet.put("Turret/Error", error);
-        packet.put("Turret/Power", power * 100);  // Scale to make visible with error
-        packet.put("Turret/P_Term", pTerm * 100);
-        packet.put("Turret/I_Term", iTerm * 100);
-        packet.put("Turret/D_Term", dTerm * 100);
-        packet.put("Turret/Locked", isLocked ? 1 : 0);
-        packet.put("Turret/Direction", error >= 0 ? 1 : -1);  // 1=CW, -1=CCW
-
-        dashboard.sendTelemetryPacket(packet);
+    private double normalizeToRange(double angle, double reference) {
+        while (angle - reference > 180) angle -= 360;
+        while (angle - reference < -180) angle += 360;
+        return angle;
     }
 
     /**
-     * Normalize angle to -180 to +180
+     * CW direction: PIDF with feedforward
      */
+    private double calculateCW_PIDF(double error, double robotRotationRate, double dt) {
+        // P term
+        lastPTerm = CW_kP * error;
+
+        // I term with anti-windup
+        integralSum += error * dt;
+        integralSum = Math.max(-INTEGRAL_LIMIT, Math.min(INTEGRAL_LIMIT, integralSum));
+        lastITerm = CW_kI * integralSum;
+
+        // D term
+        double errorDerivative = (error - lastError) / dt;
+        lastDTerm = CW_kD * errorDerivative;
+        lastError = error;
+
+        // F term - feedforward based on robot rotation
+        lastFTerm = CW_kF * (-robotRotationRate);
+
+        return lastPTerm + lastITerm + lastDTerm + lastFTerm;
+    }
+
+    /**
+     * CCW direction: PID only (already smooth)
+     */
+    private double calculateCCW_PID(double error, double dt) {
+        // P term
+        lastPTerm = CCW_kP * error;
+
+        // I term with anti-windup
+        integralSum += error * dt;
+        integralSum = Math.max(-INTEGRAL_LIMIT, Math.min(INTEGRAL_LIMIT, integralSum));
+        lastITerm = CCW_kI * integralSum;
+
+        // D term
+        double errorDerivative = (error - lastError) / dt;
+        lastDTerm = CCW_kD * errorDerivative;
+        lastError = error;
+
+        // No F term for CCW
+        lastFTerm = 0.0;
+
+        return lastPTerm + lastITerm + lastDTerm;
+    }
+
+    private void sendGraphData(double error, double power, double pTerm, double iTerm, double dTerm, double fTerm, boolean deadZone) {
+        if (!ENABLE_GRAPHING) return;
+
+        TelemetryPacket packet = new TelemetryPacket();
+        packet.put("Turret/Error", error);
+        packet.put("Turret/Power", power * 100);
+        packet.put("Turret/P", pTerm * 100);
+        packet.put("Turret/I", iTerm * 100);
+        packet.put("Turret/D", dTerm * 100);
+        packet.put("Turret/F", fTerm * 100);
+        packet.put("Turret/DeadZone", deadZone ? 1 : 0);
+        packet.put("Turret/Dir", error >= 0 ? 1 : -1);
+        dashboard.sendTelemetryPacket(packet);
+    }
+
     private double normalizeAngle(double angle) {
         while (angle > 180) angle -= 360;
         while (angle < -180) angle += 360;
         return angle;
     }
 
-    /**
-     * Check if turret is aligned with field target
-     */
     public boolean isAligned() {
+        // Not aligned if in dead zone
+        if (inDeadZone) return false;
         return Math.abs(lastFieldError) <= FIELD_TOLERANCE_DEG;
     }
 
-    /**
-     * Get the calculated turret target angle
-     */
-    public double getCalculatedTurretTarget() {
-        return calculatedTurretTarget;
-    }
-
-    /**
-     * Get current turret angle (absolute)
-     */
-    public double getCurrentTurretAngle() {
-        return turret.getTurretAngle();
-    }
-
-    /**
-     * Get the field angle the turret is currently facing
-     */
-    public double getCurrentFieldFacing() {
-        return normalizeAngle(lastRobotHeading + turret.getTurretAngle() + TURRET_OFFSET);
-    }
-
-    /**
-     * Get error from target field angle
-     */
     public double getFieldError() {
         return lastFieldError;
     }
 
-    /**
-     * Get last power output
-     */
     public double getLastPower() {
         return lastPower;
     }
 
-    /**
-     * Get last robot heading
-     */
+    public double getCurrentTurretAngle() {
+        return turret.getTurretAngle();
+    }
+
     public double getLastRobotHeading() {
         return lastRobotHeading;
     }
 
-    /**
-     * Check if turret is currently unwrapping for wire safety
-     */
-    public boolean isUnwrapping() {
-        return isUnwrapping;
-    }
-
-    /**
-     * Get the unwrap target angle (only valid when isUnwrapping() is true)
-     */
-    public double getUnwrapTarget() {
-        return unwrapTarget;
-    }
-
-    // ========== GETTERS FOR PID TERMS (for debugging) ==========
+    // PIDF term getters for debugging
     public double getLastPTerm() { return lastPTerm; }
     public double getLastITerm() { return lastITerm; }
     public double getLastDTerm() { return lastDTerm; }
+    public double getLastFTerm() { return lastFTerm; }
 
     // ========== AUTO-AIM FOR AUTONOMOUS ==========
 
-    /**
-     * Functional interface for getting current robot heading during auto-aim.
-     */
     public interface HeadingProvider {
         double getHeadingDegrees();
     }
 
-    /**
-     * Functional interface for checking if opmode is still active.
-     */
     public interface OpModeChecker {
         boolean isActive();
     }
 
-    // Auto-aim parameters (configurable via Dashboard)
-    public static double AUTO_AIM_TIMEOUT_MS = 1500.0;
-    public static double AUTO_AIM_STABLE_TIME_MS = 100.0;
+    public static double AUTO_AIM_TIMEOUT_MS = 2000.0;
 
     /**
-     * Auto-aim the turret to the current TARGET_FIELD_ANGLE.
-     * Blocks until aligned or timeout.
-     *
-     * Example usage in autonomous:
-     * <pre>
-     * boolean aligned = turretFieldController.autoAim(
-     *     () -> Math.toDegrees(localizer.getPose().heading.toDouble()),
-     *     () -> opModeIsActive()
-     * );
-     * if (aligned) {
-     *     // shoot!
-     * }
-     * </pre>
-     *
-     * @param headingProvider Lambda to get current robot heading in degrees
-     * @param opModeChecker Lambda to check if opmode is still active
-     * @return true if successfully aligned, false if timed out
+     * Auto-aim - blocks until aligned or timeout
+     * Returns false immediately if target is in dead zone
      */
     public boolean autoAim(HeadingProvider headingProvider, OpModeChecker opModeChecker) {
         return autoAim(TARGET_FIELD_ANGLE, headingProvider, opModeChecker, null);
     }
 
-    /**
-     * Auto-aim to a specific field angle.
-     *
-     * @param targetFieldAngle The field angle to aim at (degrees)
-     * @param headingProvider Lambda to get current robot heading in degrees
-     * @param opModeChecker Lambda to check if opmode is still active
-     * @return true if successfully aligned, false if timed out
-     */
-    public boolean autoAim(double targetFieldAngle, HeadingProvider headingProvider, OpModeChecker opModeChecker) {
-        return autoAim(targetFieldAngle, headingProvider, opModeChecker, null);
+    public boolean autoAim(double targetAngle, HeadingProvider headingProvider, OpModeChecker opModeChecker) {
+        return autoAim(targetAngle, headingProvider, opModeChecker, null);
     }
 
-    /**
-     * Auto-aim with optional telemetry output for debugging.
-     *
-     * @param targetFieldAngle The field angle to aim at (degrees)
-     * @param headingProvider Lambda to get current robot heading in degrees
-     * @param opModeChecker Lambda to check if opmode is still active
-     * @param telemetry FTC Telemetry object (pass null to disable telemetry)
-     * @return true if successfully aligned, false if timed out
-     */
-    public boolean autoAim(double targetFieldAngle,
+    public boolean autoAim(double targetAngle,
                            HeadingProvider headingProvider,
                            OpModeChecker opModeChecker,
                            org.firstinspires.ftc.robotcore.external.Telemetry telemetry) {
 
-        // Set target and enable
-        setTargetFieldAngle(targetFieldAngle);
+        setTargetFieldAngle(targetAngle);
         enable();
 
         long startTime = System.currentTimeMillis();
-        long alignedStartTime = 0;
-        boolean wasAligned = false;
+        int alignedCount = 0;
 
         while (opModeChecker.isActive()) {
-            long currentTime = System.currentTimeMillis();
-            double elapsed = currentTime - startTime;
+            long elapsed = System.currentTimeMillis() - startTime;
 
-            // Check timeout
             if (elapsed > AUTO_AIM_TIMEOUT_MS) {
                 if (telemetry != null) {
-                    telemetry.addData("Auto-Aim", "TIMEOUT after %.0fms", elapsed);
-                    telemetry.addData("Final Error", "%.2f°", lastFieldError);
+                    telemetry.addData("AutoAim", "TIMEOUT");
+                    telemetry.addData("DeadZone", inDeadZone);
                     telemetry.update();
                 }
                 disable();
                 return false;
             }
 
-            // Update turret encoder
+            // Update
             turret.update();
-
-            // Get current heading and update field controller
             double heading = headingProvider.getHeadingDegrees();
             update(heading);
 
-            // Telemetry if provided
+            // Telemetry
             if (telemetry != null) {
-                telemetry.addData("Auto-Aim", "Aiming... (%.0fms)", elapsed);
-                telemetry.addData("Field Error", "%.2f°", lastFieldError);
-                telemetry.addData("Turret Angle", "%.2f°", turret.getTurretAngle());
-                telemetry.addData("Robot Heading", "%.2f°", heading);
+                telemetry.addData("AutoAim", "Error: %.1f°", lastFieldError);
+                telemetry.addData("Turret Angle", "%.1f°", turret.getTurretAngle());
+                telemetry.addData("DeadZone", inDeadZone ? "YES - STOPPED" : "No");
                 telemetry.addData("Power", "%.2f", lastPower);
-                telemetry.addData("Locked", isLocked);
                 telemetry.update();
             }
 
-            // Check alignment with stability requirement
+            // If in dead zone, return false (can't reach target)
+            if (inDeadZone && Math.abs(lastPower) < 0.01) {
+                if (telemetry != null) {
+                    telemetry.addData("AutoAim", "TARGET IN DEAD ZONE");
+                    telemetry.update();
+                }
+                // Don't disable - stay at limit in case target moves
+                return false;
+            }
+
+            // Check aligned (need 3 consecutive)
             if (isAligned()) {
-                if (!wasAligned) {
-                    // Just became aligned, start stability timer
-                    alignedStartTime = currentTime;
-                    wasAligned = true;
-                } else if (currentTime - alignedStartTime >= AUTO_AIM_STABLE_TIME_MS) {
-                    // Been aligned long enough, success!
+                alignedCount++;
+                if (alignedCount >= 3) {
                     if (telemetry != null) {
-                        telemetry.addData("Auto-Aim", "SUCCESS in %.0fms", elapsed);
-                        telemetry.addData("Final Error", "%.2f°", lastFieldError);
+                        telemetry.addData("AutoAim", "ALIGNED!");
                         telemetry.update();
                     }
-                    // Keep enabled but stop updating - turret holds position
                     return true;
                 }
             } else {
-                // Lost alignment, reset stability timer
-                wasAligned = false;
+                alignedCount = 0;
             }
 
-            // Small delay to prevent busy-waiting
             try {
                 Thread.sleep(20);
             } catch (InterruptedException e) {
@@ -583,7 +433,6 @@ public class TurretFieldController {
             }
         }
 
-        // OpMode stopped
         disable();
         return false;
     }
