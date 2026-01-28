@@ -54,7 +54,7 @@ public class CloseBlue extends LinearOpMode {
 
     // Distance parameters
     public static double INITIAL_BACKWARD = -40.0;
-    public static double INTAKE_FORWARD = 40.0;
+    public static double INTAKE_FORWARD = 38.0;
     public static double INTAKE_BACKWARD = 35.0;
 
     public static double SECOND_BACKWARD = 20.0;
@@ -238,7 +238,7 @@ public class CloseBlue extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 8. Shoot balls
-        autoAimTurretLeft();
+        // no autoaim because of the intakeForward
         shootBalls();
 
         // 9. turn to 0 degree for going backward
@@ -289,18 +289,9 @@ public class CloseBlue extends LinearOpMode {
         Actions.runBlocking(moveForward4);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-
         // 17. shoot balls
-        autoAimTurretLeft();
         shootBalls();
 
-        // 18. face zero degree
-        Action turnRight4 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(DEGREE_ZERO))
-                .build();
-        Actions.runBlocking(turnRight4);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 19. Ending pose
         Action moveForward5 = tankDrive.actionBuilder(currentPose)
@@ -372,6 +363,11 @@ public class CloseBlue extends LinearOpMode {
         intakeModeActive = true;
         uptakeStoppedBySwitch = false;
 
+        if (turretField != null){
+            turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
+            turretField.enable(); // starts the controller non blocking; before, the autoaim was blocking
+        }
+
         // Start all systems
         intakeController.setState(true);
         intakeController.update();
@@ -398,6 +394,12 @@ public class CloseBlue extends LinearOpMode {
                 intakeController.update();
                 transferController.update();
                 uptakeController.update();
+                if (turretField != null && turretField.isEnabled()){
+                    turret.update();
+                    turretField.update(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                    );
+                }
                 return moveAction.run(packet);
             }
         };
@@ -412,6 +414,12 @@ public class CloseBlue extends LinearOpMode {
             intakeController.update();
             transferController.update();
             uptakeController.update();
+            if (turretField != null && turretField.isEnabled()){
+                turret.update();
+                turretField.update(
+                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                );
+            }
             sleep(30);
         }
 

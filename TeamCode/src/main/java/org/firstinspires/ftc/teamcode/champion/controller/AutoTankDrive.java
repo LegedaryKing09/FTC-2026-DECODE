@@ -61,8 +61,8 @@ public final class AutoTankDrive {
 
         // Path profile parameters (velocity and acceleration limits)
         public double maxWheelVel = 110;
-        public double minProfileAccel = -55; // Reduced for smoother motion
-        public double maxProfileAccel = 55; // Reduced for smoother motion
+        public double minProfileAccel = -48; // Reduced for smoother motion
+        public double maxProfileAccel = 48; // Reduced for smoother motion
 
         // Feedforward control gains for motor voltage compensation
         public double kS = 1.3289163351364959; // 0.22;
