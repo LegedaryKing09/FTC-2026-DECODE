@@ -267,12 +267,12 @@ public class OdometrySystemShoot extends LinearOpMode {
         DcMotor shooterMotor1 = null;
         DcMotor shooterMotor2 = null;
         try {
-            shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
+            shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter");
         } catch (Exception ignored) {}
         try {
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception ignored) {}
-        shooter = new NewShooterController(shooterMotor1, shooterMotor2);
+        shooter = new NewShooterController(shooterMotor1);
 
         DcMotor intakeMotor = null;
         try {

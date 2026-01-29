@@ -160,9 +160,9 @@ public class DecemberTesting extends LinearOpMode {
 
         // Initialize shooter
         try {
-            DcMotor shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
+            DcMotor shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter");
             DcMotor shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
-            shooter = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
+            shooter = new NewShooterController(shooterMotorFirst);
             telemetry.addData("✓ Shooter", "OK");
         } catch (Exception e) {
             telemetry.addData("✗ Shooter", "NOT FOUND: " + e.getMessage());

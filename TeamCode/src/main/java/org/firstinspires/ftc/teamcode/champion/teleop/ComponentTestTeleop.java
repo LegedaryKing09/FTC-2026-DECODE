@@ -128,9 +128,9 @@ public class ComponentTestTeleop extends LinearOpMode {
 
         // Shooter
         try {
-            DcMotor shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
+            DcMotor shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter");
             DcMotor shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
-            shooter = new NewShooterController(shooterMotor1, shooterMotor2);
+            shooter = new NewShooterController(shooterMotor1);
         } catch (Exception e) {
             telemetry.addLine("Shooter not found");
             shooter = null;
@@ -199,10 +199,7 @@ public class ComponentTestTeleop extends LinearOpMode {
             if (shooter != null) shooter.decrementTargetRPM();
         }
         if (gamepad1.dpad_left && !lastDpadLeft) {
-            if (shooter != null) shooter.toggleMotor1Direction();
-        }
-        if (gamepad1.dpad_right && !lastDpadRight) {
-            if (shooter != null) shooter.toggleMotor2Direction();
+            if (shooter != null) shooter.toggleShootDirection();
         }
 
         // RAMP - Manual control with left stick Y

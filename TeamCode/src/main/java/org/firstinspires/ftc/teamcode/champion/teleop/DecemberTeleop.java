@@ -35,7 +35,7 @@ public class DecemberTeleop extends LinearOpMode {
     // RPM manual adjustment increment (tunable via FTC Dashboard)
     public static double RPM_INCREMENT = 50.0;
 
-    // Idle RPM for shooter when intake system is stopped
+    // Idle RPM for shooterampr when intake system is stopped
     public static double IDLE_RPM = 2000.0;
 
     // Ramp angle presets (adjust these based on testing)
@@ -225,12 +225,12 @@ public class DecemberTeleop extends LinearOpMode {
         DcMotor shooterMotor1 = null;
         DcMotor shooterMotor2 = null;
         try {
-            shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
+            shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter");
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
             telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
         }
-        shooter = new NewShooterController(shooterMotor1, shooterMotor2);
+        shooter = new NewShooterController(shooterMotor1);
     }
 
     /**

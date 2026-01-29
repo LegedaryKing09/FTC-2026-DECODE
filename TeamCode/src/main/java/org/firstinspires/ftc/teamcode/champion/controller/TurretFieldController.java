@@ -34,7 +34,7 @@ public class TurretFieldController {
     // From 0°, turret can go:
     // - CCW (positive direction): up to CCW_LIMIT
     // - CW (negative direction): down to CW_LIMIT
-    public static double CCW_LIMIT = 270.0;    // Max CCW position
+    public static double CCW_LIMIT = 180.0;    // Max CCW position
     public static double CW_LIMIT = -90.0;    // Max CW position (negative)
     public static boolean USE_LIMITS = true;
 

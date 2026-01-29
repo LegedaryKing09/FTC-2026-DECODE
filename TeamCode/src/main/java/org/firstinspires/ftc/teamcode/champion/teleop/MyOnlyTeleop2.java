@@ -9,8 +9,6 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.acmerobotics.roadrunner.Pose2d;
-import org.firstinspires.ftc.teamcode.champion.RobotState;
 
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
@@ -20,16 +18,13 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
-
-
 
 /**
  * 超级无敌高级Teleop
  *
- * === DRIVER 1 (gamepad1) - ARCADE DRIVE (FULL POWER) ===
- * Left Stick Y:   Forward/Backward (1.0 power)
- * Right Stick X:  Turn Left/Right (1.0 power)
+ * === DRIVER 1 (gamepad1) - TANK DRIVE (FULL POWER) ===
+ * Left Stick Y:   Left side motors (1.0 power)
+ * Right Stick Y:  Right side motors (1.0 power)
  * Right Bumper:   Toggle intake + transfer + uptake (all three)
  *                 Ball switch auto-stops uptake when ball detected,
  *                 auto-restarts when ball leaves
@@ -54,17 +49,17 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  * X Button:       Set RPM to IDLE (2000 RPM)
  */
 @Config
-@TeleOp(name = "超级无敌高级Teleop Blue", group = "Competition")
-public class MyOnlyTeleop1 extends LinearOpMode {
+@TeleOp(name = "超级无敌高级Teleop Red", group = "Competition")
+public class MyOnlyTeleop2 extends LinearOpMode {
 
     // === PRESETS ===
-    public static double FAR_RPM = 4600.0;
+    public static double FAR_RPM = 4550.0;
     public static double FAR_RAMP_ANGLE = -175.0;
-    public static double FAR_TURRET_ANGLE = 25.0;
+    public static double FAR_TURRET_ANGLE = -24.0;
 
-    public static double CLOSE_RPM = 3900.0;
+    public static double CLOSE_RPM = 3650.0;
     public static double CLOSE_RAMP_ANGLE = -118.4;
-    public static double CLOSE_TURRET_ANGLE = 45.0;
+    public static double CLOSE_TURRET_ANGLE = -45.0;
 
     public static double IDLE_RPM = 2000.0;
 
@@ -135,32 +130,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     public void runOpMode() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
-        // Read the static pose
-        Pose2d autonPose = PoseStorage.currentPose;
-
-        telemetry.addLine("=== POSE FROM STORAGE ===");
-        telemetry.addData("X", "%.2f", autonPose.position.x);
-        telemetry.addData("Y", "%.2f", autonPose.position.y);
-        telemetry.addData("Heading", "%.2f°", Math.toDegrees(autonPose.heading.toDouble()));
-        telemetry.update();
-
-
         initializeHardware();
-
-        sleep(300);
-
-        // SET THE POSITION AFTER INITIALIZING HARDWARE
-        if (drive != null) {
-            drive.setPosition(
-                    autonPose.position.x,
-                    autonPose.position.y,
-                    autonPose.heading.log()
-            );
-            drive.updateOdometry();
-
-            telemetry.addData("Position SET", "x=%.1f, y=%.1f, h=%.1f°",
-                    drive.getX(), drive.getY(), drive.getHeadingDegrees());
-        }
         telemetry.update();
 
         waitForStart();
@@ -313,9 +283,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     }
 
     /**
-     * Drive controls - ARCADE DRIVE (FULL POWER)
-     * Left Stick Y = Forward/Backward
-     * Right Stick X = Turn
+     * Drive controls - TANK DRIVE (FULL POWER)
+     * Left Stick Y = Left motors
+     * Right Stick Y = Right motors
      */
     private void handleDriveControls() {
         if (drive == null) return;
@@ -323,16 +293,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         // Update odometry
         drive.updateOdometry();
 
-        // Set to power mode for direct control
-        drive.setDriveMode(SixWheelDriveController.DriveMode.POWER);
-
-        // Arcade drive: left stick Y for drive, right stick X for turn (FULL POWER)
-        double drivePower = -gamepad1.left_stick_y;
-        double turnPower = gamepad1.right_stick_x;
-
-        // Calculate left and right powers
-        double leftPower = drivePower + turnPower;
-        double rightPower = drivePower - turnPower;
+        // Tank drive: each stick controls one side (FULL POWER)
+        double leftPower = -gamepad1.left_stick_y;
+        double rightPower = -gamepad1.right_stick_y;
 
         // Use tank drive at full power (no multipliers)
         drive.tankDrive(leftPower, rightPower);

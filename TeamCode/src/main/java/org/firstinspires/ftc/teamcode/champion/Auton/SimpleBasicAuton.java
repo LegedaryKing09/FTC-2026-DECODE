@@ -147,12 +147,12 @@ public class SimpleBasicAuton extends LinearOpMode {
         DcMotor shooterMotorFirst = null;
         DcMotor shooterMotorSecond = null;
         try {
-            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
+            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter");
             shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
             telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
         }
-        shooterController = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
+        shooterController = new NewShooterController(shooterMotorFirst);
 
         // Initialize ramp
         try {
