@@ -60,9 +60,9 @@ public final class AutoTankDrive {
 
 
         // Path profile parameters (velocity and acceleration limits)
-        public double maxWheelVel = 110;
-        public double minProfileAccel = -48; // Reduced for smoother motion
-        public double maxProfileAccel = 48; // Reduced for smoother motion
+        public double maxWheelVel = 100;
+        public double minProfileAccel = -45; // Reduced for smoother motion
+        public double maxProfileAccel = 45; // Reduced for smoother motion
 
         // Feedforward control gains for motor voltage compensation
         public double kS = 1.3289163351364959; // 0.22;
@@ -132,25 +132,18 @@ public final class AutoTankDrive {
 
 
     public AutoTankDrive(HardwareMap hardwareMap, Pose2d pose) {
-//        this.telemetry = telemetry;
-
-
         // Ensure Lynx modules are up to date
         LynxFirmware.throwIfModulesAreOutdated(hardwareMap);
-
 
         // Enable bulk caching for efficient sensor reads
         for (LynxModule module : hardwareMap.getAll(LynxModule.class)) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
 
-
         // Initialize odometry localizer
         pinpointLocalizer = new PinpointLocalizer(hardwareMap, PARAMS.inPerTick, PARAMS.pinpointYOffset, PARAMS.pinpointXOffset, pose);
 
-
         localizer = pinpointLocalizer;
-
 
         // Initialize drive motors
         leftFront = hardwareMap.get(DcMotorEx.class, "lf");
@@ -158,18 +151,15 @@ public final class AutoTankDrive {
         rightFront = hardwareMap.get(DcMotorEx.class, "rf");
         rightBack = hardwareMap.get(DcMotorEx.class, "rb");
 
-
         // Group motors for batch operations
         leftMotors = Arrays.asList(leftFront, leftBack);
         rightMotors = Arrays.asList(rightFront, rightBack);
-
 
         // Configure motor directions (right side reversed for tank drive)
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
         leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.FORWARD);
-
 
         // Configure motor braking behavior
         for (DcMotorEx motor : leftMotors) {
@@ -180,7 +170,6 @@ public final class AutoTankDrive {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
             motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
-
 
         // Initialize voltage sensor for feedforward compensation
         voltageSensor = hardwareMap.voltageSensor.iterator().next();

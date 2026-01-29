@@ -54,8 +54,9 @@ public class CloseBlue extends LinearOpMode {
 
     // Distance parameters
     public static double INITIAL_BACKWARD = -40.0;
-    public static double INTAKE_FORWARD = 38.0;
+    public static double INTAKE_FORWARD = 36.0;
     public static double INTAKE_BACKWARD = 35.0;
+    public static double INTAKE_SECOND_BACKWARD = 10.0;
 
     public static double SECOND_BACKWARD = 20.0;
     public static double ENDING_DISTANCE = 30.0;
@@ -71,7 +72,7 @@ public class CloseBlue extends LinearOpMode {
     public static double HEADING_TIMEOUT_MS = 300;
 
     // Timing parameters
-    public static long INTAKE_TIME_MS = 500;
+    public static long INTAKE_TIME_MS = 400;
     public static long SHOOT_TIME_MS = 3000;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
@@ -84,8 +85,6 @@ public class CloseBlue extends LinearOpMode {
 
     // turret angles
     public static double AUTO_AIM_LEFT = 43.0;
-    public static double AUTO_AIM_RIGHT = -43.0;
-
 
     @Override
     public void runOpMode() {
@@ -104,8 +103,6 @@ public class CloseBlue extends LinearOpMode {
         shooterController.setTargetRPM(CONSTANT_SHOOTER_RPM);
         shooterController.startShooting();
         startShooterThread();
-
-
 
         sleep(100);
 
@@ -179,7 +176,7 @@ public class CloseBlue extends LinearOpMode {
         // Initialize ramp
         try {
             rampController = new NewRampController(this);
-            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
+//            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
             //
         }
@@ -219,6 +216,9 @@ public class CloseBlue extends LinearOpMode {
         autoAimTurretLeft();
         shootBalls();
 
+        // prevents wrapping around the turret
+        turretField.disable();
+
         // 4. turn to pickup angle (90)
         Action turnLeft2 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
@@ -240,6 +240,7 @@ public class CloseBlue extends LinearOpMode {
         // 8. Shoot balls
         // no autoaim because of the intakeForward
         shootBalls();
+        turretField.disable();
 
         // 9. turn to 0 degree for going backward
         Action turnRight2 = tankDrive.actionBuilder(currentPose)
@@ -292,6 +293,7 @@ public class CloseBlue extends LinearOpMode {
         // 17. shoot balls
         shootBalls();
 
+        turretField.disable();
 
         // 19. Ending pose
         Action moveForward5 = tankDrive.actionBuilder(currentPose)
