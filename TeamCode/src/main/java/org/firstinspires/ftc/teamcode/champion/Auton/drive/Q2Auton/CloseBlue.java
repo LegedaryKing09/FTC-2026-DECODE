@@ -27,6 +27,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
+import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 
 @Config
 @Autonomous(name = "Blue Close Auton Q2", group = "Competition")
@@ -158,12 +159,12 @@ public class CloseBlue extends LinearOpMode {
         DcMotor shooterMotorFirst = null;
         DcMotor shooterMotorSecond = null;
         try {
-            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter1");
+            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter");
             shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
             //
         }
-        shooterController = new NewShooterController(shooterMotorFirst, shooterMotorSecond);
+        shooterController = new NewShooterController(shooterMotorFirst);
 
         // initialize turret
         try {
@@ -466,15 +467,14 @@ public class CloseBlue extends LinearOpMode {
     private void cleanup() {
         // Save final pose before cleaning up
         Pose2d finalPose = tankDrive.pinpointLocalizer.getPose();
-        RobotState.saveAutonPose(finalPose);
+        PoseStorage.currentPose = finalPose;  // <-- Simple static assignment
 
-        // ADD THIS - Show what was saved
+        // Show what was saved
         telemetry.addLine("=== AUTON COMPLETE ===");
-        telemetry.addData("Final Pose SAVED", "x=%.1f, y=%.1f, heading=%.1f°",
+        telemetry.addData("Pose SAVED to PoseStorage", "x=%.1f, y=%.1f, heading=%.1f°",
                 finalPose.position.x,
                 finalPose.position.y,
                 Math.toDegrees(finalPose.heading.toDouble()));
-        telemetry.addData("Total Time", "%.1f sec", globalTimer.seconds());
         telemetry.update();
         sleep(2000); // Keep telemetry visible for 2 seconds
 
