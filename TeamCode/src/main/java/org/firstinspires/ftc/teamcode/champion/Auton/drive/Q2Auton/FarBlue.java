@@ -52,9 +52,9 @@ public class FarBlue extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = -175.0;
 
     // Distance parameters
-    public static double INITIAL_FORWARD = 26.0;
-    public static double INTAKE_FORWARD = 40.0;
-    public static double INTAKE_BACKWARD = 35.0;
+    public static double INITIAL_FORWARD = 20.0;
+    public static double INTAKE_FORWARD = 36.0;
+    public static double INTAKE_BACKWARD = 30.0;
     public static double FIRST_BACKWARD = 26.0;
     public static double ENDING_DISTANCE = 30.0;
 
