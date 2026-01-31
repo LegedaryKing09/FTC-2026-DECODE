@@ -38,8 +38,8 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  * === DRIVER 2 (gamepad2) ===
  * Right Trigger:  Hold to run intake + transfer + uptake (all three)
  *
- * Left Bumper:    EXTEND ramp (angle goes more negative)
- * Left Trigger:   RETRACT ramp (angle goes less negative)
+ * Left Bumper:    RETRACT ramp (angle goes more negative)
+ * Left Trigger:   EXTEND ramp (angle goes less negative, toward 0°)
  *
  * D-Pad Up:       RPM +100
  * D-Pad Down:     RPM -100
@@ -49,7 +49,7 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  * Right Stick X:  Manual turret - DISABLES AUTO-AIM when moved!
  *                 Auto-aim stays off until next preset button is pressed
  *
- * Y Button:       FAR preset (4550 RPM, ramp, turret) + auto-aim ON
+ * Y Button:       close preset (4550 RPM, ramp, turret) + auto-aim ON
  * A Button:       CLOSE preset (3650 RPM, ramp, turret) + auto-aim ON
  * X Button:       Set RPM to IDLE (2000 RPM)
  */
@@ -59,17 +59,17 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === PRESETS ===
     public static double FAR_RPM = 4600.0;
-    public static double FAR_RAMP_ANGLE = -175.0;
+    public static double FAR_RAMP_ANGLE = 0.4;
     public static double FAR_TURRET_ANGLE = 25.0;
 
     public static double CLOSE_RPM = 3900.0;
-    public static double CLOSE_RAMP_ANGLE = -118.4;
+    public static double CLOSE_RAMP_ANGLE = 0.7;
     public static double CLOSE_TURRET_ANGLE = 45.0;
 
     public static double IDLE_RPM = 2000.0;
 
     // === ADJUSTMENTS ===
-    public static double RAMP_INCREMENT_DEGREES = -10.0;
+    public static double RAMP_INCREMENT_DEGREES = 0.05;  // Always positive, direction handled in code
     public static double TURRET_TARGET_INCREMENT = 1.0;
     public static double RPM_INCREMENT = 100.0;
     public static double TURRET_MANUAL_SENSITIVITY = 0.5;
@@ -298,7 +298,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         DcMotor shooterMotor2 = null;
         try {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter");
-            shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
             telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
         }
@@ -449,26 +448,24 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             }
         }
 
-        // === LB: EXTEND RAMP (more negative angle) ===
+        // === LB: RETRACT RAMP (more negative angle, toward -245°) ===
         boolean currentLB2 = gamepad2.left_bumper;
         if (currentLB2 && !lastLB2) {
             if (ramp != null) {
-                double currentAngle = ramp.getCurrentAngle();
-                double newTarget = currentAngle + RAMP_INCREMENT_DEGREES;
+                double newTarget = ramp.getTargetAngle() - RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
-                rampDebug = "LB: " + currentAngle + " -> " + newTarget;
+                rampDebug = "LB RETRACT: " + ramp.getTargetAngle();
             }
         }
         lastLB2 = currentLB2;
 
-        // === LT: RETRACT RAMP (less negative angle) ===
+        // === LT: EXTEND RAMP (less negative angle, toward 0°) ===
         boolean ltPressed = gamepad2.left_trigger > TRIGGER_THRESHOLD;
         if (ltPressed && !lastLT2Pressed) {
             if (ramp != null) {
-                double currentAngle = ramp.getCurrentAngle();
-                double newTarget = currentAngle - RAMP_INCREMENT_DEGREES;
+                double newTarget = ramp.getTargetAngle() + RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
-                rampDebug = "LT: " + currentAngle + " -> " + newTarget;
+                rampDebug = "LT EXTEND: " + ramp.getTargetAngle();
             }
         }
         lastLT2Pressed = ltPressed;

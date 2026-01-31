@@ -51,7 +51,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 @Config
 @TeleOp(name = "Auto-Aim Shooter", group = "Competition")
 public class OdometrySystemShoot extends LinearOpMode {
-    public static double angleToGoal= 23;
+    public static double angleToGoal= 45;
     // === FIELD CONFIGURATION ===
     public static double GOAL_X = 0.0;
     public static double GOAL_Y = 0.0;
@@ -68,7 +68,7 @@ public class OdometrySystemShoot extends LinearOpMode {
     public static boolean USE_VISION = false;
 
     // === SHOOTER ===
-    public static double SHOOTER_RPM = 4500.0;
+    public static double SHOOTER_RPM = 2500.0;
 
     // === TELEMETRY ===
     public static double TELEMETRY_INTERVAL_MS = 100;
@@ -265,12 +265,8 @@ public class OdometrySystemShoot extends LinearOpMode {
         turretField = new TurretFieldController(turret);  // Your existing PID controller!
 
         DcMotor shooterMotor1 = null;
-        DcMotor shooterMotor2 = null;
         try {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter");
-        } catch (Exception ignored) {}
-        try {
-            shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception ignored) {}
         shooter = new NewShooterController(shooterMotor1);
 

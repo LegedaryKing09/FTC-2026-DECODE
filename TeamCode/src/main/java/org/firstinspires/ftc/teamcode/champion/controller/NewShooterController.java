@@ -15,18 +15,18 @@ public class NewShooterController {
     public static boolean motorReversed = false;
 
     // Target RPM control
-    public static double TARGET_RPM = 4600;
+    public static double TARGET_RPM = 4000;
     public static double RPM_INCREMENT = 50.0;
     public static double MIN_RPM = 0.0;
     public static double MAX_RPM = 6000.0;
 
     // PID gains (tunable via FTC Dashboard)
-    public static double kP = 0.65;
+    public static double kP = 0.55;
     public static double kI = 0;
-    public static double kD = 0.001;
+    public static double kD = 0;
 
     // Feedforward gain
-    public static double kF = 0;
+    public static double kF = 0.00019;
 
     // PID limits
     public static double MAX_INTEGRAL = 10000.0;

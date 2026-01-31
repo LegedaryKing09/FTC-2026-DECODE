@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 /**
- * Turret Controller for TWO Axon Mini servos with 2.5:1 gear ratio
+ * Turret Controller for TWO Axon Mini servos with 1.25:1 gear ratio
  *
  * HOW IT WORKS:
  * 1. Each update, calculate servo delta from last reading
@@ -30,11 +30,16 @@ public class TurretController {
 
     // Configuration
     public static double VOLTAGE_MAX = 3.3;
-    public static double GEAR_RATIO = 2.5;
+    public static double GEAR_RATIO = 1.25;  // CHANGED from 2.5 for dual servo setup
 
     // Servo direction control (adjust based on mounting)
-    public static boolean INVERT_LEFT = false;
+    public static boolean INVERT_LEFT = true;
     public static boolean INVERT_RIGHT = true;  // Usually mirrored
+
+    private double filteredServoAngle = 0.0;
+    private boolean firstReading = true;
+    public static double FILTER_ALPHA = 0.7;  // 0.0-1.0, higher = less filtering
+
 
     // Hardware
     private final CRServo servoLeft;
@@ -93,8 +98,15 @@ public class TurretController {
             return;
         }
 
-        double currentServoAngle = getRawServoAngle();
-
+        double rawAngle = getRawServoAngle();
+        // Low-pass filter to smooth noise
+        if (firstReading) {
+            filteredServoAngle = rawAngle;
+            firstReading = false;
+        } else {
+            filteredServoAngle = FILTER_ALPHA * rawAngle + (1 - FILTER_ALPHA) * filteredServoAngle;
+        }
+        double currentServoAngle = filteredServoAngle;
         // Calculate raw delta
         double servoDelta = currentServoAngle - lastServoAngle;
 

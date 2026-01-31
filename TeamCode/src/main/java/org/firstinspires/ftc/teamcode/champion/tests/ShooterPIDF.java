@@ -6,11 +6,12 @@ import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
- * Shooter PIDF Tuning Test
+ * Shooter PIDF Tuning Test with Intake/Transfer/Uptake
  *
  * CONTROLS:
  * - A: Start/Stop shooter
@@ -18,6 +19,9 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * - Y: Switch to HIGH preset (4600 RPM)
  * - DPAD UP/DOWN: Fine adjust target RPM (+/- 50)
  * - B: Reset timing stats
+ *
+ * - RIGHT BUMPER: Toggle intake + transfer + uptake (all three)
+ * - LEFT BUMPER: HOLD to VOMIT (reverse all)
  *
  * DASHBOARD:
  * - Graphs RPM, Target, Error, Power over time
@@ -54,14 +58,33 @@ public class ShooterPIDF extends OpMode {
     // Encoder ticks per revolution (check your motor spec)
     public static double TICKS_PER_REV = 28.0;
 
+    // ========== HARDWARE NAMES ==========
+    public static String INTAKE_NAME = "intake";
+    public static String TRANSFER_NAME = "transfer";
+    public static String UPTAKE1_NAME = "servo1";
+    public static String UPTAKE2_NAME = "servo2";
+
+    // ========== INTAKE/TRANSFER/UPTAKE POWER ==========
+    public static double INTAKE_POWER = 1.0;
+    public static double TRANSFER_POWER = 1.0;
+    public static double UPTAKE_POWER = 1.0;
+
     // ========== MOTOR ==========
     private DcMotor shooterMotor;
+    private DcMotor intakeMotor;
+    private DcMotor transferMotor;
+    private CRServo uptakeServo1;
+    private CRServo uptakeServo2;
 
     // ========== STATE ==========
     private boolean isRunning = false;
     private double targetRPM = HIGH_RPM;
     private double currentRPM = 0;
     private double currentPower = 0;
+
+    // ========== INTAKE MODE STATE ==========
+    private boolean intakeModeActive = false;
+    private boolean isVomiting = false;
 
     // ========== PID STATE ==========
     private double integralSum = 0;
@@ -79,6 +102,11 @@ public class ShooterPIDF extends OpMode {
     private int spinUpCount = 0;
     private double totalSpinUpTime = 0;
 
+    // ========== RPM DROP TRACKING ==========
+    private double minRPMDuringShot = 9999;
+    private double rpmBeforeShot = 0;
+    private boolean trackingDrop = false;
+
     // ========== DASHBOARD ==========
     private FtcDashboard dashboard;
 
@@ -89,10 +117,11 @@ public class ShooterPIDF extends OpMode {
     private boolean lastB = false;
     private boolean lastDpadUp = false;
     private boolean lastDpadDown = false;
+    private boolean lastRB = false;
 
     @Override
     public void init() {
-        // Initialize motor
+        // Initialize shooter motor
         try {
             shooterMotor = hardwareMap.get(DcMotor.class, "shooter");
             shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -101,6 +130,37 @@ public class ShooterPIDF extends OpMode {
             telemetry.addData("Shooter", "OK");
         } catch (Exception e) {
             telemetry.addData("Shooter", "FAILED: " + e.getMessage());
+        }
+
+        // Initialize intake motor
+        try {
+            intakeMotor = hardwareMap.get(DcMotor.class, INTAKE_NAME);
+            intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            telemetry.addData("Intake", "OK");
+        } catch (Exception e) {
+            telemetry.addData("Intake", "FAILED");
+            intakeMotor = null;
+        }
+
+        // Initialize transfer motor
+        try {
+            transferMotor = hardwareMap.get(DcMotor.class, TRANSFER_NAME);
+            transferMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            telemetry.addData("Transfer", "OK");
+        } catch (Exception e) {
+            telemetry.addData("Transfer", "FAILED");
+            transferMotor = null;
+        }
+
+        // Initialize uptake servos
+        try {
+            uptakeServo1 = hardwareMap.get(CRServo.class, UPTAKE1_NAME);
+            uptakeServo2 = hardwareMap.get(CRServo.class, UPTAKE2_NAME);
+            telemetry.addData("Uptake", "OK");
+        } catch (Exception e) {
+            telemetry.addData("Uptake", "FAILED");
+            uptakeServo1 = null;
+            uptakeServo2 = null;
         }
 
         // Initialize dashboard
@@ -116,6 +176,9 @@ public class ShooterPIDF extends OpMode {
         telemetry.addLine("Y: HIGH preset (4600)");
         telemetry.addLine("DPAD: Fine adjust");
         telemetry.addLine("B: Reset stats");
+        telemetry.addLine("");
+        telemetry.addLine("RB: Toggle intake/transfer/uptake");
+        telemetry.addLine("LB: Hold to VOMIT");
         telemetry.update();
     }
 
@@ -123,6 +186,7 @@ public class ShooterPIDF extends OpMode {
     public void loop() {
         // ========== READ CONTROLS ==========
         handleControls();
+        handleIntakeControls();
 
         // ========== UPDATE RPM ==========
         updateRPM();
@@ -139,6 +203,9 @@ public class ShooterPIDF extends OpMode {
 
         // ========== UPDATE TIMING ==========
         updateTiming();
+
+        // ========== TRACK RPM DROP ==========
+        trackRPMDrop();
 
         // ========== SEND TO DASHBOARD ==========
         sendDashboardData();
@@ -206,6 +273,97 @@ public class ShooterPIDF extends OpMode {
             resetStats();
         }
         lastB = gamepad1.b;
+    }
+
+    private void handleIntakeControls() {
+        // Right bumper - toggle intake + transfer + uptake (all three)
+        boolean currentRB = gamepad1.right_bumper;
+        if (currentRB && !lastRB) {
+            if (!intakeModeActive) {
+                startIntakeMode();
+            } else {
+                stopIntakeMode();
+            }
+        }
+        lastRB = currentRB;
+
+        // Left bumper - VOMIT (hold to reverse intake + transfer + uptake)
+        if (gamepad1.left_bumper) {
+            if (!isVomiting) {
+                // Start vomiting
+                isVomiting = true;
+                setIntakePower(-INTAKE_POWER);
+                setTransferPower(-TRANSFER_POWER);
+                setUptakePower(-UPTAKE_POWER);
+            }
+        } else {
+            if (isVomiting) {
+                // Stop vomiting
+                isVomiting = false;
+                if (intakeModeActive) {
+                    // Resume normal intake mode
+                    setIntakePower(INTAKE_POWER);
+                    setTransferPower(TRANSFER_POWER);
+                    setUptakePower(UPTAKE_POWER);
+                } else {
+                    // Stop everything
+                    setIntakePower(0);
+                    setTransferPower(0);
+                    setUptakePower(0);
+                }
+            }
+        }
+    }
+
+    private void startIntakeMode() {
+        intakeModeActive = true;
+
+        // Record RPM before feeding balls
+        rpmBeforeShot = currentRPM;
+        minRPMDuringShot = currentRPM;
+        trackingDrop = true;
+
+        setIntakePower(INTAKE_POWER);
+        setTransferPower(TRANSFER_POWER);
+        setUptakePower(UPTAKE_POWER);
+    }
+
+    private void stopIntakeMode() {
+        intakeModeActive = false;
+        trackingDrop = false;
+
+        setIntakePower(0);
+        setTransferPower(0);
+        setUptakePower(0);
+    }
+
+    private void setIntakePower(double power) {
+        if (intakeMotor != null) {
+            intakeMotor.setPower(power);
+        }
+    }
+
+    private void setTransferPower(double power) {
+        if (transferMotor != null) {
+            transferMotor.setPower(power);
+        }
+    }
+
+    private void setUptakePower(double power) {
+        if (uptakeServo1 != null) {
+            uptakeServo1.setPower(power);
+        }
+        if (uptakeServo2 != null) {
+            uptakeServo2.setPower(power);
+        }
+    }
+
+    private void trackRPMDrop() {
+        if (trackingDrop && isRunning) {
+            if (currentRPM < minRPMDuringShot) {
+                minRPMDuringShot = currentRPM;
+            }
+        }
     }
 
     private void updateRPM() {
@@ -283,6 +441,8 @@ public class ShooterPIDF extends OpMode {
         spinUpCount = 0;
         totalSpinUpTime = 0;
         lastSpinUpTime = 0;
+        minRPMDuringShot = 9999;
+        rpmBeforeShot = 0;
     }
 
     private void sendDashboardData() {
@@ -304,6 +464,11 @@ public class ShooterPIDF extends OpMode {
         packet.put("Shooter/SpinUpTime", lastSpinUpTime);
         packet.put("Shooter/Running", isRunning ? 1 : 0);
 
+        // Intake/feeding state
+        packet.put("Shooter/Feeding", intakeModeActive ? 1 : 0);
+        packet.put("Shooter/MinRPM", minRPMDuringShot < 9999 ? minRPMDuringShot : 0);
+        packet.put("Shooter/RPMDrop", rpmBeforeShot - minRPMDuringShot);
+
         dashboard.sendTelemetryPacket(packet);
     }
 
@@ -314,6 +479,16 @@ public class ShooterPIDF extends OpMode {
         telemetry.addData("Current RPM", "%.0f", currentRPM);
         telemetry.addData("Error", "%.0f", targetRPM - currentRPM);
         telemetry.addData("Power", "%.3f", currentPower);
+
+        telemetry.addLine("");
+        telemetry.addLine("=== INTAKE/FEEDING ===");
+        telemetry.addData("Intake Mode", intakeModeActive ? "ACTIVE" : "OFF");
+        telemetry.addData("Vomiting", isVomiting ? "YES" : "NO");
+        if (minRPMDuringShot < 9999) {
+            telemetry.addData("RPM Before Shot", "%.0f", rpmBeforeShot);
+            telemetry.addData("Min RPM During Shot", "%.0f", minRPMDuringShot);
+            telemetry.addData("RPM Drop", "%.0f", rpmBeforeShot - minRPMDuringShot);
+        }
 
         telemetry.addLine("");
         telemetry.addLine("=== PIDF GAINS ===");
@@ -336,9 +511,9 @@ public class ShooterPIDF extends OpMode {
         }
 
         telemetry.addLine("");
-        telemetry.addLine("=== PRESETS ===");
-        telemetry.addData("X = LOW", "%.0f RPM", LOW_RPM);
-        telemetry.addData("Y = HIGH", "%.0f RPM", HIGH_RPM);
+        telemetry.addLine("=== CONTROLS ===");
+        telemetry.addLine("A=Start/Stop  X=LOW  Y=HIGH");
+        telemetry.addLine("RB=Feed  LB=Vomit  B=Reset");
 
         telemetry.update();
     }
@@ -348,5 +523,8 @@ public class ShooterPIDF extends OpMode {
         if (shooterMotor != null) {
             shooterMotor.setPower(0);
         }
+        setIntakePower(0);
+        setTransferPower(0);
+        setUptakePower(0);
     }
 }

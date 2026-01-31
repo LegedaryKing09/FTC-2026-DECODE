@@ -8,7 +8,16 @@ import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
  * Field-Centric Turret Controller with Dead Zone Handling
  *
  * Updated for Continuous Rotation Servo drive system.
- * Includes power ramping for smoother servo control.
+ *
+ * DIRECTION CONVENTION:
+ * - Positive angle = CW (clockwise)
+ * - Negative angle = CCW (counter-clockwise)
+ *
+ * LIMITS:
+ * - CW limit: +90°
+ * - CCW limit: -179°
+ *
+ * FIX: Added error normalization to handle accumulated angle wraparound
  */
 @Config
 public class TurretFieldController {
@@ -17,41 +26,29 @@ public class TurretFieldController {
     private final FtcDashboard dashboard;
 
     // ========== FIELD TARGET ==========
-    public static double TARGET_FIELD_ANGLE = 27.0;
+    public static double TARGET_FIELD_ANGLE = -45.0;
 
     // ========== TURRET LIMITS (Dead Zone) ==========
-    public static double CCW_LIMIT = 90.0;
-    public static double CW_LIMIT = -90.0;
+    // CW is positive, CCW is negative
+    public static double CW_LIMIT = 90.0;     // Max clockwise
+    public static double CCW_LIMIT = -179.0;  // Max counter-clockwise
     public static boolean USE_LIMITS = true;
 
-    // ========== CCW PID ==========
-    // Tuned down for servos (they respond differently than motors)
-    public static double CCW_kP = 0.025;
-    public static double CCW_kI = 0.0;
-    public static double CCW_kD = 0.002;
-
-    // ========== CW PIDF ==========
-    public static double CW_kP = 0.025;
-    public static double CW_kI = 0.0;
-    public static double CW_kD = 0.002;
-    public static double CW_kF = 0.01;
+    // ========== PID (unified for both directions) ==========
+    public static double kP = 0.01;
+    public static double kI = 0.0;
+    public static double kD = 0.0;
 
     // ========== POWER LIMITS ==========
-    // Servos often need lower max power for precision
-    public static double MAX_POWER = 0.6;
+    public static double MAX_POWER = 0.5;
     public static double MIN_POWER = 0.08;  // CR servos have larger deadbands
     public static double INTEGRAL_LIMIT = 15.0;
 
-    // ========== SERVO RAMPING ==========
-    // Prevents jerky motion from sudden power changes
-    public static boolean USE_RAMPING = true;
-    public static double RAMP_RATE = 2.0;  // Max power change per second
-
     // ========== ALIGNMENT ==========
-    public static double FIELD_TOLERANCE_DEG = 2.0;  // Slightly larger for servo slop
+    public static double FIELD_TOLERANCE_DEG = 2.0;
 
     // ========== OUTPUT ==========
-    public static boolean INVERT_OUTPUT = true;
+    public static boolean INVERT_OUTPUT = false;  // Changed - adjust if needed
 
     // ========== OFFSET ==========
     public static double TURRET_OFFSET = 0.0;
@@ -65,7 +62,6 @@ public class TurretFieldController {
     private double lastRobotHeading = 0.0;
     private double lastFieldError = 0.0;
     private double lastPower = 0.0;
-    private double targetPower = 0.0;  // For ramping
 
     // PID state
     private double lastError = 0.0;
@@ -76,7 +72,6 @@ public class TurretFieldController {
     private double lastPTerm = 0.0;
     private double lastITerm = 0.0;
     private double lastDTerm = 0.0;
-    private double lastFTerm = 0.0;
 
     // Debug
     private double debugRequiredTurret = 0.0;
@@ -122,8 +117,6 @@ public class TurretFieldController {
         lastPTerm = 0.0;
         lastITerm = 0.0;
         lastDTerm = 0.0;
-        lastFTerm = 0.0;
-        targetPower = 0.0;
         lastPower = 0.0;
     }
 
@@ -134,8 +127,7 @@ public class TurretFieldController {
     public double update(double robotHeadingDegrees) {
         if (!enabled) {
             lastPower = 0.0;
-            targetPower = 0.0;
-            sendGraphData(0, 0, 0, 0, 0, 0, false);
+            sendGraphData(0, 0, 0, 0, 0, false);
             return 0.0;
         }
 
@@ -145,8 +137,6 @@ public class TurretFieldController {
         lastUpdateTime = currentTime;
         dt = Math.max(0.005, Math.min(0.1, dt));
 
-        // Store previous heading for feedforward
-        double prevRobotHeading = lastRobotHeading;
         lastRobotHeading = robotHeadingDegrees;
 
         double currentTurretAngle = turret.getTurretAngle();
@@ -160,13 +150,14 @@ public class TurretFieldController {
         debugActualFieldFacing = normalizeAngle(robotHeadingDegrees + currentTurretAngle + TURRET_OFFSET);
 
         // ========== DEAD ZONE CHECK ==========
+        // CW is positive (+90 limit), CCW is negative (-179 limit)
         if (USE_LIMITS) {
-            if (requiredTurretAngle > CCW_LIMIT) {
-                inDeadZone = true;
-                requiredTurretAngle = CCW_LIMIT;
-            } else if (requiredTurretAngle < CW_LIMIT) {
+            if (requiredTurretAngle > CW_LIMIT) {
                 inDeadZone = true;
                 requiredTurretAngle = CW_LIMIT;
+            } else if (requiredTurretAngle < CCW_LIMIT) {
+                inDeadZone = true;
+                requiredTurretAngle = CCW_LIMIT;
             } else {
                 inDeadZone = false;
             }
@@ -176,34 +167,27 @@ public class TurretFieldController {
 
         // ========== CALCULATE ERROR ==========
         double error = requiredTurretAngle - currentTurretAngle;
+        // FIX: Normalize error to handle accumulated angle wraparound
+        error = normalizeAngle(error);
         lastFieldError = error;
 
         // If in dead zone and at limit, stop
         if (inDeadZone) {
-            boolean atCCWLimit = Math.abs(currentTurretAngle - CCW_LIMIT) < 3.0;
             boolean atCWLimit = Math.abs(currentTurretAngle - CW_LIMIT) < 3.0;
+            boolean atCCWLimit = Math.abs(currentTurretAngle - CCW_LIMIT) < 3.0;
 
-            if ((requiredTurretAngle >= CCW_LIMIT && atCCWLimit) ||
-                    (requiredTurretAngle <= CW_LIMIT && atCWLimit)) {
+            if ((requiredTurretAngle >= CW_LIMIT && atCWLimit) ||
+                    (requiredTurretAngle <= CCW_LIMIT && atCCWLimit)) {
                 turret.stop();
                 lastPower = 0.0;
-                targetPower = 0.0;
                 resetPID();
-                sendGraphData(error, 0, 0, 0, 0, 0, true);
+                sendGraphData(error, 0, 0, 0, 0, true);
                 return 0.0;
             }
         }
 
-        // Calculate robot rotation rate for feedforward
-        double robotRotationRate = normalizeAngle(robotHeadingDegrees - prevRobotHeading) / dt;
-
-        // ========== DIRECTION-DEPENDENT CONTROL ==========
-        double output;
-        if (error >= 0) {
-            output = calculateCW_PIDF(error, robotRotationRate, dt);
-        } else {
-            output = calculateCCW_PID(error, dt);
-        }
+        // ========== PID CONTROL ==========
+        double output = calculatePID(error, dt);
 
         // Apply power limits
         double absOutput = Math.abs(output);
@@ -213,83 +197,45 @@ public class TurretFieldController {
             output = Math.copySign(MIN_POWER, output);
         }
 
-        // Apply inversion
+        // Apply inversion if needed
         if (INVERT_OUTPUT) {
             output = -output;
-        }
-
-        // ========== SERVO RAMPING ==========
-        targetPower = output;
-        if (USE_RAMPING) {
-            output = applyRamping(lastPower, targetPower, dt);
         }
 
         turret.setPower(output);
         lastPower = output;
 
-        sendGraphData(error, output, lastPTerm, lastITerm, lastDTerm, lastFTerm, inDeadZone);
+        sendGraphData(error, output, lastPTerm, lastITerm, lastDTerm, inDeadZone);
         return output;
     }
 
-    /**
-     * Smooth power transitions for CR servos
-     */
-    private double applyRamping(double currentPower, double targetPower, double dt) {
-        double maxChange = RAMP_RATE * dt;
-        double delta = targetPower - currentPower;
+    private double calculatePID(double error, double dt) {
+        // P term
+        lastPTerm = kP * error;
 
-        if (Math.abs(delta) <= maxChange) {
-            return targetPower;
-        }
-
-        return currentPower + Math.copySign(maxChange, delta);
-    }
-
-    private double calculateCW_PIDF(double error, double robotRotationRate, double dt) {
-        lastPTerm = CW_kP * error;
-
+        // I term
         integralSum += error * dt;
         integralSum = Math.max(-INTEGRAL_LIMIT, Math.min(INTEGRAL_LIMIT, integralSum));
-        lastITerm = CW_kI * integralSum;
+        lastITerm = kI * integralSum;
 
+        // D term
         double errorDerivative = (error - lastError) / dt;
-        lastDTerm = CW_kD * errorDerivative;
+        lastDTerm = kD * errorDerivative;
         lastError = error;
-
-        lastFTerm = CW_kF * (-robotRotationRate);
-
-        return lastPTerm + lastITerm + lastDTerm + lastFTerm;
-    }
-
-    private double calculateCCW_PID(double error, double dt) {
-        lastPTerm = CCW_kP * error;
-
-        integralSum += error * dt;
-        integralSum = Math.max(-INTEGRAL_LIMIT, Math.min(INTEGRAL_LIMIT, integralSum));
-        lastITerm = CCW_kI * integralSum;
-
-        double errorDerivative = (error - lastError) / dt;
-        lastDTerm = CCW_kD * errorDerivative;
-        lastError = error;
-
-        lastFTerm = 0.0;
 
         return lastPTerm + lastITerm + lastDTerm;
     }
 
-    private void sendGraphData(double error, double power, double pTerm, double iTerm, double dTerm, double fTerm, boolean deadZone) {
+    private void sendGraphData(double error, double power, double pTerm, double iTerm, double dTerm, boolean deadZone) {
         if (!ENABLE_GRAPHING) return;
 
         TelemetryPacket packet = new TelemetryPacket();
         packet.put("Turret/Error", error);
         packet.put("Turret/Power", power * 100);
-        packet.put("Turret/TargetPower", targetPower * 100);
         packet.put("Turret/P", pTerm * 100);
         packet.put("Turret/I", iTerm * 100);
         packet.put("Turret/D", dTerm * 100);
-        packet.put("Turret/F", fTerm * 100);
         packet.put("Turret/DeadZone", deadZone ? 1 : 0);
-        packet.put("Turret/Dir", error >= 0 ? 1 : -1);
 
         packet.put("Turret/RobotHeading", lastRobotHeading);
         packet.put("Turret/TurretAngle", turret.getTurretAngle());
@@ -338,7 +284,7 @@ public class TurretFieldController {
     public double getLastPTerm() { return lastPTerm; }
     public double getLastITerm() { return lastITerm; }
     public double getLastDTerm() { return lastDTerm; }
-    public double getLastFTerm() { return lastFTerm; }
+    public double getLastFTerm() { return 0.0; }  // Kept for compatibility
 
     // ========== AUTO-AIM ==========
 
@@ -350,7 +296,7 @@ public class TurretFieldController {
         boolean isActive();
     }
 
-    public static double AUTO_AIM_TIMEOUT_MS = 2500.0;  // Slightly longer for servos
+    public static double AUTO_AIM_TIMEOUT_MS = 2500.0;
 
     public boolean autoAim(HeadingProvider headingProvider, OpModeChecker opModeChecker) {
         return autoAim(TARGET_FIELD_ANGLE, headingProvider, opModeChecker, null);
@@ -370,7 +316,7 @@ public class TurretFieldController {
 
         long startTime = System.currentTimeMillis();
         int alignedCount = 0;
-        final int REQUIRED_ALIGNED_CYCLES = 5;  // More cycles for servo settling
+        final int REQUIRED_ALIGNED_CYCLES = 5;
 
         while (opModeChecker.isActive()) {
             long elapsed = System.currentTimeMillis() - startTime;

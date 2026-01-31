@@ -201,13 +201,6 @@ public class ComponentTestTeleop extends LinearOpMode {
             if (shooter != null) shooter.toggleShootDirection();
         }
 
-        // RAMP - Manual control with left stick Y
-        if (ramp != null) {
-            double rampPower = -gamepad1.left_stick_y * 0.3; // Scale down for safety
-            if (Math.abs(rampPower) > 0.1) {
-                ramp.setPower(rampPower);
-            }
-        }
 
         // RAMP - Start to initialize
         if (gamepad1.start && !lastStart1) {
