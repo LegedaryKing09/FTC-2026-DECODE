@@ -6,48 +6,32 @@ import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.AnalogInput;
 
 /**
  * Simple Raw Ramp Servo Test
- *
  * NO angle conversion - just raw servo position control.
  * Use this to verify servo works correctly.
- *
  * YOUR CALIBRATION:
  * Servo 0.0 → Raw angle 90°, Voltage 0.831V (EXTENDED)
  * Servo 1.0 → Raw angle 334.8°, Voltage 3.069V (RETRACTED)
- *
  * CONTROLS:
  * ---------
  * Left Stick Y  - Manual servo control (fast)
  * Right Stick Y - Manual servo control (fine/slow)
- *
  * A - Go to 0.0 (Extended)
  * B - Go to 0.5 (Middle)
  * Y - Go to 1.0 (Retracted)
- *
  * Dpad Up    - Servo +0.05
  * Dpad Down  - Servo -0.05
  * Dpad Right - Servo +0.01
  * Dpad Left  - Servo -0.01
- *
  * Right Bumper - Servo +0.1 (big step)
  * Left Bumper  - Servo -0.1 (big step)
  */
 @Config
-@TeleOp(name = "Ramp Servo RAW Test", group = "Test")
+@TeleOp(name = "Ramp Servo Test", group = "Test")
 public class RampServoTest extends LinearOpMode {
-
     public static String SERVO_NAME = "ramp";
-    public static String ANALOG_NAME = "ramp_analog";
-    public static double VOLTAGE_MAX = 3.3;
-
-    private Servo rampServo;
-    private AnalogInput rampAnalog;
-
-    // Direct servo position - no conversions!
-    private double servoPosition = 0.5;
 
     // Button tracking
     private boolean lastA = false, lastB = false, lastY = false;
@@ -58,20 +42,13 @@ public class RampServoTest extends LinearOpMode {
     @Override
     public void runOpMode() {
         // Initialize hardware
+        Servo rampServo;
         try {
             rampServo = hardwareMap.get(Servo.class, SERVO_NAME);
             telemetry.addLine("✓ Servo found");
         } catch (Exception e) {
             telemetry.addLine("✗ Servo NOT FOUND");
             rampServo = null;
-        }
-
-        try {
-            rampAnalog = hardwareMap.get(AnalogInput.class, ANALOG_NAME);
-            telemetry.addLine("✓ Analog found");
-        } catch (Exception e) {
-            telemetry.addLine("✗ Analog NOT FOUND");
-            rampAnalog = null;
         }
 
         // Dashboard
@@ -86,13 +63,13 @@ public class RampServoTest extends LinearOpMode {
         waitForStart();
 
         // Start at middle
-        servoPosition = 0.5;
+        // Direct servo position - no conversions!
+        double servoPosition = 0.5;
         if (rampServo != null) {
             rampServo.setPosition(servoPosition);
         }
 
         while (opModeIsActive()) {
-
             // === JOYSTICK CONTROL ===
 
             // Left stick - fast manual
@@ -172,22 +149,6 @@ public class RampServoTest extends LinearOpMode {
             telemetry.addData("Servo Position", "%.3f", servoPosition);
             telemetry.addLine();
 
-            telemetry.addLine("--- ANALOG FEEDBACK ---");
-            if (rampAnalog != null) {
-                double voltage = rampAnalog.getVoltage();
-                double rawAngle = (voltage / VOLTAGE_MAX) * 360.0;
-                telemetry.addData("Voltage", "%.3f V", voltage);
-                telemetry.addData("Raw Angle", "%.1f°", rawAngle);
-            } else {
-                telemetry.addLine("Analog not connected");
-            }
-            telemetry.addLine();
-
-            telemetry.addLine("--- CALIBRATION REF ---");
-            telemetry.addLine("0.0 → 90°, 0.83V (Extended)");
-            telemetry.addLine("1.0 → 335°, 3.07V (Retracted)");
-            telemetry.addLine();
-
             telemetry.addLine("--- CONTROLS ---");
             telemetry.addLine("Left Stick: Fast manual");
             telemetry.addLine("Right Stick: Fine manual");
@@ -197,11 +158,6 @@ public class RampServoTest extends LinearOpMode {
             telemetry.addLine("Bumpers: ±0.1");
 
             telemetry.update();
-        }
-
-        // Stop
-        if (rampServo != null) {
-            rampServo.setPosition(servoPosition);
         }
     }
 }

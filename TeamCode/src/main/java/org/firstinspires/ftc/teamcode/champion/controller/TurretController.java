@@ -36,11 +36,6 @@ public class TurretController {
     public static boolean INVERT_LEFT = true;
     public static boolean INVERT_RIGHT = true;  // Usually mirrored
 
-    private double filteredServoAngle = 0.0;
-    private boolean firstReading = true;
-    public static double FILTER_ALPHA = 0.7;  // 0.0-1.0, higher = less filtering
-
-
     // Hardware
     private final CRServo servoLeft;
     private final CRServo servoRight;
@@ -98,15 +93,8 @@ public class TurretController {
             return;
         }
 
-        double rawAngle = getRawServoAngle();
-        // Low-pass filter to smooth noise
-        if (firstReading) {
-            filteredServoAngle = rawAngle;
-            firstReading = false;
-        } else {
-            filteredServoAngle = FILTER_ALPHA * rawAngle + (1 - FILTER_ALPHA) * filteredServoAngle;
-        }
-        double currentServoAngle = filteredServoAngle;
+        double currentServoAngle = getRawServoAngle();
+
         // Calculate raw delta
         double servoDelta = currentServoAngle - lastServoAngle;
 

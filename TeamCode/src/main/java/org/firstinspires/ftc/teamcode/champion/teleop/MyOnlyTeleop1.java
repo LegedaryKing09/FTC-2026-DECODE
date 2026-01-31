@@ -130,6 +130,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === Auto-aim state ===
     private boolean autoAimEnabled = false;
+    public double turretError;
 
     @Override
     public void runOpMode() {
@@ -143,7 +144,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         telemetry.addData("Y", "%.2f", autonPose.position.y);
         telemetry.addData("Heading", "%.2f°", Math.toDegrees(autonPose.heading.toDouble()));
         telemetry.update();
-
 
         initializeHardware();
 
@@ -586,6 +586,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         // Update turret field controller for auto-aim
         if (turretField != null && autoAimEnabled && drive != null) {
             turretField.update(drive.getHeadingDegrees());
+            turretError = turretField.getFieldError();
         }
 
         if (ramp != null) ramp.update();

@@ -6,18 +6,18 @@ import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 
 /**
  * Field-Centric Turret Controller with Dead Zone Handling
- *
  * Updated for Continuous Rotation Servo drive system.
- *
  * DIRECTION CONVENTION:
  * - Positive angle = CW (clockwise)
  * - Negative angle = CCW (counter-clockwise)
- *
  * LIMITS:
  * - CW limit: +90°
  * - CCW limit: -179°
- *
- * FIX: Added error normalization to handle accumulated angle wraparound
+ * FIXES:
+ * - Added error normalization to handle accumulated angle wraparound
+ * - Fixed derivative kick by normalizing error change instead of error
+ * - Fixed integral windup in dead zone
+ * - Changed MIN_POWER to deadband instead of amplification
  */
 @Config
 public class TurretFieldController {
@@ -36,19 +36,19 @@ public class TurretFieldController {
 
     // ========== PID (unified for both directions) ==========
     public static double kP = 0.01;
-    public static double kI = 0.0;
-    public static double kD = 0.0;
+    public static double kI = 0.004;
+    public static double kD = 0.0005;
 
     // ========== POWER LIMITS ==========
     public static double MAX_POWER = 0.5;
-    public static double MIN_POWER = 0.08;  // CR servos have larger deadbands
+    public static double MIN_POWER = 0.04;  // CR servos have larger deadbands - now used as deadband threshold
     public static double INTEGRAL_LIMIT = 15.0;
 
     // ========== ALIGNMENT ==========
     public static double FIELD_TOLERANCE_DEG = 2.0;
 
     // ========== OUTPUT ==========
-    public static boolean INVERT_OUTPUT = false;  // Changed - adjust if needed
+    public static boolean INVERT_OUTPUT = false;
 
     // ========== OFFSET ==========
     public static double TURRET_OFFSET = 0.0;
@@ -135,7 +135,14 @@ public class TurretFieldController {
         long currentTime = System.currentTimeMillis();
         double dt = (lastUpdateTime == 0) ? 0.02 : (currentTime - lastUpdateTime) / 1000.0;
         lastUpdateTime = currentTime;
-        dt = Math.max(0.005, Math.min(0.1, dt));
+
+        // FIX: Don't clamp max dt - let it reflect actual timing
+        dt = Math.max(0.005, dt);
+        // If loop is too slow, reset PID to avoid integral issues
+        if (dt > 0.2) {
+            resetPID();
+            return 0.0;
+        }
 
         lastRobotHeading = robotHeadingDegrees;
 
@@ -155,9 +162,11 @@ public class TurretFieldController {
             if (requiredTurretAngle > CW_LIMIT) {
                 inDeadZone = true;
                 requiredTurretAngle = CW_LIMIT;
+                integralSum = 0.0;  // FIX: Prevent integral windup
             } else if (requiredTurretAngle < CCW_LIMIT) {
                 inDeadZone = true;
                 requiredTurretAngle = CCW_LIMIT;
+                integralSum = 0.0;  // FIX: Prevent integral windup
             } else {
                 inDeadZone = false;
             }
@@ -167,7 +176,7 @@ public class TurretFieldController {
 
         // ========== CALCULATE ERROR ==========
         double error = requiredTurretAngle - currentTurretAngle;
-        // FIX: Normalize error to handle accumulated angle wraparound
+        // Normalize error to handle accumulated angle wraparound
         error = normalizeAngle(error);
         lastFieldError = error;
 
@@ -189,12 +198,12 @@ public class TurretFieldController {
         // ========== PID CONTROL ==========
         double output = calculatePID(error, dt);
 
-        // Apply power limits
+        // FIX: Use MIN_POWER as deadband threshold instead of amplification
         double absOutput = Math.abs(output);
-        if (absOutput > MAX_POWER) {
+        if (absOutput < MIN_POWER) {
+            output = 0.0;  // Deadband - don't amplify weak signals
+        } else if (absOutput > MAX_POWER) {
             output = Math.copySign(MAX_POWER, output);
-        } else if (absOutput > 0.001 && absOutput < MIN_POWER) {
-            output = Math.copySign(MIN_POWER, output);
         }
 
         // Apply inversion if needed
@@ -219,7 +228,10 @@ public class TurretFieldController {
         lastITerm = kI * integralSum;
 
         // D term
-        double errorDerivative = (error - lastError) / dt;
+        // FIX: Normalize the error change to prevent derivative kick from wraparound
+        double errorChange = error - lastError;
+        errorChange = normalizeAngle(errorChange);
+        double errorDerivative = errorChange / dt;
         lastDTerm = kD * errorDerivative;
         lastError = error;
 
