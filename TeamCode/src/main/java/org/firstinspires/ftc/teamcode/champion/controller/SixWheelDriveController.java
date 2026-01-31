@@ -75,11 +75,11 @@ public class SixWheelDriveController {
         // Robot dimensions
         public static double TRACK_WIDTH_INCHES = 11.5;
 
-        // PIDF Coefficients (tune with VelocityPIDTuner)
-        public static double VELOCITY_P = 15.0;
+        // PIDF Coefficients (tuned with VelocityPIDFTuner)
+        public static double VELOCITY_P = 2.0;
         public static double VELOCITY_I = 0.0;
         public static double VELOCITY_D = 0.5;
-        public static double VELOCITY_F = 12.0;
+        public static double VELOCITY_F = 13.0;
 
         // === ENCODER CONFIGURATION ===
         // Which motor to use for encoder reading on each side

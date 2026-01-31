@@ -129,7 +129,6 @@ public class ComponentTestTeleop extends LinearOpMode {
         // Shooter
         try {
             DcMotor shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter");
-            DcMotor shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
             shooter = new NewShooterController(shooterMotor1);
         } catch (Exception e) {
             telemetry.addLine("Shooter not found");

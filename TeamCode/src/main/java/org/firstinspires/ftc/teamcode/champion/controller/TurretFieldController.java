@@ -7,19 +7,8 @@ import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 /**
  * Field-Centric Turret Controller with Dead Zone Handling
  *
- * TURRET RANGE:
- * - From 0°, can go CCW (positive) up to CCW_LIMIT (default 90°)
- * - From 0°, can go CW (negative) down to CW_LIMIT (default -90°)
- * - Dead zone is between CCW_LIMIT and CW_LIMIT (going the long way)
- *
- * DEAD ZONE BEHAVIOR:
- * - When target would require entering dead zone, turret STOPS at limit
- * - Turret resumes tracking when target moves back into reachable range
- * - No automatic unwrapping - turret simply waits at the edge
- *
- * DIRECTION-DEPENDENT CONTROL:
- * - CCW (negative error): Uses PID
- * - CW (positive error): Uses PIDF with feedforward
+ * Updated for Continuous Rotation Servo drive system.
+ * Includes power ramping for smoother servo control.
  */
 @Config
 public class TurretFieldController {
@@ -31,31 +20,35 @@ public class TurretFieldController {
     public static double TARGET_FIELD_ANGLE = 27.0;
 
     // ========== TURRET LIMITS (Dead Zone) ==========
-    // From 0°, turret can go:
-    // - CCW (positive direction): up to CCW_LIMIT
-    // - CW (negative direction): down to CW_LIMIT
-    public static double CCW_LIMIT = 180.0;    // Max CCW position
-    public static double CW_LIMIT = -90.0;    // Max CW position (negative)
+    public static double CCW_LIMIT = 90.0;
+    public static double CW_LIMIT = -90.0;
     public static boolean USE_LIMITS = true;
 
-    // ========== CCW PID (negative error - the smooth one!) ==========
-    public static double CCW_kP = 0.06;
+    // ========== CCW PID ==========
+    // Tuned down for servos (they respond differently than motors)
+    public static double CCW_kP = 0.025;
     public static double CCW_kI = 0.0;
-    public static double CCW_kD = 0.005;
+    public static double CCW_kD = 0.002;
 
-    // ========== CW PIDF (positive error - with feedforward) ==========
-    public static double CW_kP = 0.05;
+    // ========== CW PIDF ==========
+    public static double CW_kP = 0.025;
     public static double CW_kI = 0.0;
-    public static double CW_kD = 0.003;
-    public static double CW_kF = 0.015;
+    public static double CW_kD = 0.002;
+    public static double CW_kF = 0.01;
 
     // ========== POWER LIMITS ==========
-    public static double MAX_POWER = 0.7;
-    public static double MIN_POWER = 0.06;
+    // Servos often need lower max power for precision
+    public static double MAX_POWER = 0.6;
+    public static double MIN_POWER = 0.08;  // CR servos have larger deadbands
     public static double INTEGRAL_LIMIT = 15.0;
 
+    // ========== SERVO RAMPING ==========
+    // Prevents jerky motion from sudden power changes
+    public static boolean USE_RAMPING = true;
+    public static double RAMP_RATE = 2.0;  // Max power change per second
+
     // ========== ALIGNMENT ==========
-    public static double FIELD_TOLERANCE_DEG = 1.5;
+    public static double FIELD_TOLERANCE_DEG = 2.0;  // Slightly larger for servo slop
 
     // ========== OUTPUT ==========
     public static boolean INVERT_OUTPUT = true;
@@ -68,10 +61,11 @@ public class TurretFieldController {
 
     // ========== STATE ==========
     private boolean enabled = false;
-    private boolean inDeadZone = false;  // True when target is unreachable
+    private boolean inDeadZone = false;
     private double lastRobotHeading = 0.0;
     private double lastFieldError = 0.0;
     private double lastPower = 0.0;
+    private double targetPower = 0.0;  // For ramping
 
     // PID state
     private double lastError = 0.0;
@@ -83,6 +77,10 @@ public class TurretFieldController {
     private double lastITerm = 0.0;
     private double lastDTerm = 0.0;
     private double lastFTerm = 0.0;
+
+    // Debug
+    private double debugRequiredTurret = 0.0;
+    private double debugActualFieldFacing = 0.0;
 
     public TurretFieldController(TurretController turret) {
         this.turret = turret;
@@ -113,9 +111,6 @@ public class TurretFieldController {
         return enabled;
     }
 
-    /**
-     * Check if target is currently in dead zone (unreachable)
-     */
     public boolean isInDeadZone() {
         return inDeadZone;
     }
@@ -128,6 +123,8 @@ public class TurretFieldController {
         lastITerm = 0.0;
         lastDTerm = 0.0;
         lastFTerm = 0.0;
+        targetPower = 0.0;
+        lastPower = 0.0;
     }
 
     /**
@@ -137,6 +134,7 @@ public class TurretFieldController {
     public double update(double robotHeadingDegrees) {
         if (!enabled) {
             lastPower = 0.0;
+            targetPower = 0.0;
             sendGraphData(0, 0, 0, 0, 0, 0, false);
             return 0.0;
         }
@@ -153,52 +151,47 @@ public class TurretFieldController {
 
         double currentTurretAngle = turret.getTurretAngle();
 
-        // Calculate where turret needs to be to face field target
+        // ========== CALCULATE REQUIRED TURRET ANGLE ==========
         double requiredTurretAngle = TARGET_FIELD_ANGLE - robotHeadingDegrees - TURRET_OFFSET;
+        requiredTurretAngle = normalizeAngle(requiredTurretAngle);
+        debugRequiredTurret = requiredTurretAngle;
 
-        // Normalize to find shortest path
-        requiredTurretAngle = normalizeToRange(requiredTurretAngle, currentTurretAngle);
+        // Calculate actual field facing (for debug)
+        debugActualFieldFacing = normalizeAngle(robotHeadingDegrees + currentTurretAngle + TURRET_OFFSET);
 
         // ========== DEAD ZONE CHECK ==========
         if (USE_LIMITS) {
             if (requiredTurretAngle > CCW_LIMIT) {
-                // Target is in dead zone (past CCW limit)
                 inDeadZone = true;
-                // Stop at CCW limit
                 requiredTurretAngle = CCW_LIMIT;
             } else if (requiredTurretAngle < CW_LIMIT) {
-                // Target is in dead zone (past CW limit)
                 inDeadZone = true;
-                // Stop at CW limit
                 requiredTurretAngle = CW_LIMIT;
             } else {
-                // Target is reachable
                 inDeadZone = false;
             }
         } else {
             inDeadZone = false;
         }
 
-        // Calculate error (how far turret needs to move)
+        // ========== CALCULATE ERROR ==========
         double error = requiredTurretAngle - currentTurretAngle;
         lastFieldError = error;
 
         // If in dead zone and at limit, stop
         if (inDeadZone) {
-            // Check if we're already at the limit (within tolerance)
             boolean atCCWLimit = Math.abs(currentTurretAngle - CCW_LIMIT) < 3.0;
             boolean atCWLimit = Math.abs(currentTurretAngle - CW_LIMIT) < 3.0;
 
             if ((requiredTurretAngle >= CCW_LIMIT && atCCWLimit) ||
                     (requiredTurretAngle <= CW_LIMIT && atCWLimit)) {
-                // At limit, stop and wait
                 turret.stop();
                 lastPower = 0.0;
+                targetPower = 0.0;
                 resetPID();
                 sendGraphData(error, 0, 0, 0, 0, 0, true);
                 return 0.0;
             }
-            // Otherwise, continue moving toward the limit
         }
 
         // Calculate robot rotation rate for feedforward
@@ -207,10 +200,8 @@ public class TurretFieldController {
         // ========== DIRECTION-DEPENDENT CONTROL ==========
         double output;
         if (error >= 0) {
-            // CW direction (positive error) - use PIDF
             output = calculateCW_PIDF(error, robotRotationRate, dt);
         } else {
-            // CCW direction (negative error) - use PID only
             output = calculateCCW_PID(error, dt);
         }
 
@@ -227,6 +218,12 @@ public class TurretFieldController {
             output = -output;
         }
 
+        // ========== SERVO RAMPING ==========
+        targetPower = output;
+        if (USE_RAMPING) {
+            output = applyRamping(lastPower, targetPower, dt);
+        }
+
         turret.setPower(output);
         lastPower = output;
 
@@ -235,56 +232,46 @@ public class TurretFieldController {
     }
 
     /**
-     * Normalize angle to be closest to reference angle
-     * This finds the equivalent angle that minimizes distance to current position
+     * Smooth power transitions for CR servos
      */
-    private double normalizeToRange(double angle, double reference) {
-        while (angle - reference > 180) angle -= 360;
-        while (angle - reference < -180) angle += 360;
-        return angle;
+    private double applyRamping(double currentPower, double targetPower, double dt) {
+        double maxChange = RAMP_RATE * dt;
+        double delta = targetPower - currentPower;
+
+        if (Math.abs(delta) <= maxChange) {
+            return targetPower;
+        }
+
+        return currentPower + Math.copySign(maxChange, delta);
     }
 
-    /**
-     * CW direction: PIDF with feedforward
-     */
     private double calculateCW_PIDF(double error, double robotRotationRate, double dt) {
-        // P term
         lastPTerm = CW_kP * error;
 
-        // I term with anti-windup
         integralSum += error * dt;
         integralSum = Math.max(-INTEGRAL_LIMIT, Math.min(INTEGRAL_LIMIT, integralSum));
         lastITerm = CW_kI * integralSum;
 
-        // D term
         double errorDerivative = (error - lastError) / dt;
         lastDTerm = CW_kD * errorDerivative;
         lastError = error;
 
-        // F term - feedforward based on robot rotation
         lastFTerm = CW_kF * (-robotRotationRate);
 
         return lastPTerm + lastITerm + lastDTerm + lastFTerm;
     }
 
-    /**
-     * CCW direction: PID only (already smooth)
-     */
     private double calculateCCW_PID(double error, double dt) {
-        // P term
         lastPTerm = CCW_kP * error;
 
-        // I term with anti-windup
         integralSum += error * dt;
         integralSum = Math.max(-INTEGRAL_LIMIT, Math.min(INTEGRAL_LIMIT, integralSum));
         lastITerm = CCW_kI * integralSum;
 
-        // D term
         double errorDerivative = (error - lastError) / dt;
         lastDTerm = CCW_kD * errorDerivative;
         lastError = error;
 
-        // No F term for CCW
         lastFTerm = 0.0;
 
         return lastPTerm + lastITerm + lastDTerm;
@@ -296,12 +283,20 @@ public class TurretFieldController {
         TelemetryPacket packet = new TelemetryPacket();
         packet.put("Turret/Error", error);
         packet.put("Turret/Power", power * 100);
+        packet.put("Turret/TargetPower", targetPower * 100);
         packet.put("Turret/P", pTerm * 100);
         packet.put("Turret/I", iTerm * 100);
         packet.put("Turret/D", dTerm * 100);
         packet.put("Turret/F", fTerm * 100);
         packet.put("Turret/DeadZone", deadZone ? 1 : 0);
         packet.put("Turret/Dir", error >= 0 ? 1 : -1);
+
+        packet.put("Turret/RobotHeading", lastRobotHeading);
+        packet.put("Turret/TurretAngle", turret.getTurretAngle());
+        packet.put("Turret/RequiredTurret", debugRequiredTurret);
+        packet.put("Turret/ActualFieldFacing", debugActualFieldFacing);
+        packet.put("Turret/FieldTarget", TARGET_FIELD_ANGLE);
+
         dashboard.sendTelemetryPacket(packet);
     }
 
@@ -312,7 +307,6 @@ public class TurretFieldController {
     }
 
     public boolean isAligned() {
-        // Not aligned if in dead zone
         if (inDeadZone) return false;
         return Math.abs(lastFieldError) <= FIELD_TOLERANCE_DEG;
     }
@@ -333,13 +327,20 @@ public class TurretFieldController {
         return lastRobotHeading;
     }
 
-    // PIDF term getters for debugging
+    public double getRequiredTurretAngle() {
+        return debugRequiredTurret;
+    }
+
+    public double getActualFieldFacing() {
+        return debugActualFieldFacing;
+    }
+
     public double getLastPTerm() { return lastPTerm; }
     public double getLastITerm() { return lastITerm; }
     public double getLastDTerm() { return lastDTerm; }
     public double getLastFTerm() { return lastFTerm; }
 
-    // ========== AUTO-AIM FOR AUTONOMOUS ==========
+    // ========== AUTO-AIM ==========
 
     public interface HeadingProvider {
         double getHeadingDegrees();
@@ -349,12 +350,8 @@ public class TurretFieldController {
         boolean isActive();
     }
 
-    public static double AUTO_AIM_TIMEOUT_MS = 2000.0;
+    public static double AUTO_AIM_TIMEOUT_MS = 2500.0;  // Slightly longer for servos
 
-    /**
-     * Auto-aim - blocks until aligned or timeout
-     * Returns false immediately if target is in dead zone
-     */
     public boolean autoAim(HeadingProvider headingProvider, OpModeChecker opModeChecker) {
         return autoAim(TARGET_FIELD_ANGLE, headingProvider, opModeChecker, null);
     }
@@ -373,6 +370,7 @@ public class TurretFieldController {
 
         long startTime = System.currentTimeMillis();
         int alignedCount = 0;
+        final int REQUIRED_ALIGNED_CYCLES = 5;  // More cycles for servo settling
 
         while (opModeChecker.isActive()) {
             long elapsed = System.currentTimeMillis() - startTime;
@@ -387,34 +385,34 @@ public class TurretFieldController {
                 return false;
             }
 
-            // Update
             turret.update();
             double heading = headingProvider.getHeadingDegrees();
             update(heading);
 
-            // Telemetry
             if (telemetry != null) {
-                telemetry.addData("AutoAim", "Error: %.1f°", lastFieldError);
+                telemetry.addData("AutoAim", "Aiming...");
+                telemetry.addData("Robot Heading", "%.1f°", heading);
                 telemetry.addData("Turret Angle", "%.1f°", turret.getTurretAngle());
-                telemetry.addData("DeadZone", inDeadZone ? "YES - STOPPED" : "No");
+                telemetry.addData("Required Turret", "%.1f°", debugRequiredTurret);
+                telemetry.addData("Field Target", "%.1f°", TARGET_FIELD_ANGLE);
+                telemetry.addData("Actual Facing", "%.1f°", debugActualFieldFacing);
+                telemetry.addData("Error", "%.1f°", lastFieldError);
+                telemetry.addData("Dead Zone", inDeadZone);
                 telemetry.addData("Power", "%.2f", lastPower);
                 telemetry.update();
             }
 
-            // If in dead zone, return false (can't reach target)
             if (inDeadZone && Math.abs(lastPower) < 0.01) {
                 if (telemetry != null) {
-                    telemetry.addData("AutoAim", "TARGET IN DEAD ZONE");
+                    telemetry.addData("AutoAim", "IN DEAD ZONE");
                     telemetry.update();
                 }
-                // Don't disable - stay at limit in case target moves
                 return false;
             }
 
-            // Check aligned (need 3 consecutive)
             if (isAligned()) {
                 alignedCount++;
-                if (alignedCount >= 3) {
+                if (alignedCount >= REQUIRED_ALIGNED_CYCLES) {
                     if (telemetry != null) {
                         telemetry.addData("AutoAim", "ALIGNED!");
                         telemetry.update();
