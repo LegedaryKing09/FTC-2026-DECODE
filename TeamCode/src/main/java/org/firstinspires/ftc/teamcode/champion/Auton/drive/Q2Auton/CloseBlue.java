@@ -9,8 +9,6 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.champion.RobotState;
-import org.firstinspires.ftc.teamcode.champion.controller.AutonTurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
@@ -30,7 +28,7 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 
 @Config
-@Autonomous(name = "Blue Close Auton Q2", group = "Competition")
+@Autonomous(name = "Blue Close Auton Q2 DEBUG", group = "Competition")
 public class CloseBlue extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
@@ -170,18 +168,17 @@ public class CloseBlue extends LinearOpMode {
         try {
             turret = new TurretController(this);
             turretField = new TurretFieldController(turret);
+            telemetry.addData("Turret", "OK");
         } catch (Exception e) {
-            //
+            telemetry.addData("Turret", "FAILED: " + e.getMessage());
         }
 
         // Initialize ramp
         try {
             rampController = new NewRampController(this);
-//            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
             //
         }
-
 
         // Initialize autoncontroller
         autonController = new NewAutonController(
@@ -196,13 +193,49 @@ public class CloseBlue extends LinearOpMode {
                 rampController
         );
 
+        telemetry.update();
     }
 
-    /* 1. FINISH TUNING FOR TURNING
-       2. FIND THE RAMP ANGLE AND SHOOTING RPM FOR BULLET SHOT
-       3. IMPLEMENT THE TURRET IN MY CODE TO REDUCE THE TURNING MOVEMENT
-       4. INCREASE THE SPEED AND SAVE TIME AS SOON AS POSSIBLE
-    */
+    // ========== DEBUG HELPER ==========
+    private void debugTurret(String phase) {
+        if (turret == null || turretField == null) return;
+
+        double robotHeading = getHeadingDegrees();
+        double turretAngle = turret.getTurretAngle();
+        double fieldTarget = turretField.getTargetFieldAngle();
+        double fieldError = turretField.getFieldError();
+
+        // Calculate what field angle turret is actually facing
+        double actualFieldFacing = robotHeading + turretAngle;
+        while (actualFieldFacing > 180) actualFieldFacing -= 360;
+        while (actualFieldFacing < -180) actualFieldFacing += 360;
+
+        // Calculate required turret angle
+        double requiredTurret = fieldTarget - robotHeading;
+
+        telemetry.addLine("=== " + phase + " ===");
+        telemetry.addData("Robot Heading", "%.1f°", robotHeading);
+        telemetry.addData("Turret Angle", "%.1f°", turretAngle);
+        telemetry.addData("Field Target", "%.1f°", fieldTarget);
+        telemetry.addData("Actual Field Facing", "%.1f°", actualFieldFacing);
+        telemetry.addData("Required Turret", "%.1f°", requiredTurret);
+        telemetry.addData("Field Error", "%.1f°", fieldError);
+        telemetry.addData("Turret Enabled", turretField.isEnabled());
+        telemetry.addData("In Dead Zone", turretField.isInDeadZone());
+        telemetry.update();
+    }
+
+    private double getHeadingDegrees() {
+        tankDrive.updatePoseEstimate();
+        return Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble());
+    }
+
+    private void updateTurret() {
+        if (turret == null || turretField == null || !turretField.isEnabled()) return;
+        turret.update();
+        turretField.update(getHeadingDegrees());
+    }
+
     private void executeAutonomousSequence() {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
@@ -214,35 +247,81 @@ public class CloseBlue extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 3. shoot 3 balls
+        debugTurret("BEFORE 1ST AUTO-AIM");
         autoAimTurretLeft();
+        debugTurret("AFTER 1ST AUTO-AIM");
+        sleep(500); // Pause to see telemetry
+
         shootBalls();
 
-        // prevents wrapping around the turret
+        // Disable turret before turn
         turretField.disable();
+        debugTurret("AFTER DISABLE (before turn)");
+        sleep(500);
 
         // 4. turn to pickup angle (90)
         Action turnLeft2 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
                 .build();
         Actions.runBlocking(turnLeft2);
-       HeadingCorrection(PICK_UP_ANGLE, 0.5);
+        HeadingCorrection(PICK_UP_ANGLE, 0.5);
 
-        // 5. Go forward while intake (first line)
+        debugTurret("AFTER TURN TO 90°");
+        sleep(500);
+
+        // 5. Go forward while intake (first line) - turret tracks
+        debugTurret("BEFORE INTAKE FORWARD");
         intakeForwardRoadRunner();
+        debugTurret("AFTER INTAKE FORWARD");
+        sleep(500);
+
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 6. Go backward after intake (first line)
+        // ========== THIS IS WHERE THE PROBLEM HAPPENS ==========
+        // 6. Go backward after intake - turret should KEEP tracking!
+        telemetry.addLine("=== STARTING BACKWARD MOVE ===");
+        telemetry.addData("Turret Enabled BEFORE", turretField.isEnabled());
+        telemetry.update();
+        sleep(300);
+
         Action moveBackward2 = tankDrive.actionBuilder(currentPose)
                 .lineToY(currentPose.position.y - INTAKE_BACKWARD)
                 .build();
-        Actions.runBlocking(moveBackward2);
+
+        // Run with turret tracking!
+        Action backwardWithTurret = new Action() {
+            @Override
+            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+                // UPDATE TURRET DURING BACKWARD MOVEMENT!
+                updateTurret();
+
+                // Debug in dashboard
+                if (turretField != null) {
+                    packet.put("Debug/RobotHeading", getHeadingDegrees());
+                    packet.put("Debug/TurretAngle", turret.getTurretAngle());
+                    packet.put("Debug/FieldError", turretField.getFieldError());
+                    packet.put("Debug/TurretEnabled", turretField.isEnabled() ? 1 : 0);
+                    packet.put("Debug/DeadZone", turretField.isInDeadZone() ? 1 : 0);
+                }
+
+                return moveBackward2.run(packet);
+            }
+        };
+        Actions.runBlocking(backwardWithTurret);
+
+        debugTurret("AFTER BACKWARD (before shoot)");
+        sleep(500);
+
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 8. Shoot balls
-        // no autoaim because of the intakeForward
         shootBalls();
+
+        debugTurret("AFTER 2ND SHOOT");
+
         turretField.disable();
 
+        // Rest of sequence...
         // 9. turn to 0 degree for going backward
         Action turnRight2 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(DEGREE_ZERO))
@@ -273,7 +352,15 @@ public class CloseBlue extends LinearOpMode {
         Action moveBackward4 = tankDrive.actionBuilder(currentPose)
                 .lineToY(currentPose.position.y - INTAKE_BACKWARD)
                 .build();
-        Actions.runBlocking(moveBackward4);
+        // Use turret tracking version
+        Action backward4WithTurret = new Action() {
+            @Override
+            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+                updateTurret();
+                return moveBackward4.run(packet);
+            }
+        };
+        Actions.runBlocking(backward4WithTurret);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 14. facing zero degree
@@ -301,7 +388,6 @@ public class CloseBlue extends LinearOpMode {
                 .lineToX(currentPose.position.x - ENDING_DISTANCE)
                 .build();
         Actions.runBlocking(moveForward5);
-
     }
 
     private void shootBalls() {
@@ -311,6 +397,7 @@ public class CloseBlue extends LinearOpMode {
             if (Math.abs(shooterController.getRPM() - shooterController.getTargetRPM()) < 150) {
                 break;
             }
+            updateTurret(); // Keep tracking while waiting
             sleep(20);
         }
 
@@ -326,26 +413,26 @@ public class CloseBlue extends LinearOpMode {
 
         timer.reset();
         int ballsShotCount = 0;
-        boolean lastBallState = false; // sensor reading from previous state - for counting exactly one for one ball
+        boolean lastBallState = false;
 
         while (opModeIsActive() && timer.milliseconds() < SHOOT_TIME_MS) {
-            // Get current values
             boolean ballDetected = isBallAtUptake();
 
-            // Count balls shot
             if (ballDetected && !lastBallState) {
                 ballsShotCount++;
                 if (ballsShotCount >= 3) {
-                    sleep(200);  // Let last ball clear
+                    sleep(200);
                     break;
                 }
             }
             lastBallState = ballDetected;
 
-            // Update all controllers to keep them running
             intakeController.update();
             transferController.update();
             uptakeController.update();
+
+            // Keep turret tracking during shooting
+            updateTurret();
 
             sleep(30);
         }
@@ -366,9 +453,11 @@ public class CloseBlue extends LinearOpMode {
         intakeModeActive = true;
         uptakeStoppedBySwitch = false;
 
+        // Enable turret tracking
         if (turretField != null){
             turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
-            turretField.enable(); // starts the controller non blocking; before, the autoaim was blocking
+            turretField.enable();
+            debugTurret("INTAKE - just enabled");
         }
 
         // Start all systems
@@ -387,9 +476,10 @@ public class CloseBlue extends LinearOpMode {
                 .lineToY(currentPose.position.y + INTAKE_FORWARD)
                 .build();
 
-        // Create a custom action that combines RoadRunner movement with intake control
+        // Combined action
         Action intakeAction = new Action() {
             private Action moveAction = moveForward;
+            private int updateCount = 0;
 
             @Override
             public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
@@ -397,36 +487,45 @@ public class CloseBlue extends LinearOpMode {
                 intakeController.update();
                 transferController.update();
                 uptakeController.update();
+
+                // Turret tracking
                 if (turretField != null && turretField.isEnabled()){
                     turret.update();
-                    turretField.update(
-                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                    );
+                    double heading = getHeadingDegrees();
+                    turretField.update(heading);
+
+                    // Debug every 10 updates
+                    updateCount++;
+                    if (updateCount % 10 == 0) {
+                        packet.put("Intake/Heading", heading);
+                        packet.put("Intake/TurretAngle", turret.getTurretAngle());
+                        packet.put("Intake/FieldError", turretField.getFieldError());
+                        packet.put("Intake/DeadZone", turretField.isInDeadZone() ? 1 : 0);
+                    }
                 }
                 return moveAction.run(packet);
             }
         };
 
-        // Run the combined action
         Actions.runBlocking(intakeAction);
 
-        // Keep intake and transfer running for 2 more seconds after stopping
+        // Keep intake running after stopping
         timer.reset();
         while (opModeIsActive() && timer.milliseconds() < INTAKE_TIME_MS) {
             checkUptakeSwitch();
             intakeController.update();
             transferController.update();
             uptakeController.update();
+
+            // Keep turret tracking
             if (turretField != null && turretField.isEnabled()){
                 turret.update();
-                turretField.update(
-                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                );
+                turretField.update(getHeadingDegrees());
             }
             sleep(30);
         }
 
-        // Stop all systems
+        // Stop intake systems (turret stays enabled!)
         intakeModeActive = false;
         uptakeStoppedBySwitch = false;
 
@@ -438,6 +537,8 @@ public class CloseBlue extends LinearOpMode {
 
         uptakeController.setState(false);
         uptakeController.update();
+
+        // NOTE: Don't disable turret here!
     }
 
     private boolean isBallAtUptake() {
@@ -465,18 +566,16 @@ public class CloseBlue extends LinearOpMode {
     }
 
     private void cleanup() {
-        // Save final pose before cleaning up
         Pose2d finalPose = tankDrive.pinpointLocalizer.getPose();
-        PoseStorage.currentPose = finalPose;  // <-- Simple static assignment
+        PoseStorage.currentPose = finalPose;
 
-        // Show what was saved
         telemetry.addLine("=== AUTON COMPLETE ===");
-        telemetry.addData("Pose SAVED to PoseStorage", "x=%.1f, y=%.1f, heading=%.1f°",
+        telemetry.addData("Pose SAVED", "x=%.1f, y=%.1f, heading=%.1f°",
                 finalPose.position.x,
                 finalPose.position.y,
                 Math.toDegrees(finalPose.heading.toDouble()));
         telemetry.update();
-        sleep(2000); // Keep telemetry visible for 2 seconds
+        sleep(2000);
 
         if (autonController != null) {
             autonController.stopPidUpdateThread();
@@ -488,8 +587,12 @@ public class CloseBlue extends LinearOpMode {
                 shooterThread.interrupt();
                 shooterThread.join(500);
             } catch (Exception e) {
-                // Thread cleanup failed - thread may have already stopped
             }
+        }
+
+        // Disable turret
+        if (turretField != null) {
+            turretField.disable();
         }
 
         shooterController.stopShooting();
@@ -544,7 +647,6 @@ public class CloseBlue extends LinearOpMode {
             Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
             double currentAngleDeg = Math.toDegrees(currentPose.heading.toDouble());
 
-            // normalize error
             double headingError = targetAngleDegrees - currentAngleDeg;
             while (headingError > 180) headingError -= 360;
             while (headingError <= -180) headingError += 360;
@@ -575,9 +677,8 @@ public class CloseBlue extends LinearOpMode {
         turretField.autoAim(
                 AUTO_AIM_LEFT,
                 () -> Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble()),
-                () -> opModeIsActive()
+                () -> opModeIsActive(),
+                telemetry  // Pass telemetry for debug output!
         );
     }
-
-
 }
