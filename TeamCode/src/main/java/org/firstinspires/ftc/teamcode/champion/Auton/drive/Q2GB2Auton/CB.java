@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2Auton;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
@@ -12,7 +12,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.RobotState;
 import org.firstinspires.ftc.teamcode.champion.controller.AutonTurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
-import org.firstinspires.ftc.teamcode.champion.controller.GB1AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
@@ -28,11 +27,10 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 
 @Config
-@Autonomous(name = "Blue Close Auton Q2", group = "Competition")
-public class CloseBlue extends LinearOpMode {
+@Autonomous(name = "CB GB2", group = "Competition")
+public class CB extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -42,7 +40,7 @@ public class CloseBlue extends LinearOpMode {
     LimelightAlignmentController limelightController;
     NewAutoShootController autoShootController;
     NewAutonController autonController;
-    GB1AutoTankDrive tankDrive;
+    AutoTankDrive tankDrive;
     TurretFieldController turretField;
     TurretController turret;
 
@@ -56,9 +54,9 @@ public class CloseBlue extends LinearOpMode {
 
     // Distance parameters
     public static double INITIAL_BACKWARD = -40.0;
-    public static double INTAKE_FORWARD = 36.0;
-    public static double INTAKE_BACKWARD = 35.0;
-    public static double INTAKE_SECOND_BACKWARD = 10.0;
+    public static double INTAKE_FORWARD = 33.0;
+    public static double INTAKE_BACKWARD = 30.0;
+    public static double INTAKE_SECOND_BACKWARD = 23.0;
 
     public static double SECOND_BACKWARD = 20.0;
     public static double ENDING_DISTANCE = 30.0;
@@ -74,7 +72,7 @@ public class CloseBlue extends LinearOpMode {
     public static double HEADING_TIMEOUT_MS = 300;
 
     // Timing parameters
-    public static long INTAKE_TIME_MS = 400;
+    public static long INTAKE_TIME_MS = 300;
     public static long SHOOT_TIME_MS = 3000;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
@@ -94,7 +92,7 @@ public class CloseBlue extends LinearOpMode {
 
         // Define starting pose
         Pose2d startPose = new Pose2d(0, 0, 0);
-        tankDrive = new GB1AutoTankDrive(hardwareMap, startPose);
+        tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         waitForStart();
         if (!opModeIsActive()) return;
@@ -158,10 +156,8 @@ public class CloseBlue extends LinearOpMode {
 
         // Initialize shooter
         DcMotor shooterMotorFirst = null;
-        DcMotor shooterMotorSecond = null;
         try {
             shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter");
-            shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
             //
         }
@@ -226,7 +222,7 @@ public class CloseBlue extends LinearOpMode {
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
                 .build();
         Actions.runBlocking(turnLeft2);
-       HeadingCorrection(PICK_UP_ANGLE, 0.5);
+        HeadingCorrection(PICK_UP_ANGLE, 0.5);
 
         // 5. Go forward while intake (first line)
         intakeForwardRoadRunner();
@@ -272,7 +268,7 @@ public class CloseBlue extends LinearOpMode {
 
         // 13. backward intake (second line)
         Action moveBackward4 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_BACKWARD)
+                .lineToY(currentPose.position.y - INTAKE_SECOND_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward4);
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -439,8 +435,6 @@ public class CloseBlue extends LinearOpMode {
 
         uptakeController.setState(false);
         uptakeController.update();
-
-        turretField.disable();
     }
 
     private boolean isBallAtUptake() {
@@ -470,14 +464,15 @@ public class CloseBlue extends LinearOpMode {
     private void cleanup() {
         // Save final pose before cleaning up
         Pose2d finalPose = tankDrive.pinpointLocalizer.getPose();
-        PoseStorage.currentPose = finalPose;  // <-- Simple static assignment
+        RobotState.saveAutonPose(this, finalPose);
 
-        // Show what was saved
+        // ADD THIS - Show what was saved
         telemetry.addLine("=== AUTON COMPLETE ===");
-        telemetry.addData("Pose SAVED to PoseStorage", "x=%.1f, y=%.1f, heading=%.1f°",
+        telemetry.addData("Final Pose SAVED", "x=%.1f, y=%.1f, heading=%.1f°",
                 finalPose.position.x,
                 finalPose.position.y,
                 Math.toDegrees(finalPose.heading.toDouble()));
+        telemetry.addData("Total Time", "%.1f sec", globalTimer.seconds());
         telemetry.update();
         sleep(2000); // Keep telemetry visible for 2 seconds
 
