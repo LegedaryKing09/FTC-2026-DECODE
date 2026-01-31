@@ -12,6 +12,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.RobotState;
 import org.firstinspires.ftc.teamcode.champion.controller.AutonTurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
+import org.firstinspires.ftc.teamcode.champion.controller.GB1AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
@@ -40,7 +41,7 @@ public class CloseRed extends LinearOpMode {
     LimelightAlignmentController limelightController;
     NewAutoShootController autoShootController;
     NewAutonController autonController;
-    AutoTankDrive tankDrive;
+    GB1AutoTankDrive tankDrive;
     TurretFieldController turretField;
     TurretController turret;
 
@@ -92,7 +93,7 @@ public class CloseRed extends LinearOpMode {
 
         // Define starting pose
         Pose2d startPose = new Pose2d(0, 0, 0);
-        tankDrive = new AutoTankDrive(hardwareMap, startPose);
+        tankDrive = new GB1AutoTankDrive(hardwareMap, startPose);
 
         waitForStart();
         if (!opModeIsActive()) return;

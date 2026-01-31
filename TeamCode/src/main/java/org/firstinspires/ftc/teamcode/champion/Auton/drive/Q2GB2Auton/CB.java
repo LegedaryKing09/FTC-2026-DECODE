@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2Auton;
+package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
@@ -10,8 +10,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.RobotState;
+import org.firstinspires.ftc.teamcode.champion.controller.AutonTurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
-import org.firstinspires.ftc.teamcode.champion.controller.GB1AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
@@ -29,8 +29,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "Blue Far Auton Q2", group = "Competition")
-public class FarBlue extends LinearOpMode {
+@Autonomous(name = "CB GB2", group = "Competition")
+public class CB extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -40,7 +40,7 @@ public class FarBlue extends LinearOpMode {
     LimelightAlignmentController limelightController;
     NewAutoShootController autoShootController;
     NewAutonController autonController;
-    GB1AutoTankDrive tankDrive;
+    AutoTankDrive tankDrive;
     TurretFieldController turretField;
     TurretController turret;
 
@@ -49,14 +49,16 @@ public class FarBlue extends LinearOpMode {
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 4600.0;
-    public static double CONSTANT_RAMP_ANGLE = -175.0;
+    public static double CONSTANT_SHOOTER_RPM = 4000.0;
+    public static double CONSTANT_RAMP_ANGLE = -130.0;
 
     // Distance parameters
-    public static double INITIAL_FORWARD = 20.0;
-    public static double INTAKE_FORWARD = 36.0;
+    public static double INITIAL_BACKWARD = -40.0;
+    public static double INTAKE_FORWARD = 33.0;
     public static double INTAKE_BACKWARD = 30.0;
-    public static double FIRST_BACKWARD = 26.0;
+    public static double INTAKE_SECOND_BACKWARD = 23.0;
+
+    public static double SECOND_BACKWARD = 20.0;
     public static double ENDING_DISTANCE = 30.0;
 
     // turning angle parameters
@@ -70,7 +72,7 @@ public class FarBlue extends LinearOpMode {
     public static double HEADING_TIMEOUT_MS = 300;
 
     // Timing parameters
-    public static long INTAKE_TIME_MS = 500;
+    public static long INTAKE_TIME_MS = 300;
     public static long SHOOT_TIME_MS = 3000;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
@@ -82,7 +84,7 @@ public class FarBlue extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_LEFT = 22.0;
+    public static double AUTO_AIM_LEFT = 43.0;
 
     @Override
     public void runOpMode() {
@@ -90,7 +92,7 @@ public class FarBlue extends LinearOpMode {
 
         // Define starting pose
         Pose2d startPose = new Pose2d(0, 0, 0);
-        tankDrive = new GB1AutoTankDrive(hardwareMap, startPose);
+        tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         waitForStart();
         if (!opModeIsActive()) return;
@@ -101,8 +103,6 @@ public class FarBlue extends LinearOpMode {
         shooterController.setTargetRPM(CONSTANT_SHOOTER_RPM);
         shooterController.startShooting();
         startShooterThread();
-
-
 
         sleep(100);
 
@@ -156,10 +156,8 @@ public class FarBlue extends LinearOpMode {
 
         // Initialize shooter
         DcMotor shooterMotorFirst = null;
-        DcMotor shooterMotorSecond = null;
         try {
             shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter");
-            shooterMotorSecond = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
             //
         }
@@ -176,7 +174,7 @@ public class FarBlue extends LinearOpMode {
         // Initialize ramp
         try {
             rampController = new NewRampController(this);
-            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
+//            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
             //
         }
@@ -205,58 +203,101 @@ public class FarBlue extends LinearOpMode {
     private void executeAutonomousSequence() {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 1. shoot 3 balls
-        autoAimTurretLeft();
-        shootBalls();
-
-        // 2. go forward
-        Action moveForward1 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + INITIAL_FORWARD)
-                .build();
-        Actions.runBlocking(moveForward1);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 3. turn to 90 degree
-        Action turnLeft1 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(PICK_UP_ANGLE))
-                .build();
-        Actions.runBlocking(turnLeft1);
-        HeadingCorrection(PICK_UP_ANGLE, 0.5);
-
-        // 4. Go forward while intake (first line)
-        intakeForwardRoadRunner();
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 5. Go backward after intake (first line)
+        // 1. Go backward
         Action moveBackward1 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_BACKWARD)
+                .lineToX(currentPose.position.x + INITIAL_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward1);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 6. turn right
-        Action turnRight1 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(DEGREE_ZERO))
-                .build();
-        Actions.runBlocking(turnRight1);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
+        // 3. shoot 3 balls
+        autoAimTurretLeft();
+        shootBalls();
 
-        // 7. Go backward for shooting
+        // prevents wrapping around the turret
+        turretField.disable();
+
+        // 4. turn to pickup angle (90)
+        Action turnLeft2 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(PICK_UP_ANGLE))
+                .build();
+        Actions.runBlocking(turnLeft2);
+        HeadingCorrection(PICK_UP_ANGLE, 0.5);
+
+        // 5. Go forward while intake (first line)
+        intakeForwardRoadRunner();
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 6. Go backward after intake (first line)
         Action moveBackward2 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x - FIRST_BACKWARD)
+                .lineToY(currentPose.position.y - INTAKE_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward2);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 8. Shoot balls
-        autoAimTurretLeft();
+        // no autoaim because of the intakeForward
+        shootBalls();
+        turretField.disable();
+
+        // 9. turn to 0 degree for going backward
+        Action turnRight2 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(DEGREE_ZERO))
+                .build();
+        Actions.runBlocking(turnRight2);
+        HeadingCorrection(DEGREE_ZERO, 0.5);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 10. go backward
+        Action moveBackward3 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - SECOND_BACKWARD)
+                .build();
+        Actions.runBlocking(moveBackward3);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 11. turn left 90 degree for pickup (second line)
+        Action turnLeft3 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(PICK_UP_ANGLE))
+                .build();
+        Actions.runBlocking(turnLeft3);
+        HeadingCorrection(PICK_UP_ANGLE, 0.5);
+
+        // 12. forward intake for pickup (second line)
+        intakeForwardRoadRunner();
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 13. backward intake (second line)
+        Action moveBackward4 = tankDrive.actionBuilder(currentPose)
+                .lineToY(currentPose.position.y - INTAKE_SECOND_BACKWARD)
+                .build();
+        Actions.runBlocking(moveBackward4);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 14. facing zero degree
+        Action turnRight = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(DEGREE_ZERO))
+                .build();
+        Actions.runBlocking(turnRight);
+        HeadingCorrection(DEGREE_ZERO, 0.5);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 15. forward move
+        Action moveForward4 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + SECOND_BACKWARD)
+                .build();
+        Actions.runBlocking(moveForward4);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 17. shoot balls
         shootBalls();
 
-        // 9. Ending distance
-        Action moveForward2 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + ENDING_DISTANCE)
+        turretField.disable();
+
+        // 19. Ending pose
+        Action moveForward5 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - ENDING_DISTANCE)
                 .build();
-        Actions.runBlocking(moveForward2);
+        Actions.runBlocking(moveForward5);
 
     }
 
@@ -322,6 +363,11 @@ public class FarBlue extends LinearOpMode {
         intakeModeActive = true;
         uptakeStoppedBySwitch = false;
 
+        if (turretField != null){
+            turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
+            turretField.enable(); // starts the controller non blocking; before, the autoaim was blocking
+        }
+
         // Start all systems
         intakeController.setState(true);
         intakeController.update();
@@ -348,6 +394,12 @@ public class FarBlue extends LinearOpMode {
                 intakeController.update();
                 transferController.update();
                 uptakeController.update();
+                if (turretField != null && turretField.isEnabled()){
+                    turret.update();
+                    turretField.update(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                    );
+                }
                 return moveAction.run(packet);
             }
         };
@@ -362,6 +414,12 @@ public class FarBlue extends LinearOpMode {
             intakeController.update();
             transferController.update();
             uptakeController.update();
+            if (turretField != null && turretField.isEnabled()){
+                turret.update();
+                turretField.update(
+                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                );
+            }
             sleep(30);
         }
 
@@ -406,7 +464,17 @@ public class FarBlue extends LinearOpMode {
     private void cleanup() {
         // Save final pose before cleaning up
         Pose2d finalPose = tankDrive.pinpointLocalizer.getPose();
-        RobotState.saveAutonPose(this,finalPose);
+        RobotState.saveAutonPose(this, finalPose);
+
+        // ADD THIS - Show what was saved
+        telemetry.addLine("=== AUTON COMPLETE ===");
+        telemetry.addData("Final Pose SAVED", "x=%.1f, y=%.1f, heading=%.1f°",
+                finalPose.position.x,
+                finalPose.position.y,
+                Math.toDegrees(finalPose.heading.toDouble()));
+        telemetry.addData("Total Time", "%.1f sec", globalTimer.seconds());
+        telemetry.update();
+        sleep(2000); // Keep telemetry visible for 2 seconds
 
         if (autonController != null) {
             autonController.stopPidUpdateThread();

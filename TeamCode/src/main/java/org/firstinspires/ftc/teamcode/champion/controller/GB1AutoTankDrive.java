@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
 import androidx.annotation.NonNull;
+
 import com.acmerobotics.dashboard.canvas.Canvas;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
@@ -40,35 +41,37 @@ import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.PinpointLocalizer;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.Drawing;
 import org.firstinspires.ftc.teamcode.champion.Auton.drive.Localizer;
+
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
 @Config
-public final class AutoTankDrive {
+public final class GB1AutoTankDrive {
+    /* Fix y offset
+    check trackwidth
+     */
 
     public static class Params {
-        // forwardpushtest
-        public double inPerTick = 0.0019582245431; //  real distance divided by the ticks traveled recorded
+        public double inPerTick = 0.0019041574103; //  0.0019588638589618022
 
-        // distance betweent the wheels but use the angularramplogger
-        public double physicalTrackWidthInches = 12.441984508; // actual measurement: 14.9
+        // Track width for kinematics (distance between wheels in inches)
+        public double physicalTrackWidthInches = 12.367583262898228; // 14.5; //New Track Width = Current Track Width × (Target Angle / Actual Angle)
+
 
         // Path profile parameters (velocity and acceleration limits)
         public double maxWheelVel = 100;
-        public double minProfileAccel = -48;
-        public double maxProfileAccel = 48;
+        public double minProfileAccel = -48; // Reduced for smoother motion
+        public double maxProfileAccel = 48; // Reduced for smoother motion
 
-        // forwardramplogger
-        public double kS = 1.3659839492491705;
-        public double kV = 0.0002176927881595613;
-
-        // manual feedforward tuner using the graph and compare
-        public double kA = 0.00005; // vref vs v0 and match it as tightly as possible. start with this value 0.0000001
+        // Feedforward control gains for motor voltage compensation
+        public double kS = 1.3289163351364959; // 0.22;
+        public double kV = 0.0003243468507623318;
+        public double kA = 0.00003;
 
         // Turn profile parameters (angular velocity and acceleration limits)
-        public double maxAngVel = Math.PI;
-        public double maxAngAccel = Math.PI;
+        public double maxAngVel = 2.641592653589793; // Math.PI
+        public double maxAngAccel = 2.641592653589793; // Math.PI
 
 
         // Ramsete controller parameters for smooth path following
@@ -76,12 +79,12 @@ public final class AutoTankDrive {
         public double ramseteBBar = 2.0;
 
         // Turn controller gains (proportional and velocity feedback)
-        public double turnGain = 24; // Proportional gain for turn error correction
+        public double turnGain = 23; // Proportional gain for turn error correction
         public double turnVelGain = 0; // Velocity feedback gain for turn smoothing
 
-        // use angular ramplogger with perpendicular and parallel graphs
-        public double pinpointXOffset = -3732.7689001334834 * inPerTick;  // 4.5
-        public double pinpointYOffset = -2467.9050623902135 * inPerTick;   // 6.8
+        // Pinpoint odometry parameters for localization
+        public double pinpointXOffset = 3418.7735965250777 * inPerTick;  // X offset of Pinpoint sensor from robot center in inches
+        public double pinpointYOffset = 2032.035531016167 * inPerTick;   // Y offset of Pinpoint sensor from robot center in inches
     }
 
 
@@ -128,7 +131,7 @@ public final class AutoTankDrive {
     public final Localizer localizer;
 
 
-    public AutoTankDrive(HardwareMap hardwareMap, Pose2d pose) {
+    public GB1AutoTankDrive(HardwareMap hardwareMap, Pose2d pose) {
         // Ensure Lynx modules are up to date
         LynxFirmware.throwIfModulesAreOutdated(hardwareMap);
 
