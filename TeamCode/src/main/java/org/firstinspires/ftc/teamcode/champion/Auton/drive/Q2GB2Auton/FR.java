@@ -298,6 +298,7 @@ public class FR extends LinearOpMode {
         // 8. Shoot balls
         shootBalls();
 
+        currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Forward5 = tankDrive.actionBuilder(currentPose)
                 .lineToX(currentPose.position.x + ENDING_DISTANCE)
                 .build();
