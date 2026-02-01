@@ -247,7 +247,6 @@ public class FR extends LinearOpMode {
                 .build();
         Actions.runBlocking(turnRight1);
         HeadingCorrection(DEGREE_ZERO, 0.5);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 7. Go backward for shooting
         backwardTurret(INITIAL_FORWARD);
@@ -256,7 +255,7 @@ public class FR extends LinearOpMode {
         // 8. Shoot balls
         shootBalls();
 
-
+        currentPose = tankDrive.pinpointLocalizer.getPose();
         // 9. go forward
         Action moveForward3 = tankDrive.actionBuilder(currentPose)
                 .lineToX(currentPose.position.x + SECOND_BACKWARD)

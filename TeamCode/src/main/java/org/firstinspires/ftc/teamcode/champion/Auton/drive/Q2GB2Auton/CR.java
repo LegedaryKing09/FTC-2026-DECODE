@@ -217,7 +217,6 @@ public class CR extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 3. shoot 3 balls
-        autoAimTurretRight();
         shootBalls();
 
         // 4. turn right to pickup angle (90)

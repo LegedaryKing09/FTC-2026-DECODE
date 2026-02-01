@@ -218,7 +218,6 @@ public class CB extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 3. shoot 3 balls
-        autoAimTurretLeft();
         shootBalls();
 
         // 4. turn to pickup angle (90)
