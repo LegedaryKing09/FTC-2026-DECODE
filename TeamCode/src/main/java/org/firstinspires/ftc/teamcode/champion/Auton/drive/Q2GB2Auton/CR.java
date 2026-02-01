@@ -55,8 +55,8 @@ public class CR extends LinearOpMode {
 
     // Distance parameters
     public static double INITIAL_BACKWARD = -40.0;
-    public static double INTAKE_FORWARD = 28.0;
-    public static double INTAKE_BACKWARD = 28.0;
+    public static double INTAKE_FORWARD = 30.0;
+    public static double INTAKE_BACKWARD = 30.0;
     public static double INTAKE_SECOND_BACKWARD = 20.0;
     public static double SECOND_BACKWARD = 22.0;
     public static double SECOND_FORWARD = 24.0;
