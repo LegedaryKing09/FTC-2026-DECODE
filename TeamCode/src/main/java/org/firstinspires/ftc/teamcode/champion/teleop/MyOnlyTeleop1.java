@@ -1,8 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.teleop;
 
-import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
-import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.AnalogInput;
@@ -10,7 +8,6 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.acmerobotics.roadrunner.Pose2d;
-import org.firstinspires.ftc.teamcode.champion.RobotState;
 
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
@@ -96,9 +93,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
-    // === TELEMETRY ===
-    public static double TELEMETRY_INTERVAL_MS = 100;
-
     // === CONTROLLERS ===
     private SixWheelDriveController drive;
     private TurretController turret;
@@ -115,7 +109,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime loopTimer = new ElapsedTime();
-    private final ElapsedTime telemetryTimer = new ElapsedTime();
 
     // === GAMEPAD 1 BUTTON STATES ===
     private boolean lastRB1 = false;
@@ -152,16 +145,8 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
-
         // Read the static pose from auton
         Pose2d autonPose = PoseStorage.currentPose;
-
-        telemetry.addLine("=== POSE FROM STORAGE ===");
-        telemetry.addData("Auton Final Pose", "x=%.2f, y=%.2f, h=%.2f°",
-                autonPose.position.x, autonPose.position.y,
-                Math.toDegrees(autonPose.heading.toDouble()));
-        telemetry.update();
 
         initializeHardware();
 
@@ -175,11 +160,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                     autonPose.heading.toDouble()
             );
             drive.updateOdometry();
-
-            telemetry.addData("Position SET", "x=%.1f, y=%.1f, h=%.1f°",
-                    drive.getX(), drive.getY(), drive.getHeadingDegrees());
         }
-        telemetry.update();
 
         waitForStart();
         runtime.reset();
@@ -187,8 +168,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         // Initialize turret angle tracking AFTER start
         if (turret != null) {
             turret.restoreAngle(PoseStorage.turretAngle);
-            telemetry.addData("Turret RESTORED", "%.1f°", PoseStorage.turretAngle);
-            telemetry.update();
         }
 
         // Initialize ramp - sets current position as 0°
@@ -209,7 +188,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         }
 
         loopTimer.reset();
-        telemetryTimer.reset();
 
         while (opModeIsActive()) {
 
@@ -241,12 +219,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
             // Update all controllers
             updateAllSystems();
-
-            // === SLOW UPDATES (telemetry) ===
-            if (telemetryTimer.milliseconds() >= TELEMETRY_INTERVAL_MS) {
-                telemetryTimer.reset();
-                updateTelemetry();
-            }
         }
 
         // Cleanup
@@ -261,8 +233,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         // Drive controller
         try {
             drive = new SixWheelDriveController(this);
+            drive.setDriveMode(SixWheelDriveController.DriveMode.POWER);
         } catch (Exception e) {
-            telemetry.addLine("WARNING: Drive controller failed to initialize");
+            // Drive init failed
         }
 
         // Turret
@@ -270,14 +243,14 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             turret = new TurretController(this);
             turretField = new TurretFieldController(turret);
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Turret: " + e.getMessage());
+            // Turret init failed
         }
 
         // Ramp
         try {
             ramp = new NewRampController(this);
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Ramp: " + e.getMessage());
+            // Ramp init failed
         }
 
         // Intake
@@ -285,7 +258,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Intake: " + e.getMessage());
+            // Intake init failed
         }
         intake = new NewIntakeController(intakeMotor);
 
@@ -294,7 +267,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Transfer: " + e.getMessage());
+            // Transfer init failed
         }
         transfer = new NewTransferController(transferMotor);
 
@@ -305,7 +278,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             uptakeServo = hardwareMap.get(CRServo.class, "servo1");
             uptakeServo2 = hardwareMap.get(CRServo.class, "servo2");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Uptake: " + e.getMessage());
+            // Uptake init failed
         }
         uptake = new UptakeController(uptakeServo, uptakeServo2);
 
@@ -313,7 +286,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         try {
             uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Uptake Switch: " + e.getMessage());
+            // Uptake switch init failed
         }
 
         // Shooter
@@ -323,20 +296,25 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
+            // Shooter init failed
         }
         shooter = new NewShooterController(shooterMotor1,shooterMotor2);
     }
 
+    // === DRIVE SENSITIVITY ===
+    public static double DRIVE_EXPONENT = 2.0;  // 1.0 = linear, 2.0 = squared, 3.0 = cubed
+    public static double TURN_EXPONENT = 2.0;   // Higher = more precision at low speeds
+
     /**
-     * Sensitivity curve - CUBIC
+     * Apply sensitivity curve to joystick input
+     * Keeps the sign but applies power curve for more control at low speeds
      */
-    private double applySensitivityCurve(double input) {
-        return input * input * input;
+    private double applyCurve(double input, double exponent) {
+        return Math.copySign(Math.pow(Math.abs(input), exponent), input);
     }
 
     /**
-     * Drive controls - ARCADE DRIVE (FULL POWER)
+     * Drive controls - ARCADE DRIVE with SENSITIVITY CURVE
      * Left Stick Y = Forward/Backward
      * Right Stick X = Turn
      */
@@ -346,18 +324,19 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         // Update odometry
         drive.updateOdometry();
 
-        // Set to power mode for direct control
-        drive.setDriveMode(SixWheelDriveController.DriveMode.POWER);
+        // Get raw joystick inputs
+        double rawDrive = -gamepad1.left_stick_y;
+        double rawTurn = gamepad1.right_stick_x;
 
-        // Arcade drive: left stick Y for drive, right stick X for turn (FULL POWER)
-        double drivePower = -gamepad1.left_stick_y;
-        double turnPower = gamepad1.right_stick_x;
+        // Apply sensitivity curves
+        double drivePower = applyCurve(rawDrive, DRIVE_EXPONENT);
+        double turnPower = applyCurve(rawTurn, TURN_EXPONENT);
 
         // Calculate left and right powers
         double leftPower = drivePower + turnPower;
         double rightPower = drivePower - turnPower;
 
-        // Use tank drive at full power (no multipliers)
+        // Use tank drive (power mode)
         drive.tankDrive(leftPower, rightPower);
     }
 
@@ -693,38 +672,5 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         if (transfer != null) transfer.update();
         if (uptake != null) uptake.update();
         if (shooter != null) shooter.update();
-    }
-
-    /**
-     * Update telemetry
-     */
-    private void updateTelemetry() {
-        // Drive info - corrected field position
-        telemetry.addData("Position", "X:%.1f Y:%.1f", getCorrectedX(), getCorrectedY());
-        if (drive != null) {
-            telemetry.addData("Heading", "%.1f°", drive.getHeadingDegrees());
-        }
-
-        // Shooter info
-        if (shooter != null) {
-            telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
-        }
-
-        // Ramp info
-        if (ramp != null) {
-            telemetry.addData("Ramp", "%.3f → %.3f", ramp.getCurrentAngle(), ramp.getTargetAngle());
-        }
-
-        // Turret info
-        if (turretField != null) {
-            if (autoAimEnabled) {
-                telemetry.addData("Turret Target", "%.1f° (err: %.1f°)",
-                        turretField.getTargetFieldAngle(), turretField.getFieldError());
-
-            }
-        }
-
-
-        telemetry.update();
     }
 }

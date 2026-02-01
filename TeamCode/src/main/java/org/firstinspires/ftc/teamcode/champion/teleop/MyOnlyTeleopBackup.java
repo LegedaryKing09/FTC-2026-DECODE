@@ -158,6 +158,7 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         try {
             drive = new SixWheelDriveController(this);
         } catch (Exception ignored) {
+            drive.setDriveMode(SixWheelDriveController.DriveMode.POWER);
         }
 
         // Turret
@@ -212,12 +213,34 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         }
     }
 
+    // === DRIVE SENSITIVITY ===
+    public static double DRIVE_EXPONENT = 2.0;  // 1.0 = linear, 2.0 = squared, 3.0 = cubed
+    public static double TURN_EXPONENT = 2.0;   // Higher = more precision at low speeds
+
+    /**
+     * Apply sensitivity curve to joystick input
+     */
+    private double applyCurve(double input, double exponent) {
+        return Math.copySign(Math.pow(Math.abs(input), exponent), input);
+    }
+
     private void handleDriveControls() {
         if (drive == null) return;
 
-        double forward = -gamepad1.left_stick_y;
-        double turn = gamepad1.right_stick_x;
-        drive.arcadeDrive(forward, turn);
+        // Get raw joystick inputs
+        double rawDrive = -gamepad1.left_stick_y;
+        double rawTurn = gamepad1.right_stick_x;
+
+        // Apply sensitivity curves
+        double drivePower = applyCurve(rawDrive, DRIVE_EXPONENT);
+        double turnPower = applyCurve(rawTurn, TURN_EXPONENT);
+
+        // Calculate left and right powers
+        double leftPower = drivePower + turnPower;
+        double rightPower = drivePower - turnPower;
+
+        // Use tank drive (power mode)
+        drive.tankDrive(leftPower, rightPower);
     }
 
     private void handleDriver1Controls() {

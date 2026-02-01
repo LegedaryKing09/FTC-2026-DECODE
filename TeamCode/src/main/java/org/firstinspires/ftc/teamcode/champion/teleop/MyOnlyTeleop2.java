@@ -261,6 +261,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         // Drive controller
         try {
             drive = new SixWheelDriveController(this);
+            drive.setDriveMode(SixWheelDriveController.DriveMode.POWER);
         } catch (Exception e) {
             telemetry.addLine("WARNING: Drive controller failed to initialize");
         }
