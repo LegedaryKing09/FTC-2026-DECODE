@@ -87,7 +87,7 @@ public class FB extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_LEFT = 43.0;
+    public static double AUTO_AIM_LEFT = -43.0;
 
     @Override
     public void runOpMode() {
@@ -243,11 +243,7 @@ public class FB extends LinearOpMode {
         HeadingCorrection(DEGREE_ZERO, 0.5);
 
         // 7. Go backward for shooting
-        Action moveBackward2 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x - FIRST_BACKWARD)
-                .build();
-        Actions.runBlocking(moveBackward2);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
+        backwardTurret(INITIAL_FORWARD);
 
         // 8. Shoot balls
         autoAimTurretLeft();
@@ -286,11 +282,7 @@ public class FB extends LinearOpMode {
         HeadingCorrection(DEGREE_ZERO, 0.5);
 
         // 7. Go backward for shooting
-        Action moveBackward4 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x - SECOND_BACKWARD)
-                .build();
-        Actions.runBlocking(moveBackward4);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
+        backwardTurret(SECOND_BACKWARD);
 
         // 8. Shoot balls
         autoAimTurretLeft();
@@ -570,7 +562,7 @@ public class FB extends LinearOpMode {
         sleep(50);
     }
 
-    private void forwardTurret(){
+    private void backwardTurret(double distance){
         if(turretField != null){
             turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
             turretField.enable();
@@ -578,7 +570,7 @@ public class FB extends LinearOpMode {
 
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action moveForward = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + SECOND_BACKWARD)
+                .lineToX(currentPose.position.x - distance)
                 .build();
 
         Action intakeAction = new Action() {

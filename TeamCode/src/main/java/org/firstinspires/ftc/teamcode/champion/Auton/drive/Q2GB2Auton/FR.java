@@ -87,7 +87,7 @@ public class FR extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_RIGHT = -43.0;
+    public static double AUTO_AIM_RIGHT = 43.0;
 
     @Override
     public void runOpMode() {
@@ -230,7 +230,7 @@ public class FR extends LinearOpMode {
 
         // 5. Go backward after intake (first line)
         Action moveBackward1 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_BACKWARD)
+                .lineToY(currentPose.position.y + INTAKE_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward1);
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -243,11 +243,7 @@ public class FR extends LinearOpMode {
         HeadingCorrection(DEGREE_ZERO, 0.5);
 
         // 7. Go backward for shooting
-        Action moveBackward2 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x - FIRST_BACKWARD)
-                .build();
-        Actions.runBlocking(moveBackward2);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
+        backwardTurret(INITIAL_FORWARD);
 
         // 8. Shoot balls
         autoAimTurretRight();
@@ -273,7 +269,7 @@ public class FR extends LinearOpMode {
 
         // 5. Go backward after intake (first line)
         Action moveBackward3 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_BACKWARD)
+                .lineToY(currentPose.position.y + INTAKE_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward3);
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -286,11 +282,7 @@ public class FR extends LinearOpMode {
         HeadingCorrection(DEGREE_ZERO, 0.5);
 
         // 7. Go backward for shooting
-        Action moveBackward4 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x - SECOND_BACKWARD)
-                .build();
-        Actions.runBlocking(moveBackward4);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
+        backwardTurret(SECOND_BACKWARD);
 
         // 8. Shoot balls
         autoAimTurretRight();
@@ -300,7 +292,6 @@ public class FR extends LinearOpMode {
                 .lineToX(currentPose.position.x + ENDING_DISTANCE)
                 .build();
         Actions.runBlocking(Forward5);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
 
     }
 
@@ -384,7 +375,7 @@ public class FR extends LinearOpMode {
         // Get current pose and build trajectory
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action moveForward = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y + INTAKE_FORWARD)
+                .lineToY(currentPose.position.y - INTAKE_FORWARD)
                 .build();
 
         // Create a custom action that combines RoadRunner movement with intake control
@@ -568,6 +559,37 @@ public class FR extends LinearOpMode {
 
         tankDrive.setDrivePowers(new PoseVelocity2d(new Vector2d(0, 0), 0));
         sleep(50);
+    }
+
+
+    private void backwardTurret(double distance){
+        if(turretField != null){
+            turretField.setTargetFieldAngle(AUTO_AIM_RIGHT);
+            turretField.enable();
+        }
+
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action moveForward = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - distance)
+                .build();
+
+        Action intakeAction = new Action() {
+            private Action moveAction = moveForward;
+
+            @Override
+            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+                if (turretField != null && turretField.isEnabled()){
+                    turret.update();
+                    turretField.update(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                    );
+                }
+                return moveAction.run(packet);
+            }
+        };
+
+        // Run the combined action
+        Actions.runBlocking(intakeAction);
     }
 
     private void autoAimTurretRight () {
