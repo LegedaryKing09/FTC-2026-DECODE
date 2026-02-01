@@ -53,8 +53,8 @@ public class CB extends LinearOpMode {
     public static double AUTON_START_HEADING = 0.0;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 4000.0;
-    public static double CONSTANT_RAMP_ANGLE = 0.01;
+    public static double CONSTANT_SHOOTER_RPM = 3100.0;
+    public static double CONSTANT_RAMP_ANGLE = 0.449;
 
     // Distance parameters
     public static double INITIAL_BACKWARD = -40.0;
@@ -89,7 +89,7 @@ public class CB extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_LEFT = -43.0;
+    public static double AUTO_AIM_LEFT = -40.0;
 
     @Override
     public void runOpMode() {

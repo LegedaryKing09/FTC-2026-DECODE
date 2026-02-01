@@ -53,8 +53,8 @@ public class FR extends LinearOpMode {
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 4000.0;
-    public static double CONSTANT_RAMP_ANGLE = -130.0;
+    public static double CONSTANT_SHOOTER_RPM = 4100.0;
+    public static double CONSTANT_RAMP_ANGLE = 0.6;
 
     // Distance parameters
     public static double INITIAL_FORWARD = 23.0;

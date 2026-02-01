@@ -50,8 +50,8 @@ public class CR extends LinearOpMode {
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 4000.0;
-    public static double CONSTANT_RAMP_ANGLE = -130.0;
+    public static double CONSTANT_SHOOTER_RPM = 3100;
+    public static double CONSTANT_RAMP_ANGLE = 0.449;
 
     // Distance parameters
     public static double INITIAL_BACKWARD = -40.0;
@@ -87,7 +87,7 @@ public class CR extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_RIGHT = 43.0;
+    public static double AUTO_AIM_RIGHT = 40.0;
 
     @Override
     public void runOpMode() {
