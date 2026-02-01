@@ -61,7 +61,6 @@ public class FB extends LinearOpMode {
     public static double SECOND_BACKWARD = 44.0;
     public static double INTAKE_FORWARD = 28.0;
     public static double INTAKE_BACKWARD = 28.0;
-    public static double FIRST_BACKWARD = 26.0;
     public static double ENDING_DISTANCE = 30.0;
 
 
@@ -179,7 +178,7 @@ public class FB extends LinearOpMode {
         // Initialize ramp
         try {
             rampController = new NewRampController(this);
-//            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
+            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
             //
         }
@@ -248,7 +247,6 @@ public class FB extends LinearOpMode {
         backwardTurret(INITIAL_FORWARD);
 
         // 8. Shoot balls
-        autoAimTurretLeft();
         shootBalls();
 
         // 9. go forward
@@ -287,7 +285,6 @@ public class FB extends LinearOpMode {
         backwardTurret(SECOND_BACKWARD);
 
         // 8. Shoot balls
-        autoAimTurretLeft();
         shootBalls();
 
         Action FINISH = tankDrive.actionBuilder(currentPose)
@@ -360,11 +357,6 @@ public class FB extends LinearOpMode {
         intakeModeActive = true;
         uptakeStoppedBySwitch = false;
 
-        if (turretField != null){
-            turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
-            turretField.enable(); // starts the controller non blocking; before, the autoaim was blocking
-        }
-
         // Start all systems
         intakeController.setState(true);
         intakeController.update();
@@ -391,12 +383,6 @@ public class FB extends LinearOpMode {
                 intakeController.update();
                 transferController.update();
                 uptakeController.update();
-                if (turretField != null && turretField.isEnabled()){
-                    turret.update();
-                    turretField.update(
-                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                    );
-                }
                 return moveAction.run(packet);
             }
         };
@@ -411,12 +397,6 @@ public class FB extends LinearOpMode {
             intakeController.update();
             transferController.update();
             uptakeController.update();
-            if (turretField != null && turretField.isEnabled()){
-                turret.update();
-                turretField.update(
-                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                );
-            }
             sleep(30);
         }
 

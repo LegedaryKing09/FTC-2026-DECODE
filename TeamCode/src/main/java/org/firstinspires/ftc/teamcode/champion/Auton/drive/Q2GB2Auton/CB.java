@@ -60,7 +60,7 @@ public class CB extends LinearOpMode {
     public static double INTAKE_SECOND_BACKWARD = 20.0;
 
     public static double SECOND_BACKWARD = 22.0;
-    public static double SECOND_FORWARD= 22.0;
+    public static double SECOND_FORWARD= 24.0;
     public static double ENDING_DISTANCE = 30.0;
 
     // turning angle parameters
@@ -71,10 +71,10 @@ public class CB extends LinearOpMode {
     public static double HEADING_CORRECTION_KP = 0.015;
     public static double HEADING_CORRECTION_MAX_VEL = 0.3;
     public static int HEADING_STABLE_SAMPLES = 3;
-    public static double HEADING_TIMEOUT_MS = 300;
+    public static double HEADING_TIMEOUT_MS = 280;
 
     // Timing parameters
-    public static long INTAKE_TIME_MS = 300;
+    public static long INTAKE_TIME_MS = 280;
     public static long SHOOT_TIME_MS = 3000;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
@@ -216,9 +216,6 @@ public class CB extends LinearOpMode {
         autoAimTurretLeft();
         shootBalls();
 
-        // prevents wrapping around the turret
-        turretField.disable();
-
         // 4. turn to pickup angle (90)
         Action turnLeft2 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
@@ -267,6 +264,7 @@ public class CB extends LinearOpMode {
         // 12. forward intake for pickup (second line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
+        turretField.disable();
 
         // 13. backward intake (second line)
         Action moveBackward4 = tankDrive.actionBuilder(currentPose)
