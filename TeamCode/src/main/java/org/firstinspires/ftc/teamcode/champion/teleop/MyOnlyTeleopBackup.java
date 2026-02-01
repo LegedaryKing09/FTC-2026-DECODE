@@ -1,8 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.teleop;
 
-import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
-import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.AnalogInput;
@@ -21,26 +19,20 @@ import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 
 /**
  * BACKUP Teleop - Manual Turret Only (No Auto-Aim)
- *
  * Use this if auton data transfer failed or auto-aim isn't working.
  * All turret control is manual via right stick.
- *
  * === DRIVER 1 (gamepad1) - ARCADE DRIVE ===
  * Left Stick Y:   Forward/Backward
  * Right Stick X:  Turn Left/Right
  * Right Bumper:   Toggle intake + transfer + uptake
  * Left Bumper:    HOLD to VOMIT (reverse all)
- *
  * === DRIVER 2 (gamepad2) ===
  * Right Trigger:  HOLD to SHOOT (bypass ball detection)
  * Right Stick X:  Manual turret control
- *
  * Left Bumper:    RETRACT ramp
  * Left Trigger:   EXTEND ramp
- *
  * D-Pad Up:       RPM +100
  * D-Pad Down:     RPM -100
- *
  * Y Button:       FAR preset (RPM + ramp only, NO auto-aim)
  * A Button:       CLOSE preset (RPM + ramp only, NO auto-aim)
  * X Button:       Set RPM to IDLE
@@ -66,9 +58,6 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
     // === BALL DETECTION ===
     public static double UPTAKE_SWITCH_THRESHOLD = 2.5;
 
-    // === TELEMETRY ===
-    public static double TELEMETRY_INTERVAL_MS = 100;
-
     // === CONTROLLERS ===
     private SixWheelDriveController drive;
     private TurretController turret;
@@ -83,7 +72,6 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
 
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
-    private final ElapsedTime telemetryTimer = new ElapsedTime();
 
     // === GAMEPAD 1 BUTTON STATES ===
     private boolean lastRB1 = false;
@@ -107,15 +95,9 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
 
     // === Preset mode tracking ===
     private enum PresetMode { IDLE, FAR, CLOSE }
-    private PresetMode currentPresetMode = PresetMode.IDLE;
 
     @Override
     public void runOpMode() {
-        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
-        telemetry.addLine("=== BACKUP TELEOP ===");
-        telemetry.addLine("Manual turret control only");
-        telemetry.addLine("No auto-aim, no position tracking");
-        telemetry.update();
 
         initializeHardware();
 
@@ -141,8 +123,6 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
             shooter.startShooting();
         }
 
-        telemetryTimer.reset();
-
         while (opModeIsActive()) {
             // Handle controls
             handleDriveControls();
@@ -167,12 +147,6 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
 
             // Update all systems
             updateAllSystems();
-
-            // Update telemetry periodically
-            if (telemetryTimer.milliseconds() >= TELEMETRY_INTERVAL_MS) {
-                telemetryTimer.reset();
-                updateTelemetry();
-            }
         }
 
         // Cleanup
@@ -183,31 +157,27 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         // Drive controller
         try {
             drive = new SixWheelDriveController(this);
-        } catch (Exception e) {
-            telemetry.addData("Drive", "FAILED: " + e.getMessage());
+        } catch (Exception ignored) {
         }
 
         // Turret
         try {
             turret = new TurretController(this);
-        } catch (Exception e) {
-            telemetry.addData("Turret", "FAILED: " + e.getMessage());
+        } catch (Exception ignored) {
         }
 
         // Intake
         try {
             DcMotor intakeMotor = hardwareMap.get(DcMotor.class, "intake");
             intake = new NewIntakeController(intakeMotor);
-        } catch (Exception e) {
-            telemetry.addData("Intake", "FAILED");
+        } catch (Exception ignored) {
         }
 
         // Transfer
         try {
             DcMotor transferMotor = hardwareMap.get(DcMotor.class, "transfer");
             transfer = new NewTransferController(transferMotor);
-        } catch (Exception e) {
-            telemetry.addData("Transfer", "FAILED");
+        } catch (Exception ignored) {
         }
 
         // Uptake
@@ -215,8 +185,7 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
             CRServo servo1 = hardwareMap.get(CRServo.class, "servo1");
             CRServo servo2 = hardwareMap.get(CRServo.class, "servo2");
             uptake = new UptakeController(servo1, servo2);
-        } catch (Exception e) {
-            telemetry.addData("Uptake", "FAILED");
+        } catch (Exception ignored) {
         }
 
         // Uptake switch
@@ -232,19 +201,15 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         try {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
-        } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
+        } catch (Exception ignored) {
         }
         shooter = new NewShooterController(shooterMotor1,shooterMotor2);
 
         // Ramp
         try {
             ramp = new NewRampController(this);
-        } catch (Exception e) {
-            telemetry.addData("Ramp", "FAILED");
+        } catch (Exception ignored) {
         }
-
-        telemetry.update();
     }
 
     private void handleDriveControls() {
@@ -350,7 +315,6 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         // === Y: FAR PRESET (RPM + ramp only, NO auto-aim) ===
         boolean currentY2 = gamepad2.y;
         if (currentY2 && !lastY2) {
-            currentPresetMode = PresetMode.FAR;
             currentTargetRPM = FAR_RPM;
             if (shooter != null) {
                 shooter.setTargetRPM(FAR_RPM);
@@ -364,7 +328,6 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         // === A: CLOSE PRESET (RPM + ramp only, NO auto-aim) ===
         boolean currentA2 = gamepad2.a;
         if (currentA2 && !lastA2) {
-            currentPresetMode = PresetMode.CLOSE;
             currentTargetRPM = CLOSE_RPM;
             if (shooter != null) {
                 shooter.setTargetRPM(CLOSE_RPM);
@@ -378,7 +341,6 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         // === X: SET RPM TO IDLE ===
         boolean currentX2 = gamepad2.x;
         if (currentX2 && !lastX2) {
-            currentPresetMode = PresetMode.IDLE;
             currentTargetRPM = IDLE_RPM;
             if (shooter != null) shooter.setTargetRPM(IDLE_RPM);
         }
@@ -393,30 +355,5 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         if (transfer != null) transfer.update();
         if (uptake != null) uptake.update();
         if (shooter != null) shooter.update();
-    }
-
-    private void updateTelemetry() {
-        telemetry.addLine("=== BACKUP TELEOP ===");
-        telemetry.addData("Mode", currentPresetMode);
-
-        // Shooter
-        if (shooter != null) {
-            telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
-        }
-
-        // Ramp
-        if (ramp != null) {
-            telemetry.addData("Ramp", "%.3f", ramp.getTargetAngle());
-        }
-
-        // Turret
-        if (turret != null) {
-            telemetry.addData("Turret", "%.1f° (MANUAL)", turret.getTurretAngle());
-        }
-
-        // Intake status
-        telemetry.addData("Intake Mode", intakeModeActive ? "ON" : "OFF");
-
-        telemetry.update();
     }
 }
