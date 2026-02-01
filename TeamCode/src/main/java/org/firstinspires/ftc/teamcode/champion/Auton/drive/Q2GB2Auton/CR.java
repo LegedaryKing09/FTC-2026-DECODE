@@ -54,7 +54,7 @@ public class CR extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = 0.449;
 
     // Distance parameters
-    public static double INITIAL_BACKWARD = -40.0;
+    public static double INITIAL_BACKWARD = -44.0;
     public static double INTAKE_FORWARD = 30.0;
     public static double INTAKE_BACKWARD = 30.0;
     public static double INTAKE_SECOND_BACKWARD = 20.0;
@@ -66,6 +66,7 @@ public class CR extends LinearOpMode {
     public static double DEGREE_ZERO = 0.0;
     public static double AUTON_START_HEADING= -45;
     public static double PICK_UP_ANGLE = -90.0;
+    public static double DEGREE_45 = 45.0;
 
     // turning perfection
     public static double HEADING_CORRECTION_KP = 0.015;
@@ -88,7 +89,7 @@ public class CR extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_RIGHT = 40.0;
+    public static double AUTO_AIM_RIGHT = 0;
 
     @Override
     public void runOpMode() {
@@ -222,10 +223,10 @@ public class CR extends LinearOpMode {
 
         // 4. turn right to pickup angle (90)
         Action turnLeft2 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(PICK_UP_ANGLE))
+                .turnTo(Math.toRadians(-DEGREE_45))
                 .build();
         Actions.runBlocking(turnLeft2);
-        HeadingCorrection(PICK_UP_ANGLE, 0.5);
+        HeadingCorrection(-DEGREE_45, 0.5);
 
         // 5. Go forward while intake (first line)
         intakeForwardRoadRunner();
@@ -234,7 +235,7 @@ public class CR extends LinearOpMode {
 
         // 6. Go backward after intake (first line)
         Action moveBackward2 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y + INTAKE_BACKWARD)
+                .lineToX(currentPose.position.x + INTAKE_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward2);
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -245,10 +246,10 @@ public class CR extends LinearOpMode {
 
         // 9. turn to 0 degree for going backward
         Action turnRight2 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(DEGREE_ZERO))
+                .turnTo(Math.toRadians(DEGREE_45))
                 .build();
         Actions.runBlocking(turnRight2);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
+        HeadingCorrection(DEGREE_45, 0.5);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 10. go backward
@@ -260,10 +261,10 @@ public class CR extends LinearOpMode {
 
         // 11. turn right 90 degree for pickup (second line)
         Action turnLeft3 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(PICK_UP_ANGLE))
+                .turnTo(Math.toRadians(-DEGREE_45))
                 .build();
         Actions.runBlocking(turnLeft3);
-        HeadingCorrection(PICK_UP_ANGLE, 0.5);
+        HeadingCorrection(-DEGREE_45, 0.5);
 
         // 12. forward intake for pickup (second line)
         intakeForwardRoadRunner();
@@ -272,17 +273,17 @@ public class CR extends LinearOpMode {
 
         // 13. backward intake (second line)
         Action moveBackward4 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y + INTAKE_SECOND_BACKWARD)
+                .lineToX(currentPose.position.x + INTAKE_SECOND_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward4);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 14. facing zero degree
         Action turnRight = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(DEGREE_ZERO))
+                .turnTo(Math.toRadians(DEGREE_45))
                 .build();
         Actions.runBlocking(turnRight);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
+        HeadingCorrection(DEGREE_45, 0.5);
 
         // 15. forward move
         forwardTurret();
@@ -380,7 +381,7 @@ public class CR extends LinearOpMode {
         // Get current pose and build trajectory
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action moveForward = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_FORWARD)
+                .lineToX(currentPose.position.x - INTAKE_FORWARD)
                 .build();
 
         // Create a custom action that combines RoadRunner movement with intake control
