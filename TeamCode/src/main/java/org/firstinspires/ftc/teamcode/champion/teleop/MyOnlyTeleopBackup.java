@@ -112,7 +112,6 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
     @Override
     public void runOpMode() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
-
         telemetry.addLine("=== BACKUP TELEOP ===");
         telemetry.addLine("Manual turret control only");
         telemetry.addLine("No auto-aim, no position tracking");
