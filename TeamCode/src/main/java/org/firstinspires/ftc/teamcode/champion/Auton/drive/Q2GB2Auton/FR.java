@@ -228,6 +228,7 @@ public class FR extends LinearOpMode {
         // 4. Go forward while intake (first line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
+        turretField.disable();
 
         // 5. Go backward after intake (first line)
         Action moveBackward1 = tankDrive.actionBuilder(currentPose)
@@ -245,6 +246,7 @@ public class FR extends LinearOpMode {
 
         // 7. Go backward for shooting
         backwardTurret(INITIAL_FORWARD);
+        turretField.disable();
 
         // 8. Shoot balls
         shootBalls();
@@ -266,6 +268,7 @@ public class FR extends LinearOpMode {
         // 4. Go forward while intake (first line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
+        turretField.disable();
 
         // 5. Go backward after intake (first line)
         Action moveBackward3 = tankDrive.actionBuilder(currentPose)
@@ -283,6 +286,7 @@ public class FR extends LinearOpMode {
 
         // 7. Go backward for shooting
         backwardTurret(SECOND_BACKWARD);
+        turretField.disable();
 
         // 8. Shoot balls
         shootBalls();
