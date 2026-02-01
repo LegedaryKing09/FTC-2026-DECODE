@@ -59,8 +59,8 @@ public class FB extends LinearOpMode {
     // Distance parameters
     public static double INITIAL_FORWARD = 23.0;
     public static double SECOND_BACKWARD = 44.0;
-    public static double INTAKE_FORWARD = 28.0;
-    public static double INTAKE_BACKWARD = 28.0;
+    public static double INTAKE_FORWARD = 30.0;
+    public static double INTAKE_BACKWARD = 30.0;
     public static double ENDING_DISTANCE = 30.0;
 
 
@@ -89,7 +89,7 @@ public class FB extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_LEFT = -43.0;
+    public static double AUTO_AIM_LEFT = -23.0;
 
     @Override
     public void runOpMode() {
@@ -209,12 +209,12 @@ public class FB extends LinearOpMode {
        4. INCREASE THE SPEED AND SAVE TIME AS SOON AS POSSIBLE
     */
     private void executeAutonomousSequence() {
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 1. shoot 3 balls
         autoAimTurretLeft();
         shootBalls();
 
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         // 2. go forward
         Action moveForward1 = tankDrive.actionBuilder(currentPose)
                 .lineToX(currentPose.position.x + INITIAL_FORWARD)
@@ -247,6 +247,7 @@ public class FB extends LinearOpMode {
                 .build();
         Actions.runBlocking(turnRight1);
         HeadingCorrection(DEGREE_ZERO, 0.5);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 7. Go backward for shooting
         backwardTurret(INITIAL_FORWARD);
@@ -287,6 +288,7 @@ public class FB extends LinearOpMode {
                 .build();
         Actions.runBlocking(turnRight3);
         HeadingCorrection(DEGREE_ZERO, 0.5);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 7. Go backward for shooting
         backwardTurret(SECOND_BACKWARD);

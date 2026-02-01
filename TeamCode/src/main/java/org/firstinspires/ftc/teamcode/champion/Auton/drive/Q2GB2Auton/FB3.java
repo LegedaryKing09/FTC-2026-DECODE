@@ -33,8 +33,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "FarRed GB2", group = "Competition")
-public class FR extends LinearOpMode {
+@Autonomous(name = "FarBlue GB2 3 balls", group = "Competition")
+public class FB3 extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -59,16 +59,14 @@ public class FR extends LinearOpMode {
     // Distance parameters
     public static double INITIAL_FORWARD = 23.0;
     public static double SECOND_BACKWARD = 44.0;
-    public static double INTAKE_FORWARD = 28.0;
-    public static double INTAKE_BACKWARD = 28.0;
+    public static double INTAKE_FORWARD = 30.0;
+    public static double INTAKE_BACKWARD = 30.0;
     public static double ENDING_DISTANCE = 30.0;
 
 
     // turning angle parameters
     public static double DEGREE_ZERO = 0.0;
-    public static double PICK_UP_ANGLE = -90.0;
-    public static double AUTON_START_X = 49.6;
-    public static double AUTON_START_Y = 9.0;
+    public static double PICK_UP_ANGLE = 90.0;
 
     // turning perfection
     public static double HEADING_CORRECTION_KP = 0.015;
@@ -79,6 +77,8 @@ public class FR extends LinearOpMode {
     // Timing parameters
     public static long INTAKE_TIME_MS = 280;
     public static long SHOOT_TIME_MS = 3000;
+    public static double AUTON_START_X = 49.6;
+    public static double AUTON_START_Y = 9.0;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
 
@@ -89,7 +89,7 @@ public class FR extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_RIGHT = 23.0;
+    public static double AUTO_AIM_LEFT = -23.0;
 
     @Override
     public void runOpMode() {
@@ -209,100 +209,17 @@ public class FR extends LinearOpMode {
        4. INCREASE THE SPEED AND SAVE TIME AS SOON AS POSSIBLE
     */
     private void executeAutonomousSequence() {
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 1. shoot 3 balls
-        autoAimTurretRight();
+        autoAimTurretLeft();
         shootBalls();
 
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         // 2. go forward
         Action moveForward1 = tankDrive.actionBuilder(currentPose)
                 .lineToX(currentPose.position.x + INITIAL_FORWARD)
                 .build();
         Actions.runBlocking(moveForward1);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 3. turn right to 90 degree
-        Action turnLeft1 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(PICK_UP_ANGLE))
-                .build();
-        Actions.runBlocking(turnLeft1);
-        HeadingCorrection(PICK_UP_ANGLE, 0.5);
-
-        // 4. Go forward while intake (first line)
-        intakeForwardRoadRunner();
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        turretField.disable();
-
-        // 5. Go backward after intake (first line)
-        Action moveBackward1 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y + INTAKE_BACKWARD)
-                .build();
-        Actions.runBlocking(moveBackward1);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 6. turn right
-        Action turnRight1 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(DEGREE_ZERO))
-                .build();
-        Actions.runBlocking(turnRight1);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 7. Go backward for shooting
-        backwardTurret(INITIAL_FORWARD);
-        turretField.disable();
-
-        // 8. Shoot balls
-        shootBalls();
-
-
-        // 9. go forward
-        Action moveForward3 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + SECOND_BACKWARD)
-                .build();
-        Actions.runBlocking(moveForward3);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 3. turn to 90 degree
-        Action turnLeft3 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(PICK_UP_ANGLE))
-                .build();
-        Actions.runBlocking(turnLeft3);
-        HeadingCorrection(PICK_UP_ANGLE, 0.5);
-
-
-        // 4. Go forward while intake (first line)
-        intakeForwardRoadRunner();
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        turretField.disable();
-
-        // 5. Go backward after intake (first line)
-        Action moveBackward3 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y + INTAKE_BACKWARD)
-                .build();
-        Actions.runBlocking(moveBackward3);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 6. turn right
-        Action turnRight3 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(DEGREE_ZERO))
-                .build();
-        Actions.runBlocking(turnRight3);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 7. Go backward for shooting
-        backwardTurret(SECOND_BACKWARD);
-        turretField.disable();
-
-        // 8. Shoot balls
-        shootBalls();
-
-        Action Forward5 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + ENDING_DISTANCE)
-                .build();
-        Actions.runBlocking(Forward5);
 
     }
 
@@ -381,7 +298,7 @@ public class FR extends LinearOpMode {
         // Get current pose and build trajectory
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action moveForward = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_FORWARD)
+                .lineToY(currentPose.position.y + INTAKE_FORWARD)
                 .build();
 
         // Create a custom action that combines RoadRunner movement with intake control
@@ -450,7 +367,6 @@ public class FR extends LinearOpMode {
     }
 
     private void cleanup() {
-
         Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
         double rawX = rawPose.position.x;
         double rawY = rawPose.position.y;
@@ -480,6 +396,7 @@ public class FR extends LinearOpMode {
         telemetry.addData("Turret SAVED", "%.1f°", PoseStorage.turretAngle);
         telemetry.update();
         sleep(2000);
+
         if (autonController != null) {
             autonController.stopPidUpdateThread();
         }
@@ -571,10 +488,9 @@ public class FR extends LinearOpMode {
         sleep(50);
     }
 
-
     private void backwardTurret(double distance){
         if(turretField != null){
-            turretField.setTargetFieldAngle(AUTO_AIM_RIGHT);
+            turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
             turretField.enable();
         }
 
@@ -602,11 +518,12 @@ public class FR extends LinearOpMode {
         Actions.runBlocking(intakeAction);
     }
 
-    private void autoAimTurretRight () {
+
+    private void autoAimTurretLeft () {
         if (turretField == null) return;
 
         turretField.autoAim(
-                AUTO_AIM_RIGHT,
+                AUTO_AIM_LEFT,
                 () -> Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble()),
                 () -> opModeIsActive()
         );
