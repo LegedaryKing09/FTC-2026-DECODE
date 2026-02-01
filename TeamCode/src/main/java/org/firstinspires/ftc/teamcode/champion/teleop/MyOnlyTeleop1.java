@@ -27,6 +27,12 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 /**
  * 超级无敌高级Teleop
  *
+ * FIELD-CENTRIC AUTO-AIM:
+ * - Inherits position from auton via PoseStorage
+ * - Continuously tracks robot position on field
+ * - Auto-calculates turret angle to aim at TARGET (0,0) or custom position
+ * - Pressing Y or A preset calculates angle based on current robot position
+ *
  * === DRIVER 1 (gamepad1) - ARCADE DRIVE (FULL POWER) ===
  * Left Stick Y:   Forward/Backward (1.0 power)
  * Right Stick X:  Turn Left/Right (1.0 power)
@@ -50,30 +56,41 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  * Right Stick X:  Manual turret - DISABLES AUTO-AIM when moved!
  *                 Auto-aim stays off until next preset button is pressed
  *
- * Y Button:       close preset (4550 RPM, ramp, turret) + auto-aim ON
- * A Button:       CLOSE preset (3650 RPM, ramp, turret) + auto-aim ON
+ * Y Button:       FAR preset - calculates turret angle to (0,0) based on position
+ * A Button:       CLOSE preset - calculates turret angle to (0,0) based on position
  * X Button:       Set RPM to IDLE (2000 RPM)
  */
 @Config
-@TeleOp(name = "超级无敌高级Teleop Blue", group = "Competition")
+@TeleOp(name = "Undefeated Super Powerful Teleop Blue", group = "Competition")
 public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === PRESETS ===
-    public static double FAR_RPM = 4600.0;
-    public static double FAR_RAMP_ANGLE = 0.7;
-    public static double FAR_TURRET_ANGLE = -25.0;
+    public static double FAR_RPM = 4000.0;
+    public static double FAR_RAMP_ANGLE = 0.4;
+    public static double FAR_TURRET = -23;
+    // FAR_TURRET_ANGLE removed - now calculated dynamically
 
-    public static double CLOSE_RPM = 3900.0;
-    public static double CLOSE_RAMP_ANGLE = 0.4;
-    public static double CLOSE_TURRET_ANGLE = -45.0;
+    public static double CLOSE_RPM = 3000.0;
+    public static double CLOSE_RAMP_ANGLE = 0.7;
+    public static double CLOSE_TURRET = -45;
+    // CLOSE_TURRET_ANGLE removed - now calculated dynamically
 
     public static double IDLE_RPM = 2000.0;
+
+    // === TARGET POSITION (where turret aims at) ===
+    public static double TARGET_X = 0.0;  // Field X coordinate to aim at
+    public static double TARGET_Y = 0.0;  // Field Y coordinate to aim at
+
+    // === AUTON STARTING POSITION ===
+    public static double AUTON_START_X = 49.6;
+    public static double AUTON_START_Y = 9.0;
+    public static double AUTON_START_HEADING = 0.0;  // degrees
 
     // === ADJUSTMENTS ===
     public static double RAMP_INCREMENT_DEGREES = 0.05;  // Always positive, direction handled in code
     public static double TURRET_TARGET_INCREMENT = 1.0;
     public static double RPM_INCREMENT = 100.0;
-    public static double TURRET_MANUAL_SENSITIVITY = 0.5;
+    public static double TURRET_MANUAL_SENSITIVITY = 0.3;
 
     // === BALL DETECTION ===
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
@@ -137,25 +154,25 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     public void runOpMode() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
 
-        // Read the static pose
+        // Read the static pose from auton
         Pose2d autonPose = PoseStorage.currentPose;
 
         telemetry.addLine("=== POSE FROM STORAGE ===");
-        telemetry.addData("X", "%.2f", autonPose.position.x);
-        telemetry.addData("Y", "%.2f", autonPose.position.y);
-        telemetry.addData("Heading", "%.2f°", Math.toDegrees(autonPose.heading.toDouble()));
+        telemetry.addData("Auton Final Pose", "x=%.2f, y=%.2f, h=%.2f°",
+                autonPose.position.x, autonPose.position.y,
+                Math.toDegrees(autonPose.heading.toDouble()));
         telemetry.update();
 
         initializeHardware();
 
         sleep(300);
 
-        // SET THE POSITION AFTER INITIALIZING HARDWARE
+        // Set position from auton (transformation now handled in SixWheelDriveController)
         if (drive != null) {
             drive.setPosition(
                     autonPose.position.x,
                     autonPose.position.y,
-                    autonPose.heading.log()
+                    autonPose.heading.toDouble()
             );
             drive.updateOdometry();
 
@@ -169,7 +186,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
         // Initialize turret angle tracking AFTER start
         if (turret != null) {
-            turret.initialize();
+            turret.restoreAngle(PoseStorage.turretAngle);
+            telemetry.addData("Turret RESTORED", "%.1f°", PoseStorage.turretAngle);
+            telemetry.update();
         }
 
         // Initialize ramp - sets current position as 0°
@@ -544,7 +563,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             }
             if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
             if (turretField != null) {
-                turretField.setTargetFieldAngle(FAR_TURRET_ANGLE);
+                // Calculate angle to target based on current robot position
+                double targetAngle = calculateAngleToTarget();
+                turretField.setTargetFieldAngle(targetAngle);
                 turretField.enable();
                 autoAimEnabled = true;
             }
@@ -563,7 +584,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             }
             if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
             if (turretField != null) {
-                turretField.setTargetFieldAngle(CLOSE_TURRET_ANGLE);
+                // Calculate angle to target based on current robot position
+                double targetAngle = calculateAngleToTarget();
+                turretField.setTargetFieldAngle(targetAngle);
                 turretField.enable();
                 autoAimEnabled = true;
             }
@@ -583,9 +606,77 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     }
 
     /**
+     * Calculate the field angle from robot position to target (0,0)
+     * Returns the angle in degrees that the turret should face
+     *
+     * Uses atan2 to get angle from robot (x,y) to target (TARGET_X, TARGET_Y)
+     * Result is in field coordinates (0° = forward on field)
+     */
+    private double calculateAngleToTarget() {
+        double robotX = getCorrectedX();
+        double robotY = getCorrectedY();
+
+        // Vector from robot to target
+        double dx = TARGET_X - robotX;
+        double dy = TARGET_Y - robotY;
+
+        // Calculate angle using atan2 (returns radians, -PI to PI)
+        // atan2(dy, dx) gives angle where 0° = positive X axis
+        // Convert to field coordinates where 0° = positive Y axis (forward)
+        double angleRad = Math.atan2(dx, dy);  // Note: swapped dx,dy for field coords
+        double angleDeg = Math.toDegrees(angleRad);
+
+        return angleDeg;
+    }
+
+    /**
+     * Get distance from robot to target
+     */
+    private double getDistanceToTarget() {
+        double robotX = getCorrectedX();
+        double robotY = getCorrectedY();
+
+        double dx = TARGET_X - robotX;
+        double dy = TARGET_Y - robotY;
+
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Get corrected X position (now directly from drive since transformation is in controller)
+     */
+    private double getCorrectedX() {
+        if (drive == null) return AUTON_START_X;
+        return drive.getX();
+    }
+
+    /**
+     * Get corrected Y position (now directly from drive since transformation is in controller)
+     */
+    private double getCorrectedY() {
+        if (drive == null) return AUTON_START_Y;
+        return drive.getY();
+    }
+
+    /**
+     * Update corrected position - now just calls drive.updateOdometry()
+     * Transformation is handled in SixWheelDriveController
+     */
+    private void updateCorrectedPosition() {
+        // Transformation now handled in SixWheelDriveController.updateOdometry()
+        // Nothing extra needed here
+    }
+
+    /**
      * Update all subsystem controllers
      */
     private void updateAllSystems() {
+        // Update odometry and corrected position first
+        if (drive != null) {
+            drive.updateOdometry();
+            updateCorrectedPosition();
+        }
+
         if (turret != null) turret.update();
 
         // Update turret field controller for auto-aim
@@ -605,9 +696,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
      * Update telemetry
      */
     private void updateTelemetry() {
-        // Drive info
+        // Drive info - corrected field position
+        telemetry.addData("Position", "X:%.1f Y:%.1f", getCorrectedX(), getCorrectedY());
         if (drive != null) {
-            telemetry.addData("Position", "X:%.1f Y:%.1f", drive.getX(), drive.getY());
             telemetry.addData("Heading", "%.1f°", drive.getHeadingDegrees());
         }
 
@@ -618,14 +709,19 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
         // Ramp info
         if (ramp != null) {
-            telemetry.addData("Ramp", "%.1f° → %.1f°", ramp.getCurrentAngle(), ramp.getTargetAngle());
+            telemetry.addData("Ramp", "%.3f → %.3f", ramp.getCurrentAngle(), ramp.getTargetAngle());
         }
+
+        // Turret info
         if (turretField != null) {
             if (autoAimEnabled) {
                 telemetry.addData("Turret Target", "%.1f° (err: %.1f°)",
                         turretField.getTargetFieldAngle(), turretField.getFieldError());
+
             }
         }
+
+
         telemetry.update();
     }
 }

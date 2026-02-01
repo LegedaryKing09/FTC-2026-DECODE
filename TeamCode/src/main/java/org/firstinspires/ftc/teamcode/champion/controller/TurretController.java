@@ -7,46 +7,40 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 /**
- * Turret Controller for TWO Axon Mini servos with 1.25:1 gear ratio
+ * Turret Controller with Continuous Angle Tracking
  *
- * HOW IT WORKS:
- * 1. Each update, calculate servo delta from last reading
- * 2. Handle wraparound: if servo jumps from 359° to 5°, delta should be +6°, not -354°
- * 3. Convert servo delta to turret delta: turretDelta = servoDelta / gearRatio
- * 4. Accumulate: turretAngle += turretDelta
+ * Tracks turret angle using analog encoder with wraparound detection.
+ * Supports saving/restoring angle for auton→teleop transfer.
  *
- * DUAL SERVO SETUP:
- * - Both servos drive the turret together for more torque
- * - servoLeft and servoRight can be inverted independently
- * - Only one analog encoder is needed for position feedback
+ * AUTON → TELEOP TRANSFER:
+ * In Auton (at end):
+ *   PoseStorage.turretAngle = turret.getTurretAngle();
+ *
+ * In Teleop (at start):
+ *   turret.restoreAngle(PoseStorage.turretAngle);
  */
 @Config
 public class TurretController {
 
     // Hardware names
-    public static String SERVO_LEFT_NAME = "turret1";
-    public static String SERVO_RIGHT_NAME = "turret2";
+    public static String SERVO_NAME = "turret";
     public static String ANALOG_NAME = "turret_analog";
 
     // Configuration
     public static double VOLTAGE_MAX = 3.3;
-    public static double GEAR_RATIO = 1.25;  // CHANGED from 2.5 for dual servo setup
+    public static double GEAR_RATIO = 2.5;  // Servo turns 2.5x for every 1x turret turn
 
-    // Servo direction control (adjust based on mounting)
-    public static boolean INVERT_LEFT = true;
-    public static boolean INVERT_RIGHT = true;  // Usually mirrored
+    // Servo direction
+    public static boolean INVERT_SERVO = false;
 
     // Hardware
-    private final CRServo servoLeft;
-    private final CRServo servoRight;
+    private final CRServo servo;
     private final AnalogInput analog;
 
     // === ANGLE TRACKING STATE ===
-    private double lastServoAngle = 0;          // Previous servo angle
-    private double accumulatedTurretAngle = 0;  // The turret angle we're tracking
-    private int servoRotationCount = 0;         // For debugging
+    private double lastServoAngle = 0;          // Previous servo angle (for wraparound detection)
+    private double accumulatedTurretAngle = 0;  // Total turret angle (continuous)
     private boolean initialized = false;
-    private double currentPower = 0;            // Track current power
 
     /**
      * Constructor using LinearOpMode
@@ -56,36 +50,37 @@ public class TurretController {
     }
 
     /**
-     * Constructor using HardwareMap directly
+     * Constructor using HardwareMap
      */
     public TurretController(HardwareMap hardwareMap) {
-        servoLeft = hardwareMap.get(CRServo.class, SERVO_LEFT_NAME);
-        servoRight = hardwareMap.get(CRServo.class, SERVO_RIGHT_NAME);
+        servo = hardwareMap.get(CRServo.class, SERVO_NAME);
         analog = hardwareMap.get(AnalogInput.class, ANALOG_NAME);
     }
 
     /**
-     * Initialize the turret - MUST call this at startup!
-     * Sets current position as 0° reference
+     * Initialize - sets current position as 0°
+     * Call at start of auton
      */
     public void initialize() {
         lastServoAngle = getRawServoAngle();
         accumulatedTurretAngle = 0;
-        servoRotationCount = 0;
         initialized = true;
-        stop();
     }
 
     /**
-     * Reset turret angle to 0 at current position
+     * Restore angle from auton - sets current position as the saved angle
+     * Call at start of teleop instead of initialize()
+     *
+     * @param savedAngle The turret angle saved from auton
      */
-    public void resetAngle() {
-        initialize();
+    public void restoreAngle(double savedAngle) {
+        lastServoAngle = getRawServoAngle();
+        accumulatedTurretAngle = savedAngle;
+        initialized = true;
     }
 
     /**
-     * Update angle tracking - MUST call this every loop!
-     * Calculates delta, handles wraparound, accumulates turret angle
+     * Update angle tracking - call every loop!
      */
     public void update() {
         if (!initialized) {
@@ -95,77 +90,24 @@ public class TurretController {
 
         double currentServoAngle = getRawServoAngle();
 
-        // Calculate raw delta
-        double servoDelta = currentServoAngle - lastServoAngle;
+        // Calculate delta with wraparound handling
+        double delta = currentServoAngle - lastServoAngle;
 
-        // Handle wraparound
-        // If delta is very negative (like -354), servo wrapped forward (359° → 5°)
-        // Actual delta should be positive: -354 + 360 = +6°
-        if (servoDelta < -180) {
-            servoDelta += 360;
-            servoRotationCount++;
-        }
-        // If delta is very positive (like +354), servo wrapped backward (5° → 359°)
-        // Actual delta should be negative: +354 - 360 = -6°
-        else if (servoDelta > 180) {
-            servoDelta -= 360;
-            servoRotationCount--;
+        // Handle wraparound (servo crosses 0°/360° boundary)
+        if (delta < -180) {
+            delta += 360;  // Wrapped forward (e.g., 350° → 10°)
+        } else if (delta > 180) {
+            delta -= 360;  // Wrapped backward (e.g., 10° → 350°)
         }
 
-        // Convert servo delta to turret delta and accumulate
-        double turretDelta = servoDelta / GEAR_RATIO;
-        accumulatedTurretAngle += turretDelta;
+        // Accumulate turret angle (servo movement / gear ratio)
+        accumulatedTurretAngle += delta / GEAR_RATIO;
 
-        // Save for next iteration
         lastServoAngle = currentServoAngle;
     }
 
     /**
-     * Get turret angle in degrees
-     * 0° = starting position
-     */
-    public double getTurretAngle() {
-        if (!initialized) {
-            initialize();
-        }
-        return accumulatedTurretAngle;
-    }
-
-    /**
-     * Get turret angle normalized to -180° to +180°
-     */
-    public double getTurretAngleNormalized() {
-        double angle = getTurretAngle();
-        while (angle > 180) angle -= 360;
-        while (angle < -180) angle += 360;
-        return angle;
-    }
-
-    /**
-     * Set servo power directly (-1.0 to 1.0)
-     * Both servos receive the same command (with inversion applied)
-     */
-    public void setPower(double power) {
-        currentPower = power;
-
-        double leftPower = INVERT_LEFT ? -power : power;
-        double rightPower = INVERT_RIGHT ? -power : power;
-
-        servoLeft.setPower(leftPower);
-        servoRight.setPower(rightPower);
-    }
-
-    /**
-     * Stop the turret
-     */
-    public void stop() {
-        currentPower = 0;
-        servoLeft.setPower(0);
-        servoRight.setPower(0);
-    }
-
-    /**
-     * Get raw servo angle (0-360°) directly from analog
+     * Get raw servo angle (0-360°) from analog sensor
      */
     public double getRawServoAngle() {
         double voltage = analog.getVoltage();
@@ -173,24 +115,25 @@ public class TurretController {
     }
 
     /**
-     * Get raw analog voltage (for debugging)
+     * Get continuous turret angle in degrees
      */
-    public double getVoltage() {
-        return analog.getVoltage();
+    public double getTurretAngle() {
+        return accumulatedTurretAngle;
     }
 
     /**
-     * Get current servo power (commanded, not actual)
+     * Set turret power (-1 to +1)
      */
-    public double getPower() {
-        return currentPower;
+    public void setPower(double power) {
+        power = Math.max(-1.0, Math.min(1.0, power));
+        servo.setPower(INVERT_SERVO ? -power : power);
     }
 
     /**
-     * Get servo rotation count (for debugging)
+     * Stop the turret
      */
-    public int getServoRotationCount() {
-        return servoRotationCount;
+    public void stop() {
+        servo.setPower(0);
     }
 
     /**
@@ -198,5 +141,19 @@ public class TurretController {
      */
     public boolean isInitialized() {
         return initialized;
+    }
+
+    /**
+     * Reset angle to 0 at current position
+     */
+    public void resetAngle() {
+        initialize();
+    }
+
+    /**
+     * Get raw voltage (for debugging)
+     */
+    public double getVoltage() {
+        return analog.getVoltage();
     }
 }

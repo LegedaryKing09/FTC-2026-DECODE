@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 import org.firstinspires.ftc.teamcode.champion.RobotState;
 import org.firstinspires.ftc.teamcode.champion.controller.AutonTurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
@@ -117,6 +118,7 @@ public class CR extends LinearOpMode {
     private void initializeRobot() {
         // Initialize drive controller
         driveController = new SixWheelDriveController(this);
+        driveController.resetOdometry();
         driveController.setDriveMode(SixWheelDriveController.DriveMode.POWER);
 
         // Initialize intake
@@ -491,17 +493,19 @@ public class CR extends LinearOpMode {
     private void cleanup() {
         // Save final pose before cleaning up
         Pose2d finalPose = tankDrive.pinpointLocalizer.getPose();
-        RobotState.saveAutonPose(this, finalPose);
+        PoseStorage.currentPose = finalPose;
+        if (turret != null) {
+            PoseStorage.turretAngle = turret.getTurretAngle();
+        }
 
-        // ADD THIS - Show what was saved
         telemetry.addLine("=== AUTON COMPLETE ===");
-        telemetry.addData("Final Pose SAVED", "x=%.1f, y=%.1f, heading=%.1f°",
+        telemetry.addData("Pose SAVED", "x=%.1f, y=%.1f, heading=%.1f°",
                 finalPose.position.x,
                 finalPose.position.y,
                 Math.toDegrees(finalPose.heading.toDouble()));
-        telemetry.addData("Total Time", "%.1f sec", globalTimer.seconds());
+        telemetry.addData("Turret SAVED", "%.1f°", PoseStorage.turretAngle);
         telemetry.update();
-        sleep(2000); // Keep telemetry visible for 2 seconds
+        sleep(2000);
 
         if (autonController != null) {
             autonController.stopPidUpdateThread();

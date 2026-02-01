@@ -12,7 +12,7 @@ public class NewShooterController {
     private final ElapsedTime runtime;
 
     // Motor direction control
-    public static boolean motorReversed = false;
+    public static boolean motorReversed = true;
 
     // Target RPM control
     public static double TARGET_RPM = 4000;

@@ -35,7 +35,7 @@ public class TurretFieldController {
 
     // ========== TURRET LIMITS (Dead Zone) ==========
     // CW is positive, CCW is negative
-    public static double CW_LIMIT = 90.0;     // Max clockwise
+    public static double CW_LIMIT = 120.0;     // Max clockwise
     public static double CCW_LIMIT = -179.0;  // Max counter-clockwise
     public static boolean USE_LIMITS = true;
 

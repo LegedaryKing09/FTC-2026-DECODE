@@ -8,18 +8,14 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 /**
  * Ramp Controller using Direct Servo Position
  *
- * API unchanged from angle-based version for easy migration.
- * "Angle" is now just servo position scaled to familiar range.
- *
  * POSITION MAPPING:
- * - "Angle" 0 = Position 0.0 = Extended
- * - "Angle" -100 = Position ~0.41
- * - "Angle" -245 = Position 1.0 = Retracted
+ * - Position 0.0 = Retracted (MIN)
+ * - Position 0.75 = Extended (MAX)
  *
- * Just change your constants:
- * - FAR_RAMP_ANGLE = -175.0  -->  FAR_RAMP_ANGLE = 0.71
- * - CLOSE_RAMP_ANGLE = -118.4  -->  CLOSE_RAMP_ANGLE = 0.48
- * - RAMP_INCREMENT_DEGREES = 5.0  -->  RAMP_INCREMENT_DEGREES = 0.02
+ * PRESETS (example):
+ * - FAR_RAMP_POSITION = 0.4
+ * - CLOSE_RAMP_POSITION = 0.7
+ * - RAMP_INCREMENT = 0.05
  */
 @Config
 public class NewRampController {
@@ -27,8 +23,8 @@ public class NewRampController {
     public static String RAMP_SERVO_NAME = "ramp";
 
     // === POSITION LIMITS ===
-    public static double MIN_POSITION = 0.75;   // Extended
-    public static double MAX_POSITION = 0.0;   // Retracted
+    public static double MIN_POSITION = 0.0;    // Retracted
+    public static double MAX_POSITION = 0.75;   // Extended
 
     private final Servo rampServo;
     private double targetPosition = 0.5;
@@ -47,6 +43,8 @@ public class NewRampController {
      */
     public void initialize() {
         targetPosition = rampServo.getPosition();
+        // Clamp to valid range
+        targetPosition = Math.max(MIN_POSITION, Math.min(MAX_POSITION, targetPosition));
         initialized = true;
     }
 
@@ -58,15 +56,11 @@ public class NewRampController {
         if (!initialized) {
             initialize();
         }
-        // Regular servos don't need continuous updates
     }
 
     /**
-     * Set target "angle" - now actually servo position (0.0 to 1.0)
-     *
-     * MIGRATION: Change your constants from angles to positions:
-     *   FAR_RAMP_ANGLE = -175.0  -->  0.71
-     *   CLOSE_RAMP_ANGLE = -118.4  -->  0.48
+     * Set target position (0.0 to 0.75)
+     * 0.0 = Retracted, 0.75 = Extended
      */
     public void setTargetAngle(double position) {
         targetPosition = Math.max(MIN_POSITION, Math.min(MAX_POSITION, position));
@@ -74,55 +68,52 @@ public class NewRampController {
     }
 
     /**
-     * Get target "angle" - returns servo position (0.0 to 1.0)
+     * Get target position
      */
     public double getTargetAngle() {
         return targetPosition;
     }
 
     /**
-     * Get current "angle" - returns servo position (0.0 to 1.0)
+     * Get current position (returns target since no feedback)
      */
     public double getCurrentAngle() {
-        return targetPosition;  // Servo doesn't have feedback, return target
+        return targetPosition;
     }
 
     /**
-     * Increment "angle" - adds to position
-     *
-     * MIGRATION: Change increment from degrees to position:
-     *   RAMP_INCREMENT_DEGREES = 5.0  -->  0.02
+     * Increment position (toward extended/0.75)
      */
     public void incrementAngle(double amount) {
-        setTargetAngle(targetPosition - amount);
-    }
-
-    /**
-     * Decrement "angle" - subtracts from position
-     */
-    public void decrementAngle(double amount) {
         setTargetAngle(targetPosition + amount);
     }
 
     /**
-     * Get angle error - minimal since servo goes directly to position
+     * Decrement position (toward retracted/0.0)
      */
-    public double getAngleError() {
-        return 0;  // No feedback, assume at target
+    public void decrementAngle(double amount) {
+        setTargetAngle(targetPosition - amount);
     }
 
     /**
-     * Check if at target - always true for regular servo
+     * Get error (always 0 since no feedback)
+     */
+    public double getAngleError() {
+        return 0;
+    }
+
+    /**
+     * Check if at target (always true for regular servo)
      */
     public boolean atTarget() {
-        return true;  // Regular servo, assume immediate
+        return true;
     }
 
     /**
      * Check if moving
      */
     public boolean isMoving() {
-        return false;  // No way to know with regular servo
+        return false;
     }
 
     public void stop() {
@@ -141,10 +132,10 @@ public class NewRampController {
     }
 
     public double getVoltage() {
-        return 0;  // No analog input in this version
+        return 0;
     }
 
     public double getPower() {
-        return 0;  // Regular servo, no power reading
+        return 0;
     }
 }

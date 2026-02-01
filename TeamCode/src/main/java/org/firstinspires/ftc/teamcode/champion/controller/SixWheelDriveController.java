@@ -100,6 +100,14 @@ public class SixWheelDriveController {
         public static double YAW_SCALAR = 1.0;      // Tune with OdometryTuner
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
+
+        // === COORDINATE TRANSFORMATION ===
+        // Fix axis mismatch between odometry and field coordinates
+        // Correct field X = -rawY (from odometry)
+        // Correct field Y = rawX (from odometry)
+        public static boolean SWAP_XY = true;           // Swap X and Y axes
+        public static boolean NEGATE_X = true;          // Negate the X value after swap
+        public static boolean NEGATE_Y = true;         // Negate the Y value after swap
     }
 
     // === DRIVE ENCODER CONFIGURATION ===
@@ -124,7 +132,8 @@ public class SixWheelDriveController {
         initializeMotors();
         configurePinpoint();
         initializeVelocityControl();
-        resetOdometry();
+        // NOTE: resetOdometry() removed - call manually if needed
+        // This allows teleop to restore position from auton
     }
 
     // Constructor for OpMode (iterative)
@@ -142,7 +151,8 @@ public class SixWheelDriveController {
         initializeMotors();
         configurePinpoint();
         initializeVelocityControl();
-        resetOdometry();
+        // NOTE: resetOdometry() removed - call manually if needed
+        // This allows teleop to restore position from auton
     }
 
     private void initializeMotors() {
@@ -386,8 +396,29 @@ public class SixWheelDriveController {
         pinpoint.update();
         Pose2D pose = pinpoint.getPosition();
 
-        robotX = pose.getX(DistanceUnit.INCH);
-        robotY = pose.getY(DistanceUnit.INCH);
+        // Get raw values from pinpoint
+        double rawX = pose.getX(DistanceUnit.INCH);
+        double rawY = pose.getY(DistanceUnit.INCH);
+
+        // Apply coordinate transformation
+        if (OdometryParams.SWAP_XY) {
+            // After swap: X becomes Y, Y becomes X
+            double tempX = rawY;  // new X = old Y
+            double tempY = rawX;  // new Y = old X
+            rawX = tempX;
+            rawY = tempY;
+        }
+
+        if (OdometryParams.NEGATE_X) {
+            rawX = -rawX;
+        }
+
+        if (OdometryParams.NEGATE_Y) {
+            rawY = -rawY;
+        }
+
+        robotX = rawX;
+        robotY = rawY;
         robotHeading = pose.getHeading(AngleUnit.RADIANS);
     }
 
@@ -401,8 +432,30 @@ public class SixWheelDriveController {
     }
 
     public void setPosition(double x, double y, double headingRadians) {
-        Pose2D newPose = new Pose2D(DistanceUnit.INCH, x, y, AngleUnit.RADIANS, headingRadians);
+        // Apply inverse transformation to convert field coords to pinpoint coords
+        double pinpointX = x;
+        double pinpointY = y;
+
+        // Inverse of: if NEGATE_X then negate
+        if (OdometryParams.NEGATE_X) {
+            pinpointX = -pinpointX;
+        }
+
+        if (OdometryParams.NEGATE_Y) {
+            pinpointY = -pinpointY;
+        }
+
+        // Inverse of swap: swap back
+        if (OdometryParams.SWAP_XY) {
+            double temp = pinpointX;
+            pinpointX = pinpointY;
+            pinpointY = temp;
+        }
+
+        Pose2D newPose = new Pose2D(DistanceUnit.INCH, pinpointX, pinpointY, AngleUnit.RADIANS, headingRadians);
         pinpoint.setPosition(newPose);
+
+        // Store the field coordinates (what user expects)
         robotX = x;
         robotY = y;
         robotHeading = headingRadians;
@@ -453,11 +506,39 @@ public class SixWheelDriveController {
     }
 
     public double getVelocityX() {
-        return pinpoint.getVelX(DistanceUnit.INCH);
+        double rawVelX = pinpoint.getVelX(DistanceUnit.INCH);
+        double rawVelY = pinpoint.getVelY(DistanceUnit.INCH);
+
+        // Apply same transformation as position
+        if (OdometryParams.SWAP_XY) {
+            double temp = rawVelX;
+            rawVelX = rawVelY;
+            rawVelY = temp;
+        }
+
+        if (OdometryParams.NEGATE_X) {
+            rawVelX = -rawVelX;
+        }
+
+        return rawVelX;
     }
 
     public double getVelocityY() {
-        return pinpoint.getVelY(DistanceUnit.INCH);
+        double rawVelX = pinpoint.getVelX(DistanceUnit.INCH);
+        double rawVelY = pinpoint.getVelY(DistanceUnit.INCH);
+
+        // Apply same transformation as position
+        if (OdometryParams.SWAP_XY) {
+            double temp = rawVelX;
+            rawVelX = rawVelY;
+            rawVelY = temp;
+        }
+
+        if (OdometryParams.NEGATE_Y) {
+            rawVelY = -rawVelY;
+        }
+
+        return rawVelY;
     }
 
     public double getHeadingVelocity() {
