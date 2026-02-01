@@ -318,11 +318,12 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         DcMotor shooterMotor1 = null;
         DcMotor shooterMotor2 = null;
         try {
-            shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter");
+            shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
+            shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
             telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
         }
-        shooter = new NewShooterController(shooterMotor1);
+        shooter = new NewShooterController(shooterMotor1,shooterMotor2);
     }
 
     /**

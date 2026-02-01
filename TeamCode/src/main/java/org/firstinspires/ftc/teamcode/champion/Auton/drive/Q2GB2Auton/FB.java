@@ -77,6 +77,8 @@ public class FB extends LinearOpMode {
     // Timing parameters
     public static long INTAKE_TIME_MS = 280;
     public static long SHOOT_TIME_MS = 3000;
+    public static double AUTON_START_X = 49.6;
+    public static double AUTON_START_Y = 9.0;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
 
@@ -159,13 +161,15 @@ public class FB extends LinearOpMode {
         }
 
         // Initialize shooter
-        DcMotor shooterMotorFirst = null;
+        DcMotor shooterMotor1 = null;
+        DcMotor shooterMotor2 = null;
         try {
-            shooterMotorFirst = hardwareMap.get(DcMotor.class, "shooter");
+            shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
+            shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
-            //
+            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
         }
-        shooterController = new NewShooterController(shooterMotorFirst);
+        shooterController = new NewShooterController(shooterMotor1,shooterMotor2);
 
         // initialize turret
         try {
@@ -442,17 +446,32 @@ public class FB extends LinearOpMode {
     }
 
     private void cleanup() {
-        Pose2d finalPose = tankDrive.pinpointLocalizer.getPose();
-        PoseStorage.currentPose = finalPose;
+        Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
+        double rawX = rawPose.position.x;
+        double rawY = rawPose.position.y;
+
+        // === COORDINATE TRANSFORMATION ===
+        // SWAP_XY = true, NEGATE_X = false, NEGATE_Y = true
+        double deltaX = rawY;       // Swapped, not negated
+        double deltaY = -rawX;      // Swapped, then negated
+
+        // Add delta to starting position
+        double fieldX = AUTON_START_X + deltaX;
+        double fieldY = AUTON_START_Y + deltaY;
+
+        // Save CORRECTED field coordinates
+        PoseStorage.currentPose = new Pose2d(
+                new Vector2d(fieldX, fieldY),
+                rawPose.heading
+        );
         if (turret != null) {
             PoseStorage.turretAngle = turret.getTurretAngle();
         }
-
         telemetry.addLine("=== AUTON COMPLETE ===");
-        telemetry.addData("Pose SAVED", "x=%.1f, y=%.1f, heading=%.1f°",
-                finalPose.position.x,
-                finalPose.position.y,
-                Math.toDegrees(finalPose.heading.toDouble()));
+        telemetry.addData("Raw Odom", "x=%.1f, y=%.1f", rawX, rawY);
+        telemetry.addData("Delta (corrected)", "dx=%.1f, dy=%.1f", deltaX, deltaY);
+        telemetry.addData("Field Pose SAVED", "x=%.1f, y=%.1f, h=%.1f°",
+                fieldX, fieldY, rawPose.heading);
         telemetry.addData("Turret SAVED", "%.1f°", PoseStorage.turretAngle);
         telemetry.update();
         sleep(2000);

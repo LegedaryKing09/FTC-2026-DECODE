@@ -68,7 +68,7 @@ public class OdometrySystemShoot extends LinearOpMode {
     public static boolean USE_VISION = false;
 
     // === SHOOTER ===
-    public static double SHOOTER_RPM = 2500.0;
+    public static double SHOOTER_RPM = 1500.0;
 
     // === TELEMETRY ===
     public static double TELEMETRY_INTERVAL_MS = 100;
