@@ -57,9 +57,8 @@ public class CR extends LinearOpMode {
     public static double INTAKE_FORWARD = 28.0;
     public static double INTAKE_BACKWARD = 28.0;
     public static double INTAKE_SECOND_BACKWARD = 20.0;
-
     public static double SECOND_BACKWARD = 22.0;
-    public static double SECOND_FORWARD = 26.0;
+    public static double SECOND_FORWARD = 24.0;
     public static double ENDING_DISTANCE = 30.0;
 
     // turning angle parameters
@@ -70,10 +69,10 @@ public class CR extends LinearOpMode {
     public static double HEADING_CORRECTION_KP = 0.015;
     public static double HEADING_CORRECTION_MAX_VEL = 0.3;
     public static int HEADING_STABLE_SAMPLES = 3;
-    public static double HEADING_TIMEOUT_MS = 300;
+    public static double HEADING_TIMEOUT_MS = 280;
 
     // Timing parameters
-    public static long INTAKE_TIME_MS = 300;
+    public static long INTAKE_TIME_MS = 280;
     public static long SHOOT_TIME_MS = 3000;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
@@ -175,7 +174,7 @@ public class CR extends LinearOpMode {
         // Initialize ramp
         try {
             rampController = new NewRampController(this);
-//            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
+            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
             //
         }
@@ -215,10 +214,7 @@ public class CR extends LinearOpMode {
         autoAimTurretRight();
         shootBalls();
 
-        // prevents wrapping around the turret
-        turretField.disable();
-
-        // 4. turn to pickup angle (90)
+        // 4. turn right to pickup angle (90)
         Action turnLeft2 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
                 .build();
@@ -228,6 +224,7 @@ public class CR extends LinearOpMode {
         // 5. Go forward while intake (first line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
+        turretField.disable();
 
         // 6. Go backward after intake (first line)
         Action moveBackward2 = tankDrive.actionBuilder(currentPose)
@@ -239,7 +236,6 @@ public class CR extends LinearOpMode {
         // 8. Shoot balls
         // no autoaim because of the intakeForward
         shootBalls();
-        turretField.disable();
 
         // 9. turn to 0 degree for going backward
         Action turnRight2 = tankDrive.actionBuilder(currentPose)
@@ -256,7 +252,7 @@ public class CR extends LinearOpMode {
         Actions.runBlocking(moveBackward3);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 11. turn left 90 degree for pickup (second line)
+        // 11. turn right 90 degree for pickup (second line)
         Action turnLeft3 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
                 .build();
@@ -266,6 +262,7 @@ public class CR extends LinearOpMode {
         // 12. forward intake for pickup (second line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
+        turretField.disable();
 
         // 13. backward intake (second line)
         Action moveBackward4 = tankDrive.actionBuilder(currentPose)
