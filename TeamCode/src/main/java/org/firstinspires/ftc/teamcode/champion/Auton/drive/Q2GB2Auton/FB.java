@@ -254,8 +254,8 @@ public class FB extends LinearOpMode {
 
         // 8. Shoot balls
         shootBalls();
-
         currentPose = tankDrive.pinpointLocalizer.getPose();
+
         // 9. go forward
         Action moveForward3 = tankDrive.actionBuilder(currentPose)
                 .lineToX(currentPose.position.x + SECOND_BACKWARD)
