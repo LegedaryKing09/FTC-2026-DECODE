@@ -235,7 +235,7 @@ public class CR extends LinearOpMode {
 
         // 6. Go backward after intake (first line)
         Action moveBackward2 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + INTAKE_BACKWARD)
+                .lineToX(currentPose.position.x - INTAKE_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward2);
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -273,7 +273,7 @@ public class CR extends LinearOpMode {
 
         // 13. backward intake (second line)
         Action moveBackward4 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + INTAKE_SECOND_BACKWARD)
+                .lineToX(currentPose.position.x - INTAKE_SECOND_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward4);
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -381,7 +381,7 @@ public class CR extends LinearOpMode {
         // Get current pose and build trajectory
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action moveForward = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x - INTAKE_FORWARD)
+                .lineToX(currentPose.position.x + INTAKE_FORWARD)
                 .build();
 
         // Create a custom action that combines RoadRunner movement with intake control
