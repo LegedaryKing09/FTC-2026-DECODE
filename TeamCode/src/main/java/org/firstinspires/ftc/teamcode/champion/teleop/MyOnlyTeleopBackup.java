@@ -64,7 +64,7 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
     public static double TURRET_MANUAL_SENSITIVITY = 0.2;
 
     // === BALL DETECTION ===
-    public static double UPTAKE_SWITCH_THRESHOLD = 1;
+    public static double UPTAKE_SWITCH_THRESHOLD = 2.5;
 
     // === TELEMETRY ===
     public static double TELEMETRY_INTERVAL_MS = 100;

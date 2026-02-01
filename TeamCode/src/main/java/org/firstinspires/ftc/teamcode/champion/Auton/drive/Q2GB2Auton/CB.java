@@ -50,7 +50,7 @@ public class CB extends LinearOpMode {
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
     public static double AUTON_START_X = 49.6;
     public static double AUTON_START_Y = 9.0;
-    public static double AUTON_START_HEADING = 0.0;
+    public static double AUTON_START_HEADING = 45.0;
 
     // Shooter settings
     public static double CONSTANT_SHOOTER_RPM = 3100.0;

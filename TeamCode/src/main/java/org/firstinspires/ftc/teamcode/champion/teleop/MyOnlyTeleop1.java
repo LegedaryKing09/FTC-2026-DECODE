@@ -90,7 +90,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     public static double RAMP_INCREMENT_DEGREES = 0.05;  // Always positive, direction handled in code
     public static double TURRET_TARGET_INCREMENT = 1.0;
     public static double RPM_INCREMENT = 100.0;
-    public static double TURRET_MANUAL_SENSITIVITY = 0.3;
+    public static double TURRET_MANUAL_SENSITIVITY = 0.2;
 
     // === BALL DETECTION ===
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
