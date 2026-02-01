@@ -228,6 +228,7 @@ public class CB extends LinearOpMode {
         // 5. Go forward while intake (first line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
+        turretField.disable();
 
         // 6. Go backward after intake (first line)
         Action moveBackward2 = tankDrive.actionBuilder(currentPose)
@@ -239,7 +240,6 @@ public class CB extends LinearOpMode {
         // 8. Shoot balls
         // no autoaim because of the intakeForward
         shootBalls();
-        turretField.disable();
 
         // 9. turn to 0 degree for going backward
         Action turnRight2 = tankDrive.actionBuilder(currentPose)

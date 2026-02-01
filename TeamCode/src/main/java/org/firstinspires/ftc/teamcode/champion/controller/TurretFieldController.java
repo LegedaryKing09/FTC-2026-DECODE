@@ -320,7 +320,7 @@ public class TurretFieldController {
         boolean isActive();
     }
 
-    public static double AUTO_AIM_TIMEOUT_MS = 2500.0;
+    public static double AUTO_AIM_TIMEOUT_MS = 1800.0;
 
     public boolean autoAim(HeadingProvider headingProvider, OpModeChecker opModeChecker) {
         return autoAim(TARGET_FIELD_ANGLE, headingProvider, opModeChecker, null);
