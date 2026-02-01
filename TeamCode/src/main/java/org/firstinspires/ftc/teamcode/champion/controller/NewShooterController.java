@@ -13,7 +13,7 @@ public class NewShooterController {
     private final ElapsedTime runtime;
 
     // Motor direction control (tune these if motors spin opposite ways)
-    public static boolean motor1Reversed = false;
+    public static boolean motor1Reversed = true;
     public static boolean motor2Reversed = true;  // Often mounted opposite
 
     // Target RPM control
@@ -23,12 +23,12 @@ public class NewShooterController {
     public static double MAX_RPM = 6000.0;
 
     // PID gains (tunable via FTC Dashboard)
-    public static double kP = 0.65;   // Proportional gain (scaled for RPM error -> power)
-    public static double kI = 0;   // Integral gain
-    public static double kD = 0;      // Derivative gain (start with 0)
+    public static double kP = 0.9;   // Proportional gain (scaled for RPM error -> power)
+    public static double kI = 0.009;   // Integral gain
+    public static double kD = 0.09;      // Derivative gain (start with 0)
 
     // Feedforward gain (helps reach target faster)
-    public static double kF = 0.0002;  // Feedforward: power per RPM
+    public static double kF = 0;  // Feedforward: power per RPM
 
     // PID limits
     public static double MAX_INTEGRAL = 10000.0;  // Integral windup limit
