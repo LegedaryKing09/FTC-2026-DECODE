@@ -57,7 +57,7 @@ public class FB extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = -130.0;
 
     // Distance parameters
-    public static double INITIAL_FORWARD = 20.0;
+    public static double INITIAL_FORWARD = 23.0;
     public static double SECOND_BACKWARD = 44.0;
     public static double INTAKE_FORWARD = 28.0;
     public static double INTAKE_BACKWARD = 28.0;
@@ -228,6 +228,7 @@ public class FB extends LinearOpMode {
         // 4. Go forward while intake (first line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
+        turretField.disable();
 
         // 5. Go backward after intake (first line)
         Action moveBackward1 = tankDrive.actionBuilder(currentPose)
@@ -245,6 +246,7 @@ public class FB extends LinearOpMode {
 
         // 7. Go backward for shooting
         backwardTurret(INITIAL_FORWARD);
+        turretField.disable();
 
         // 8. Shoot balls
         shootBalls();
@@ -266,6 +268,7 @@ public class FB extends LinearOpMode {
         // 4. Go forward while intake (first line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
+        turretField.disable();
 
         // 5. Go backward after intake (first line)
         Action moveBackward3 = tankDrive.actionBuilder(currentPose)
@@ -283,6 +286,7 @@ public class FB extends LinearOpMode {
 
         // 7. Go backward for shooting
         backwardTurret(SECOND_BACKWARD);
+        turretField.disable();
 
         // 8. Shoot balls
         shootBalls();
@@ -291,7 +295,6 @@ public class FB extends LinearOpMode {
                 .lineToX(currentPose.position.x + ENDING_DISTANCE)
                 .build();
         Actions.runBlocking(FINISH);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
 
     }
 
