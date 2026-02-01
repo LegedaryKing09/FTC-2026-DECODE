@@ -36,7 +36,8 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  * Left Bumper:    HOLD to VOMIT (reverse intake + transfer + uptake)
  *
  * === DRIVER 2 (gamepad2) ===
- * Right Trigger:  Hold to run intake + transfer + uptake (all three)
+ * Right Trigger:  HOLD to SHOOT - runs intake + transfer + uptake,
+ *                 BYPASSES ball detection (forces balls through shooter)
  *
  * Left Bumper:    RETRACT ramp (angle goes more negative)
  * Left Trigger:   EXTEND ramp (angle goes less negative, toward 0°)
@@ -59,12 +60,12 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === PRESETS ===
     public static double FAR_RPM = 4600.0;
-    public static double FAR_RAMP_ANGLE = 0.4;
-    public static double FAR_TURRET_ANGLE = 25.0;
+    public static double FAR_RAMP_ANGLE = 0.7;
+    public static double FAR_TURRET_ANGLE = -25.0;
 
     public static double CLOSE_RPM = 3900.0;
-    public static double CLOSE_RAMP_ANGLE = 0.7;
-    public static double CLOSE_TURRET_ANGLE = 45.0;
+    public static double CLOSE_RAMP_ANGLE = 0.4;
+    public static double CLOSE_TURRET_ANGLE = -45.0;
 
     public static double IDLE_RPM = 2000.0;
 
@@ -200,7 +201,10 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
             // === BALL DETECTION: Auto-control uptake based on switch ===
             // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
-            if (intakeModeActive && uptakeSwitch != null) {
+            // BYPASS: When gamepad2 RT is held, ignore ball detection and keep uptake running
+            boolean bypassBallDetection = gamepad2.right_trigger > TRIGGER_THRESHOLD;
+
+            if (intakeModeActive && uptakeSwitch != null && !bypassBallDetection) {
                 double switchVoltage = uptakeSwitch.getVoltage();
                 if (switchVoltage < UPTAKE_SWITCH_THRESHOLD) {
                     // Ball detected - stop uptake (intake + transfer keep running)
@@ -420,7 +424,8 @@ public class MyOnlyTeleop1 extends LinearOpMode {
      */
     private void handleDriver2Controls() {
 
-        // === RT: HOLD TO RUN INTAKE + TRANSFER + UPTAKE (all three) ===
+        // === RT: HOLD TO SHOOT - Run ITU and bypass ball detection ===
+        // This forces balls through the shooter regardless of the uptake switch
         if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
             // Start all three if not already running from trigger
             if (!allSystemsFromTrigger) {

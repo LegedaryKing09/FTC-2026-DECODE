@@ -27,8 +27,8 @@ public class NewRampController {
     public static String RAMP_SERVO_NAME = "ramp";
 
     // === POSITION LIMITS ===
-    public static double MIN_POSITION = 0.0;   // Extended
-    public static double MAX_POSITION = 1.0;   // Retracted
+    public static double MIN_POSITION = 0.75;   // Extended
+    public static double MAX_POSITION = 0.0;   // Retracted
 
     private final Servo rampServo;
     private double targetPosition = 0.5;
@@ -94,14 +94,14 @@ public class NewRampController {
      *   RAMP_INCREMENT_DEGREES = 5.0  -->  0.02
      */
     public void incrementAngle(double amount) {
-        setTargetAngle(targetPosition + amount);
+        setTargetAngle(targetPosition - amount);
     }
 
     /**
      * Decrement "angle" - subtracts from position
      */
     public void decrementAngle(double amount) {
-        setTargetAngle(targetPosition - amount);
+        setTargetAngle(targetPosition + amount);
     }
 
     /**

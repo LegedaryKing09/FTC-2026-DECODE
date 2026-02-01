@@ -7,13 +7,18 @@ import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 /**
  * Field-Centric Turret Controller with Dead Zone Handling
  * Updated for Continuous Rotation Servo drive system.
- * DIRECTION CONVENTION:
- * - Positive angle = CW (clockwise)
- * - Negative angle = CCW (counter-clockwise)
+ *
+ * DIRECTION CONVENTIONS:
+ * - Turret: CW = positive, CCW = negative
+ * - Robot Heading: CCW = positive, CW = negative (standard FTC)
+ * - INVERT_HEADING = true compensates for this mismatch
+ *
  * LIMITS:
  * - CW limit: +90°
  * - CCW limit: -179°
+ *
  * FIXES:
+ * - Added INVERT_HEADING to handle robot/turret direction mismatch
  * - Added error normalization to handle accumulated angle wraparound
  * - Fixed derivative kick by normalizing error change instead of error
  * - Fixed integral windup in dead zone
@@ -49,6 +54,10 @@ public class TurretFieldController {
 
     // ========== OUTPUT ==========
     public static boolean INVERT_OUTPUT = false;
+
+    // ========== HEADING DIRECTION ==========
+    // Set to true if robot heading is CCW positive but turret is CW positive
+    public static boolean INVERT_HEADING = true;
 
     // ========== OFFSET ==========
     public static double TURRET_OFFSET = 0.0;
@@ -146,15 +155,18 @@ public class TurretFieldController {
 
         lastRobotHeading = robotHeadingDegrees;
 
+        // Apply heading inversion if robot heading convention is opposite to turret
+        double effectiveHeading = INVERT_HEADING ? -robotHeadingDegrees : robotHeadingDegrees;
+
         double currentTurretAngle = turret.getTurretAngle();
 
         // ========== CALCULATE REQUIRED TURRET ANGLE ==========
-        double requiredTurretAngle = TARGET_FIELD_ANGLE - robotHeadingDegrees - TURRET_OFFSET;
+        double requiredTurretAngle = TARGET_FIELD_ANGLE - effectiveHeading - TURRET_OFFSET;
         requiredTurretAngle = normalizeAngle(requiredTurretAngle);
         debugRequiredTurret = requiredTurretAngle;
 
         // Calculate actual field facing (for debug)
-        debugActualFieldFacing = normalizeAngle(robotHeadingDegrees + currentTurretAngle + TURRET_OFFSET);
+        debugActualFieldFacing = normalizeAngle(effectiveHeading + currentTurretAngle + TURRET_OFFSET);
 
         // ========== DEAD ZONE CHECK ==========
         // CW is positive (+90 limit), CCW is negative (-179 limit)
