@@ -283,7 +283,6 @@ public class CR extends LinearOpMode {
                 .build();
         Actions.runBlocking(turnRight);
         HeadingCorrection(DEGREE_ZERO, 0.5);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 15. forward move
         forwardTurret();
@@ -292,6 +291,7 @@ public class CR extends LinearOpMode {
         // 17. shoot balls
         shootBalls();
 
+        currentPose = tankDrive.pinpointLocalizer.getPose();
         // 19. Ending pose
         Action moveForward5 = tankDrive.actionBuilder(currentPose)
                 .lineToX(currentPose.position.x - ENDING_DISTANCE)
