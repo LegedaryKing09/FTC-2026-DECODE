@@ -3,15 +3,15 @@ package org.firstinspires.ftc.teamcode.champion.teleop;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
-import com.acmerobotics.roadrunner.Pose2d;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.acmerobotics.roadrunner.Pose2d;
+import org.firstinspires.ftc.teamcode.champion.RobotState;
 
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
@@ -20,6 +20,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveControlle
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
+import org.firstinspires.ftc.teamcode.champion.PoseStorage;
+
 
 
 /**
@@ -59,18 +61,18 @@ import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
  * X Button:       Set RPM to IDLE (2000 RPM)
  */
 @Config
-@TeleOp(name = "Undefeated Super Powerful Teleop Red", group = "Competition")
+@TeleOp(name = "Undefeated Super Powerful Teleop Blue", group = "Competition")
 public class MyOnlyTeleop2 extends LinearOpMode {
 
     // === PRESETS ===
-    public static double FAR_RPM = 4000.0;
-    public static double FAR_RAMP_ANGLE = 0.4;
+    public static double FAR_RPM = 4100.0;
+    public static double FAR_RAMP_ANGLE = 0.6;
     public static double FAR_TURRET = 23;
     // FAR_TURRET_ANGLE removed - now calculated dynamically
 
-    public static double CLOSE_RPM = 3600.0;
-    public static double CLOSE_RAMP_ANGLE = 0.51;
-    public static double CLOSE_TURRET = 45;
+    public static double CLOSE_RPM = 3100.0;
+    public static double CLOSE_RAMP_ANGLE = 0.449;
+    public static double CLOSE_TURRET = 43;
     // CLOSE_TURRET_ANGLE removed - now calculated dynamically
 
     public static double IDLE_RPM = 2000.0;
@@ -88,7 +90,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     public static double RAMP_INCREMENT_DEGREES = 0.05;  // Always positive, direction handled in code
     public static double TURRET_TARGET_INCREMENT = 1.0;
     public static double RPM_INCREMENT = 100.0;
-    public static double TURRET_MANUAL_SENSITIVITY = 0.3;
+    public static double TURRET_MANUAL_SENSITIVITY = 0.2;
 
     // === BALL DETECTION ===
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
@@ -472,26 +474,28 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         }
 
         // === LB: RETRACT RAMP (more negative angle, toward -245°) ===
-        boolean currentLB2 = gamepad2.left_bumper;
-        if (currentLB2 && !lastLB2) {
+
+        boolean ltPressed = gamepad2.left_bumper;
+        if (ltPressed && !lastLT2Pressed) {
             if (ramp != null) {
                 double newTarget = ramp.getTargetAngle() - RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
                 rampDebug = "LB RETRACT: " + ramp.getTargetAngle();
             }
         }
-        lastLB2 = currentLB2;
+
+        lastLT2Pressed = ltPressed;
 
         // === LT: EXTEND RAMP (less negative angle, toward 0°) ===
-        boolean ltPressed = gamepad2.left_trigger > TRIGGER_THRESHOLD;
-        if (ltPressed && !lastLT2Pressed) {
+        boolean currentLB2 = gamepad2.left_trigger> TRIGGER_THRESHOLD;
+        if (currentLB2 && !lastLB2) {
             if (ramp != null) {
                 double newTarget = ramp.getTargetAngle() + RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
                 rampDebug = "LT EXTEND: " + ramp.getTargetAngle();
             }
         }
-        lastLT2Pressed = ltPressed;
+        lastLB2 = currentLB2;
 
         // === DPAD UP: RPM +100 ===
         boolean currentDpadUp2 = gamepad2.dpad_up;
@@ -564,7 +568,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
             if (turretField != null) {
                 // Calculate angle to target based on current robot position
                 double targetAngle = calculateAngleToTarget();
-                turretField.setTargetFieldAngle(targetAngle);
+                turretField.setTargetFieldAngle(FAR_TURRET);
                 turretField.enable();
                 autoAimEnabled = true;
             }
@@ -585,7 +589,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
             if (turretField != null) {
                 // Calculate angle to target based on current robot position
                 double targetAngle = calculateAngleToTarget();
-                turretField.setTargetFieldAngle(targetAngle);
+                turretField.setTargetFieldAngle(CLOSE_TURRET);
                 turretField.enable();
                 autoAimEnabled = true;
             }
@@ -716,8 +720,10 @@ public class MyOnlyTeleop2 extends LinearOpMode {
             if (autoAimEnabled) {
                 telemetry.addData("Turret Target", "%.1f° (err: %.1f°)",
                         turretField.getTargetFieldAngle(), turretField.getFieldError());
+
             }
         }
+
 
         telemetry.update();
     }

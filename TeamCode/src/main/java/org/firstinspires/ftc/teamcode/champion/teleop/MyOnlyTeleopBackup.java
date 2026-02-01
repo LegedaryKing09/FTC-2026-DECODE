@@ -50,21 +50,21 @@ import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 public class MyOnlyTeleopBackup extends LinearOpMode {
 
     // === PRESETS ===
-    public static double FAR_RPM = 4300.0;
-    public static double FAR_RAMP_ANGLE = 0.7;
+    public static double FAR_RPM = 4100.0;
+    public static double FAR_RAMP_ANGLE = 0.6;
 
-    public static double CLOSE_RPM = 3600.0;
-    public static double CLOSE_RAMP_ANGLE = 0.51;
+    public static double CLOSE_RPM = 3100.0;
+    public static double CLOSE_RAMP_ANGLE = 0.449;
 
     public static double IDLE_RPM = 2000.0;
 
     // === ADJUSTMENTS ===
     public static double RAMP_INCREMENT = 0.05;
     public static double RPM_INCREMENT = 100.0;
-    public static double TURRET_MANUAL_SENSITIVITY = 0.5;
+    public static double TURRET_MANUAL_SENSITIVITY = 0.2;
 
     // === BALL DETECTION ===
-    public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
+    public static double UPTAKE_SWITCH_THRESHOLD = 1;
 
     // === TELEMETRY ===
     public static double TELEMETRY_INTERVAL_MS = 100;

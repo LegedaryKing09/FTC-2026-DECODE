@@ -491,32 +491,73 @@ public class CB extends LinearOpMode {
     }
 
     private void cleanup() {
-        Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-        double rawX = rawPose.position.x;
-        double rawY = rawPose.position.y;
+        double fieldX = AUTON_START_X;
+        double fieldY = AUTON_START_Y;
+        double fieldHeading = Math.toRadians(AUTON_START_HEADING);
+        double rawX = 0, rawY = 0;
+        double deltaX = 0, deltaY = 0;
+        double deltaHeading = 0;
 
-        // === COORDINATE TRANSFORMATION ===
-        // SWAP_XY = true, NEGATE_X = false, NEGATE_Y = true
-        double deltaX = rawY;       // Swapped, not negated
-        double deltaY = -rawX;      // Swapped, then negated
+        try {
+            // Try to get pose from RoadRunner's pinpoint localizer
+            Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
+            rawX = rawPose.position.x;
+            rawY = rawPose.position.y;
+            deltaHeading = rawPose.heading.toDouble();  // This is delta from start (0)
 
-        // Add delta to starting position
-        double fieldX = AUTON_START_X + deltaX;
-        double fieldY = AUTON_START_Y + deltaY;
+            // === COORDINATE TRANSFORMATION ===
+            // SWAP_XY = true, NEGATE_X = false, NEGATE_Y = true
+            deltaX = rawY;       // Swapped, not negated
+            deltaY = -rawX;      // Swapped, then negated
 
-        // Save CORRECTED field coordinates
-        PoseStorage.currentPose = new Pose2d(
-                new Vector2d(fieldX, fieldY),
-                rawPose.heading
-        );
-        if (turret != null) {
-            PoseStorage.turretAngle = turret.getTurretAngle();
+            // Add delta to starting position
+            fieldX = AUTON_START_X + deltaX;
+            fieldY = AUTON_START_Y + deltaY;
+            fieldHeading = Math.toRadians(AUTON_START_HEADING) + deltaHeading;  // Add starting heading
+
+        } catch (Exception e) {
+            // If RoadRunner fails, try the SixWheelDriveController odometry
+            telemetry.addData("WARNING", "RoadRunner getPose failed: " + e.getMessage());
+            try {
+                if (driveController != null) {
+                    driveController.updateOdometry();
+                    rawX = driveController.getX();
+                    rawY = driveController.getY();
+                    deltaHeading = driveController.getHeading();
+
+                    // Same transformation
+                    deltaX = rawY;
+                    deltaY = -rawX;
+                    fieldX = AUTON_START_X + deltaX;
+                    fieldY = AUTON_START_Y + deltaY;
+                    fieldHeading = Math.toRadians(AUTON_START_HEADING) + deltaHeading;
+                }
+            } catch (Exception e2) {
+                telemetry.addData("WARNING", "DriveController also failed: " + e2.getMessage());
+                // Use starting position as fallback
+            }
         }
-        telemetry.addLine("=== AUTON COMPLETE ===");
-        telemetry.addData("Raw Odom", "x=%.1f, y=%.1f", rawX, rawY);
-        telemetry.addData("Delta (corrected)", "dx=%.1f, dy=%.1f", deltaX, deltaY);
+
+        // Save to PoseStorage (even if we only have starting position)
+        try {
+            PoseStorage.currentPose = new Pose2d(
+                    new Vector2d(fieldX, fieldY),
+                    fieldHeading
+            );
+        } catch (Exception e) {
+            telemetry.addData("WARNING", "Pose2d creation failed: " + e.getMessage());
+        }
+
+        // Save turret angle
+        if (turret != null) {
+            try {
+                PoseStorage.turretAngle = turret.getTurretAngle();
+            } catch (Exception e) {
+                PoseStorage.turretAngle = 0;
+            }
+        }
         telemetry.addData("Field Pose SAVED", "x=%.1f, y=%.1f, h=%.1f°",
-                fieldX, fieldY, rawPose.heading);
+                fieldX, fieldY, Math.toDegrees(fieldHeading));
         telemetry.addData("Turret SAVED", "%.1f°", PoseStorage.turretAngle);
         telemetry.update();
         sleep(2000);

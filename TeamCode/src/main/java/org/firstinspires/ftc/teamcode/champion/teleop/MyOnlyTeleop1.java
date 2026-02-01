@@ -65,13 +65,13 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === PRESETS ===
-    public static double FAR_RPM = 4400.0;
+    public static double FAR_RPM = 4100.0;
     public static double FAR_RAMP_ANGLE = 0.6;
     public static double FAR_TURRET = -23;
     // FAR_TURRET_ANGLE removed - now calculated dynamically
 
-    public static double CLOSE_RPM = 3600.0;
-    public static double CLOSE_RAMP_ANGLE = 0.51;
+    public static double CLOSE_RPM = 3100.0;
+    public static double CLOSE_RAMP_ANGLE = 0.449;
     public static double CLOSE_TURRET = -45;
     // CLOSE_TURRET_ANGLE removed - now calculated dynamically
 
@@ -474,26 +474,28 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         }
 
         // === LB: RETRACT RAMP (more negative angle, toward -245°) ===
-        boolean currentLB2 = gamepad2.left_bumper;
-        if (currentLB2 && !lastLB2) {
+
+        boolean ltPressed = gamepad2.left_bumper;
+        if (ltPressed && !lastLT2Pressed) {
             if (ramp != null) {
                 double newTarget = ramp.getTargetAngle() - RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
                 rampDebug = "LB RETRACT: " + ramp.getTargetAngle();
             }
         }
-        lastLB2 = currentLB2;
+
+        lastLT2Pressed = ltPressed;
 
         // === LT: EXTEND RAMP (less negative angle, toward 0°) ===
-        boolean ltPressed = gamepad2.left_trigger > TRIGGER_THRESHOLD;
-        if (ltPressed && !lastLT2Pressed) {
+        boolean currentLB2 = gamepad2.left_trigger> TRIGGER_THRESHOLD;
+        if (currentLB2 && !lastLB2) {
             if (ramp != null) {
                 double newTarget = ramp.getTargetAngle() + RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
                 rampDebug = "LT EXTEND: " + ramp.getTargetAngle();
             }
         }
-        lastLT2Pressed = ltPressed;
+        lastLB2 = currentLB2;
 
         // === DPAD UP: RPM +100 ===
         boolean currentDpadUp2 = gamepad2.dpad_up;
@@ -566,7 +568,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             if (turretField != null) {
                 // Calculate angle to target based on current robot position
                 double targetAngle = calculateAngleToTarget();
-                turretField.setTargetFieldAngle(targetAngle);
+                turretField.setTargetFieldAngle(FAR_TURRET);
                 turretField.enable();
                 autoAimEnabled = true;
             }
@@ -587,7 +589,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             if (turretField != null) {
                 // Calculate angle to target based on current robot position
                 double targetAngle = calculateAngleToTarget();
-                turretField.setTargetFieldAngle(targetAngle);
+                turretField.setTargetFieldAngle(CLOSE_TURRET);
                 turretField.enable();
                 autoAimEnabled = true;
             }
