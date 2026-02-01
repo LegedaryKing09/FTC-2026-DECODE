@@ -57,7 +57,7 @@ public class FB extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = -130.0;
 
     // Distance parameters
-    public static double INITIAL_FORWARD = 20.0;
+    public static double INITIAL_FORWARD = 23.0;
     public static double SECOND_BACKWARD = 44.0;
     public static double INTAKE_FORWARD = 28.0;
     public static double INTAKE_BACKWARD = 28.0;
