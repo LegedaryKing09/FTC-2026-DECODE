@@ -52,8 +52,7 @@ public final class AutoTankDrive {
         public double inPerTick = 0.0019582245431; //  real distance divided by the ticks traveled recorded
 
         // distance betweent the wheels but use the angularramplogger
-        public double physicalTrackWidthInches = 12.441984508; // actual measurement: 14.9
-
+        public double physicalTrackWidthInches = 12.441984508; // actual measurement: 14.
         // Path profile parameters (velocity and acceleration limits)
         public double maxWheelVel = 100;
         public double minProfileAccel = -48;

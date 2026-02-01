@@ -29,8 +29,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "CloseBlue GB2", group = "Competition")
-public class CB extends LinearOpMode {
+@Autonomous(name = "CloseRed GB2", group = "Competition")
+public class CR extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -63,7 +63,7 @@ public class CB extends LinearOpMode {
 
     // turning angle parameters
     public static double DEGREE_ZERO = 0.0;
-    public static double PICK_UP_ANGLE = 90.0;
+    public static double PICK_UP_ANGLE = -90.0;
 
     // turning perfection
     public static double HEADING_CORRECTION_KP = 0.015;
@@ -84,7 +84,7 @@ public class CB extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_LEFT = -43.0;
+    public static double AUTO_AIM_RIGHT = 43.0;
 
     @Override
     public void runOpMode() {
@@ -211,7 +211,7 @@ public class CB extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 3. shoot 3 balls
-        autoAimTurretLeft();
+        autoAimTurretRight();
         shootBalls();
 
         // prevents wrapping around the turret
@@ -364,7 +364,7 @@ public class CB extends LinearOpMode {
         uptakeStoppedBySwitch = false;
 
         if (turretField != null){
-            turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
+            turretField.setTargetFieldAngle(AUTO_AIM_RIGHT);
             turretField.enable(); // starts the controller non blocking; before, the autoaim was blocking
         }
 
@@ -567,11 +567,11 @@ public class CB extends LinearOpMode {
         sleep(50);
     }
 
-    private void autoAimTurretLeft () {
+    private void autoAimTurretRight () {
         if (turretField == null) return;
 
         turretField.autoAim(
-                AUTO_AIM_LEFT,
+                AUTO_AIM_RIGHT,
                 () -> Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble()),
                 () -> opModeIsActive()
         );

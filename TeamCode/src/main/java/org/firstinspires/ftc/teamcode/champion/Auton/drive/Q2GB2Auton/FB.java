@@ -1,4 +1,7 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
+import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2Auton.FarBlue.FIRST_BACKWARD;
+import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2Auton.FarBlue.INITIAL_FORWARD;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
@@ -29,8 +32,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "CloseBlue GB2", group = "Competition")
-public class CB extends LinearOpMode {
+@Autonomous(name = "FarBlue GB2", group = "Competition")
+public class FB extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -53,13 +56,13 @@ public class CB extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = -130.0;
 
     // Distance parameters
-    public static double INITIAL_BACKWARD = -40.0;
-    public static double INTAKE_FORWARD = 30.0;
+    public static double INITIAL_FORWARD = 20.0;
+    public static double SECOND_BACKWARD = 44.0;
+    public static double INTAKE_FORWARD = 36.0;
     public static double INTAKE_BACKWARD = 30.0;
-    public static double INTAKE_SECOND_BACKWARD = 20.0;
-
-    public static double SECOND_BACKWARD = 22.0;
+    public static double FIRST_BACKWARD = 26.0;
     public static double ENDING_DISTANCE = 30.0;
+
 
     // turning angle parameters
     public static double DEGREE_ZERO = 0.0;
@@ -69,10 +72,10 @@ public class CB extends LinearOpMode {
     public static double HEADING_CORRECTION_KP = 0.015;
     public static double HEADING_CORRECTION_MAX_VEL = 0.3;
     public static int HEADING_STABLE_SAMPLES = 3;
-    public static double HEADING_TIMEOUT_MS = 300;
+    public static double HEADING_TIMEOUT_MS = 280;
 
     // Timing parameters
-    public static long INTAKE_TIME_MS = 300;
+    public static long INTAKE_TIME_MS = 280;
     public static long SHOOT_TIME_MS = 3000;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
@@ -84,7 +87,7 @@ public class CB extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_LEFT = -43.0;
+    public static double AUTO_AIM_LEFT = 43.0;
 
     @Override
     public void runOpMode() {
@@ -203,101 +206,101 @@ public class CB extends LinearOpMode {
     private void executeAutonomousSequence() {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 1. Go backward
+        // 1. shoot 3 balls
+        autoAimTurretLeft();
+        shootBalls();
+
+        // 2. go forward
+        Action moveForward1 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + INITIAL_FORWARD)
+                .build();
+        Actions.runBlocking(moveForward1);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 3. turn to 90 degree
+        Action turnLeft1 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(PICK_UP_ANGLE))
+                .build();
+        Actions.runBlocking(turnLeft1);
+        HeadingCorrection(PICK_UP_ANGLE, 0.5);
+
+        // 4. Go forward while intake (first line)
+        intakeForwardRoadRunner();
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 5. Go backward after intake (first line)
         Action moveBackward1 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + INITIAL_BACKWARD)
+                .lineToY(currentPose.position.y - INTAKE_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward1);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 3. shoot 3 balls
-        autoAimTurretLeft();
-        shootBalls();
-
-        // prevents wrapping around the turret
-        turretField.disable();
-
-        // 4. turn to pickup angle (90)
-        Action turnLeft2 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(PICK_UP_ANGLE))
+        // 6. turn right
+        Action turnRight1 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(DEGREE_ZERO))
                 .build();
-        Actions.runBlocking(turnLeft2);
-        HeadingCorrection(PICK_UP_ANGLE, 0.5);
+        Actions.runBlocking(turnRight1);
+        HeadingCorrection(DEGREE_ZERO, 0.5);
 
-        // 5. Go forward while intake (first line)
-        intakeForwardRoadRunner();
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 6. Go backward after intake (first line)
+        // 7. Go backward for shooting
         Action moveBackward2 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_BACKWARD)
+                .lineToX(currentPose.position.x - FIRST_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward2);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 8. Shoot balls
-        // no autoaim because of the intakeForward
+        autoAimTurretLeft();
         shootBalls();
-        turretField.disable();
 
-        // 9. turn to 0 degree for going backward
-        Action turnRight2 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(DEGREE_ZERO))
+        // 9. go forward
+        Action moveForward3 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + SECOND_BACKWARD)
                 .build();
-        Actions.runBlocking(turnRight2);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
+        Actions.runBlocking(moveForward3);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 10. go backward
-        Action moveBackward3 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x - SECOND_BACKWARD)
-                .build();
-        Actions.runBlocking(moveBackward3);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 11. turn left 90 degree for pickup (second line)
+        // 3. turn to 90 degree
         Action turnLeft3 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
                 .build();
         Actions.runBlocking(turnLeft3);
         HeadingCorrection(PICK_UP_ANGLE, 0.5);
 
-        // 12. forward intake for pickup (second line)
+        // 4. Go forward while intake (first line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 13. backward intake (second line)
+        // 5. Go backward after intake (first line)
+        Action moveBackward3 = tankDrive.actionBuilder(currentPose)
+                .lineToY(currentPose.position.y - INTAKE_BACKWARD)
+                .build();
+        Actions.runBlocking(moveBackward3);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // 6. turn right
+        Action turnRight3 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(DEGREE_ZERO))
+                .build();
+        Actions.runBlocking(turnRight3);
+        HeadingCorrection(DEGREE_ZERO, 0.5);
+
+        // 7. Go backward for shooting
         Action moveBackward4 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_SECOND_BACKWARD)
+                .lineToX(currentPose.position.x - SECOND_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward4);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 14. facing zero degree
-        Action turnRight = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(DEGREE_ZERO))
-                .build();
-        Actions.runBlocking(turnRight);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 15. forward move
-        Action moveForward4 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + SECOND_BACKWARD)
-                .build();
-        Actions.runBlocking(moveForward4);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // 17. shoot balls
+        // 8. Shoot balls
+        autoAimTurretLeft();
         shootBalls();
 
-        turretField.disable();
-
-        // 19. Ending pose
-        Action moveForward5 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x - ENDING_DISTANCE)
+        Action FINISH = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + ENDING_DISTANCE)
                 .build();
-        Actions.runBlocking(moveForward5);
+        Actions.runBlocking(FINISH);
+        currentPose = tankDrive.pinpointLocalizer.getPose();
 
     }
 
