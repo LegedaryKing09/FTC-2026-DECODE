@@ -54,11 +54,12 @@ public class CR extends LinearOpMode {
 
     // Distance parameters
     public static double INITIAL_BACKWARD = -40.0;
-    public static double INTAKE_FORWARD = 30.0;
-    public static double INTAKE_BACKWARD = 30.0;
+    public static double INTAKE_FORWARD = 28.0;
+    public static double INTAKE_BACKWARD = 28.0;
     public static double INTAKE_SECOND_BACKWARD = 20.0;
 
     public static double SECOND_BACKWARD = 22.0;
+    public static double SECOND_FORWARD = 26.0;
     public static double ENDING_DISTANCE = 30.0;
 
     // turning angle parameters
@@ -230,7 +231,7 @@ public class CR extends LinearOpMode {
 
         // 6. Go backward after intake (first line)
         Action moveBackward2 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_BACKWARD)
+                .lineToY(currentPose.position.y + INTAKE_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward2);
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -268,7 +269,7 @@ public class CR extends LinearOpMode {
 
         // 13. backward intake (second line)
         Action moveBackward4 = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y - INTAKE_SECOND_BACKWARD)
+                .lineToY(currentPose.position.y + INTAKE_SECOND_BACKWARD)
                 .build();
         Actions.runBlocking(moveBackward4);
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -282,16 +283,11 @@ public class CR extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // 15. forward move
-        Action moveForward4 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + SECOND_BACKWARD)
-                .build();
-        Actions.runBlocking(moveForward4);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
+        forwardTurret();
+        turretField.disable();
 
         // 17. shoot balls
         shootBalls();
-
-        turretField.disable();
 
         // 19. Ending pose
         Action moveForward5 = tankDrive.actionBuilder(currentPose)
@@ -381,7 +377,7 @@ public class CR extends LinearOpMode {
         // Get current pose and build trajectory
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action moveForward = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y + INTAKE_FORWARD)
+                .lineToY(currentPose.position.y - INTAKE_FORWARD)
                 .build();
 
         // Create a custom action that combines RoadRunner movement with intake control
@@ -435,6 +431,37 @@ public class CR extends LinearOpMode {
 
         uptakeController.setState(false);
         uptakeController.update();
+    }
+
+    private void forwardTurret(){
+        if(turretField != null){
+            turretField.setTargetFieldAngle(AUTO_AIM_RIGHT);
+            turretField.enable();
+        }
+
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action moveForward = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + SECOND_FORWARD)
+                .build();
+
+        Action intakeAction = new Action() {
+            private Action moveAction = moveForward;
+
+            @Override
+            // in every single loop, motors, sensors, pose, controllers are updated
+            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+                if (turretField != null && turretField.isEnabled()){
+                    turret.update();
+                    turretField.update(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                    );
+                }
+                return moveAction.run(packet);
+            }
+        };
+
+        // Run the combined action
+        Actions.runBlocking(intakeAction);
     }
 
     private boolean isBallAtUptake() {

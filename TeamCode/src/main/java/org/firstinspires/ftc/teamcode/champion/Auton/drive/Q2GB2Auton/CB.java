@@ -50,15 +50,16 @@ public class CB extends LinearOpMode {
 
     // Shooter settings
     public static double CONSTANT_SHOOTER_RPM = 4000.0;
-    public static double CONSTANT_RAMP_ANGLE = -130.0;
+    public static double CONSTANT_RAMP_ANGLE = 0.01;
 
     // Distance parameters
     public static double INITIAL_BACKWARD = -40.0;
-    public static double INTAKE_FORWARD = 30.0;
-    public static double INTAKE_BACKWARD = 30.0;
+    public static double INTAKE_FORWARD = 28.0;
+    public static double INTAKE_BACKWARD = 28.0;
     public static double INTAKE_SECOND_BACKWARD = 20.0;
 
     public static double SECOND_BACKWARD = 22.0;
+    public static double SECOND_FORWARD= 22.0;
     public static double ENDING_DISTANCE = 30.0;
 
     // turning angle parameters
@@ -174,7 +175,7 @@ public class CB extends LinearOpMode {
         // Initialize ramp
         try {
             rampController = new NewRampController(this);
-//            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
+            rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
             //
         }
@@ -281,17 +282,12 @@ public class CB extends LinearOpMode {
         HeadingCorrection(DEGREE_ZERO, 0.5);
         currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 15. forward move
-        Action moveForward4 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + SECOND_BACKWARD)
-                .build();
-        Actions.runBlocking(moveForward4);
-        currentPose = tankDrive.pinpointLocalizer.getPose();
+        // 15. forward with turret as it changes its heading, it would have to be with forward, not intake
+        forwardTurret();
+        turretField.disable();
 
         // 17. shoot balls
         shootBalls();
-
-        turretField.disable();
 
         // 19. Ending pose
         Action moveForward5 = tankDrive.actionBuilder(currentPose)
@@ -357,6 +353,36 @@ public class CB extends LinearOpMode {
         uptakeController.update();
 
         sleep(200);
+    }
+
+    private void forwardTurret(){
+        if(turretField != null){
+            turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
+            turretField.enable();
+        }
+
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action moveForward = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + SECOND_FORWARD)
+                .build();
+
+        Action intakeAction = new Action() {
+            private Action moveAction = moveForward;
+
+            @Override
+            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+                if (turretField != null && turretField.isEnabled()){
+                    turret.update();
+                    turretField.update(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                    );
+                }
+                return moveAction.run(packet);
+            }
+        };
+
+        // Run the combined action
+        Actions.runBlocking(intakeAction);
     }
 
     private void intakeForwardRoadRunner() {

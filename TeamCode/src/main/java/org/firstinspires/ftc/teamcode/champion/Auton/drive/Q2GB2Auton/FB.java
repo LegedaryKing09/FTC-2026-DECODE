@@ -58,8 +58,8 @@ public class FB extends LinearOpMode {
     // Distance parameters
     public static double INITIAL_FORWARD = 20.0;
     public static double SECOND_BACKWARD = 44.0;
-    public static double INTAKE_FORWARD = 36.0;
-    public static double INTAKE_BACKWARD = 30.0;
+    public static double INTAKE_FORWARD = 28.0;
+    public static double INTAKE_BACKWARD = 28.0;
     public static double FIRST_BACKWARD = 26.0;
     public static double ENDING_DISTANCE = 30.0;
 
@@ -569,6 +569,37 @@ public class FB extends LinearOpMode {
         tankDrive.setDrivePowers(new PoseVelocity2d(new Vector2d(0, 0), 0));
         sleep(50);
     }
+
+    private void forwardTurret(){
+        if(turretField != null){
+            turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
+            turretField.enable();
+        }
+
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action moveForward = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + SECOND_BACKWARD)
+                .build();
+
+        Action intakeAction = new Action() {
+            private Action moveAction = moveForward;
+
+            @Override
+            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+                if (turretField != null && turretField.isEnabled()){
+                    turret.update();
+                    turretField.update(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                    );
+                }
+                return moveAction.run(packet);
+            }
+        };
+
+        // Run the combined action
+        Actions.runBlocking(intakeAction);
+    }
+
 
     private void autoAimTurretLeft () {
         if (turretField == null) return;
