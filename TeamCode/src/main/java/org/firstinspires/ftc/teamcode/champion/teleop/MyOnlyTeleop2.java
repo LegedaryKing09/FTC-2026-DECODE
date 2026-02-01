@@ -68,8 +68,8 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     public static double FAR_TURRET = 23;
     // FAR_TURRET_ANGLE removed - now calculated dynamically
 
-    public static double CLOSE_RPM = 3000.0;
-    public static double CLOSE_RAMP_ANGLE = 0.7;
+    public static double CLOSE_RPM = 3600.0;
+    public static double CLOSE_RAMP_ANGLE = 0.51;
     public static double CLOSE_TURRET = 45;
     // CLOSE_TURRET_ANGLE removed - now calculated dynamically
 

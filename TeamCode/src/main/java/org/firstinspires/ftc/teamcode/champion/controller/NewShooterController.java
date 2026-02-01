@@ -21,12 +21,12 @@ public class NewShooterController {
     public static double MAX_RPM = 6000.0;
 
     // PID gains (tunable via FTC Dashboard)
-    public static double kP = 0.55;
+    public static double kP = 0.9;
     public static double kI = 0;
     public static double kD = 0;
 
     // Feedforward gain
-    public static double kF = 0.00019;
+    public static double kF = 0.0002;
 
     // PID limits
     public static double MAX_INTEGRAL = 10000.0;

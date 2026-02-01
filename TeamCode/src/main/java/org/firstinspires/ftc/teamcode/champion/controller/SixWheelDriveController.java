@@ -106,7 +106,7 @@ public class SixWheelDriveController {
         // Correct field X = -rawY (from odometry)
         // Correct field Y = rawX (from odometry)
         public static boolean SWAP_XY = true;           // Swap X and Y axes
-        public static boolean NEGATE_X = true;          // Negate the X value after swap
+        public static boolean NEGATE_X = false;          // Negate the X value after swap
         public static boolean NEGATE_Y = true;         // Negate the Y value after swap
     }
 
