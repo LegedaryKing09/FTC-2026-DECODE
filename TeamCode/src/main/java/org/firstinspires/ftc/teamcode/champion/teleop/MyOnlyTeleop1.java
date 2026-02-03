@@ -19,7 +19,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 
-
+import java.util.Locale;
 
 /**
  * 超级无敌高级Teleop
@@ -54,7 +54,7 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  *                 Auto-aim stays off until next preset button is pressed
  *
  * Y Button:       FAR preset - calculates turret angle to (0,0) based on position
- * A Button:       CLOSE preset - calculates turret angle to (0,0) based on position
+ * A Button:       CLOSE preset - AUTO RPM/RAMP based on distance to goal
  * X Button:       Set RPM to IDLE (2000 RPM)
  */
 @Config
@@ -62,31 +62,42 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === PRESETS ===
-    public static double FAR_RPM = 4100.0;
+    public static double FAR_RPM = 4600.0;
     public static double FAR_RAMP_ANGLE = 0.6;
     public static double FAR_TURRET = -23;
     // FAR_TURRET_ANGLE removed - now calculated dynamically
 
-    public static double CLOSE_RPM = 3100.0;
-    public static double CLOSE_RAMP_ANGLE = 0.449;
+    // CLOSE preset now uses distance-based lookup
     public static double CLOSE_TURRET = -45;
-    // CLOSE_TURRET_ANGLE removed - now calculated dynamically
 
     public static double IDLE_RPM = 2000.0;
+
+    // === DISTANCE-BASED SHOOTING TABLE ===
+    // Distance (inches) = base distance + 18 inches offset
+    // Each entry: {distance, ramp angle, RPM}
+    // Piecewise: if distance is within ±6 inches of a calibrated point, use that setting
+    public static double DISTANCE_TOLERANCE = 6.0;  // ±6 inches
+
+    // Calibration points (distance already includes +18 offset)
+    public static double DIST_1 = 24.0;   public static double RAMP_1 = 0.21;  public static double RPM_1 = 2750.0;
+    public static double DIST_2 = 36.0;   public static double RAMP_2 = 0.34;  public static double RPM_2 = 3100.0;
+    public static double DIST_3 = 48.0;   public static double RAMP_3 = 0.36;  public static double RPM_3 = 3150.0;
+    public static double DIST_4 = 60.0;   public static double RAMP_4 = 0.40;  public static double RPM_4 = 3250.0;
+    public static double DIST_5 = 72.0;   public static double RAMP_5 = 0.43;  public static double RPM_5 = 3450.0;
 
     // === TARGET POSITION (where turret aims at) ===
     public static double TARGET_X = 0.0;  // Field X coordinate to aim at
     public static double TARGET_Y = 0.0;  // Field Y coordinate to aim at
 
     // === AUTON STARTING POSITION ===
-    public static double AUTON_START_X = 49.6;
-    public static double AUTON_START_Y = 9.0;
+    public static double AUTON_START_X = 48;
+    public static double AUTON_START_Y = 137;
     public static double AUTON_START_HEADING = 0.0;  // degrees
 
     // === ADJUSTMENTS ===
-    public static double RAMP_INCREMENT_DEGREES = 0.05;  // Always positive, direction handled in code
+    public static double RAMP_INCREMENT_DEGREES = 0.01;  // Always positive, direction handled in code
     public static double TURRET_TARGET_INCREMENT = 1.0;
-    public static double RPM_INCREMENT = 100.0;
+    public static double RPM_INCREMENT = 50.0;
     public static double TURRET_MANUAL_SENSITIVITY = 0.2;
 
     // === BALL DETECTION ===
@@ -142,6 +153,11 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // === Auto-aim state ===
     private boolean autoAimEnabled = false;
     public double turretError;
+    private double turretOffset = 0.0;  // Persistent offset from D-pad adjustments
+
+    // === Distance tracking for telemetry ===
+    private double lastCalculatedDistance = 0;
+    private String lastDistanceMatch = "NONE";
 
     @Override
     public void runOpMode() {
@@ -152,13 +168,24 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
         sleep(300);
 
-        // Set position from auton (transformation now handled in SixWheelDriveController)
+        // Set position from auton, or use AUTON_START values if auton was skipped (pose is 0,0,0)
         if (drive != null) {
-            drive.setPosition(
-                    autonPose.position.x,
-                    autonPose.position.y,
-                    autonPose.heading.toDouble()
-            );
+            double startX, startY, startHeading;
+
+            // Check if auton was skipped (PoseStorage is at origin)
+            if (autonPose.position.x == 0 && autonPose.position.y == 0 && autonPose.heading.toDouble() == 0) {
+                // Auton skipped - use configured start position
+                startX = AUTON_START_X;
+                startY = AUTON_START_Y;
+                startHeading = Math.toRadians(AUTON_START_HEADING);
+            } else {
+                // Auton ran - use saved pose
+                startX = autonPose.position.x;
+                startY = autonPose.position.y;
+                startHeading = autonPose.heading.toDouble();
+            }
+
+            drive.setPosition(startX, startY, startHeading);
             drive.updateOdometry();
         }
 
@@ -219,11 +246,111 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
             // Update all controllers
             updateAllSystems();
+
+            // === TELEMETRY ===
+            updateTelemetry();
         }
 
         // Cleanup
         if (shooter != null) shooter.stopShooting();
         if (turretField != null) turretField.disable();
+    }
+
+    /**
+     * Get RPM and Ramp angle based on distance using piecewise function
+     * Returns double[2] where [0] = RPM, [1] = ramp angle
+     * Distance tolerance is ±6 inches from calibrated points
+     */
+    private double[] getShootingParamsForDistance(double distance) {
+        // Check each calibration point with ±6 inch tolerance
+        // Points are checked in order from closest to farthest
+
+        if (Math.abs(distance - DIST_1) <= DISTANCE_TOLERANCE) {
+            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_1);
+            return new double[]{RPM_1, RAMP_1};
+        }
+        if (Math.abs(distance - DIST_2) <= DISTANCE_TOLERANCE) {
+            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_2);
+            return new double[]{RPM_2, RAMP_2};
+        }
+        if (Math.abs(distance - DIST_3) <= DISTANCE_TOLERANCE) {
+            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_3);
+            return new double[]{RPM_3, RAMP_3};
+        }
+        if (Math.abs(distance - DIST_4) <= DISTANCE_TOLERANCE) {
+            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_4);
+            return new double[]{RPM_4, RAMP_4};
+        }
+        if (Math.abs(distance - DIST_5) <= DISTANCE_TOLERANCE) {
+            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_5);
+            return new double[]{RPM_5, RAMP_5};
+        }
+
+        // No match found - use closest calibration point
+        double minDiff = Double.MAX_VALUE;
+        double[] bestParams = new double[]{RPM_3, RAMP_3};  // Default to middle
+        String bestMatch = "FALLBACK";
+
+        double[] distances = {DIST_1, DIST_2, DIST_3, DIST_4, DIST_5};
+        double[] rpms = {RPM_1, RPM_2, RPM_3, RPM_4, RPM_5};
+        double[] ramps = {RAMP_1, RAMP_2, RAMP_3, RAMP_4, RAMP_5};
+
+        for (int i = 0; i < distances.length; i++) {
+            double diff = Math.abs(distance - distances[i]);
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestParams = new double[]{rpms[i], ramps[i]};
+                bestMatch = String.format(Locale.US, "CLOSEST: %.0f in", distances[i]);
+            }
+        }
+
+        lastDistanceMatch = bestMatch;
+        return bestParams;
+    }
+
+    /**
+     * Update telemetry with ramp, RPM, turret angle, and odometry
+     */
+    private void updateTelemetry() {
+        telemetry.addLine("═══ SHOOTER ═══");
+        if (shooter != null) {
+            telemetry.addData("Target RPM", String.format(Locale.US, "%.0f", currentTargetRPM));
+            telemetry.addData("Current RPM", String.format(Locale.US, "%.0f", shooter.getRPM()));
+        }
+
+        telemetry.addLine("═══ RAMP ═══");
+        if (ramp != null) {
+            telemetry.addData("Ramp Angle", String.format(Locale.US, "%.3f", ramp.getTargetAngle()));
+            telemetry.addData("Ramp Current", String.format(Locale.US, "%.3f", ramp.getCurrentAngle()));
+        }
+
+        telemetry.addLine("═══ TURRET ═══");
+        if (turret != null) {
+            telemetry.addData("Turret Angle", String.format(Locale.US, "%.1f°", turret.getTurretAngle()));
+        }
+        telemetry.addData("Turret Offset", String.format(Locale.US, "%.1f°", turretOffset));
+        if (turretField != null && autoAimEnabled) {
+            telemetry.addData("Field Target", String.format(Locale.US, "%.1f°", turretField.getTargetFieldAngle()));
+            telemetry.addData("Turret Error", String.format(Locale.US, "%.1f°", turretError));
+        }
+
+        telemetry.addLine("═══ ODOMETRY ═══");
+        if (drive != null) {
+            telemetry.addData("X", String.format(Locale.US, "%.2f in", drive.getX()));
+            telemetry.addData("Y", String.format(Locale.US, "%.2f in", drive.getY()));
+            telemetry.addData("Heading", String.format(Locale.US, "%.1f°", drive.getHeadingDegrees()));
+        }
+
+        telemetry.addLine("═══ DISTANCE ═══");
+        telemetry.addData("To Goal", String.format(Locale.US, "%.1f in", getDistanceToTarget()));
+        telemetry.addData("Last Calc", String.format(Locale.US, "%.1f in", lastCalculatedDistance));
+        telemetry.addData("Match", lastDistanceMatch);
+
+        telemetry.addLine("═══ STATUS ═══");
+        telemetry.addData("Preset", currentPresetMode.toString());
+        telemetry.addData("Auto-Aim", autoAimEnabled ? "ON" : "OFF");
+
+        telemetry.update();
     }
 
     /**
@@ -303,7 +430,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === DRIVE SENSITIVITY ===
     public static double DRIVE_EXPONENT = 2.0;  // 1.0 = linear, 2.0 = squared, 3.0 = cubed
-    public static double TURN_EXPONENT = 2.0;   // Higher = more precision at low speeds
+    public static double TURN_EXPONENT = 3.0;   // Higher = more precision at low speeds
 
     /**
      * Apply sensitivity curve to joystick input
@@ -497,21 +624,17 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         }
         lastDpadDown2 = currentDpadDown2;
 
-        // === DPAD RIGHT: TURRET TARGET +1° (only when auto-aim enabled) ===
+        // === DPAD RIGHT: TURRET OFFSET +1° (adds to all calculated angles) ===
         boolean currentDpadRight2 = gamepad2.dpad_right;
         if (currentDpadRight2 && !lastDpadRight2) {
-            if (autoAimEnabled && turretField != null) {
-                turretField.setTargetFieldAngle(turretField.getTargetFieldAngle() + TURRET_TARGET_INCREMENT);
-            }
+            turretOffset += TURRET_TARGET_INCREMENT;
         }
         lastDpadRight2 = currentDpadRight2;
 
-        // === DPAD LEFT: TURRET TARGET -1° (only when auto-aim enabled) ===
+        // === DPAD LEFT: TURRET OFFSET -1° (subtracts from all calculated angles) ===
         boolean currentDpadLeft2 = gamepad2.dpad_left;
         if (currentDpadLeft2 && !lastDpadLeft2) {
-            if (autoAimEnabled && turretField != null) {
-                turretField.setTargetFieldAngle(turretField.getTargetFieldAngle() - TURRET_TARGET_INCREMENT);
-            }
+            turretOffset -= TURRET_TARGET_INCREMENT;
         }
         lastDpadLeft2 = currentDpadLeft2;
 
@@ -547,28 +670,36 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             if (turretField != null) {
                 // Calculate angle to target based on current robot position
                 double targetAngle = calculateAngleToTarget();
-                turretField.setTargetFieldAngle(FAR_TURRET);
+                turretField.setTargetFieldAngle(targetAngle);
                 turretField.enable();
                 autoAimEnabled = true;
             }
         }
         lastY2 = currentY2;
 
-        // === A: CLOSE PRESET (always activates) ===
+        // === A: CLOSE PRESET - DISTANCE-BASED RPM/RAMP ===
+        // Every press recalculates distance and updates RPM/ramp
         boolean currentA2 = gamepad2.a;
         if (currentA2 && !lastA2) {
-            // Activate CLOSE preset
             currentPresetMode = PresetMode.CLOSE;
-            currentTargetRPM = CLOSE_RPM;
+
+            // Calculate distance to goal and get shooting parameters
+            double distance = getDistanceToTarget();
+            lastCalculatedDistance = distance;
+            double[] params = getShootingParamsForDistance(distance);
+            double autoRPM = params[0];
+            double autoRamp = params[1];
+
+            // Apply the calculated RPM and ramp
+            currentTargetRPM = autoRPM;
             if (shooter != null) {
-                shooter.setTargetRPM(CLOSE_RPM);
+                shooter.setTargetRPM(autoRPM);
                 if (!shooter.isShootMode()) shooter.startShooting();
             }
-            if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
-            if (turretField != null) {
-                // Calculate angle to target based on current robot position
-                double targetAngle = calculateAngleToTarget();
-                turretField.setTargetFieldAngle(CLOSE_TURRET);
+            if (ramp != null) ramp.setTargetAngle(autoRamp);
+
+            // Enable auto-aim if not already enabled
+            if (turretField != null && !autoAimEnabled) {
                 turretField.enable();
                 autoAimEnabled = true;
             }
@@ -588,31 +719,32 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     }
 
     /**
-     * Calculate the field angle from robot position to target (0,0)
-     * Returns the angle in degrees that the turret should face
+     * Calculate the turret angle needed to aim at target (0,0)
+     * Returns the angle in degrees relative to robot's forward direction
      *
-     * Uses atan2 to get angle from robot (x,y) to target (TARGET_X, TARGET_Y)
-     * Result is in field coordinates (0° = forward on field)
+     * Convention: CCW = negative, CW = positive
+     * Formula: -atan(x / y) where x,y are robot's position
      */
     private double calculateAngleToTarget() {
         double robotX = getCorrectedX();
         double robotY = getCorrectedY();
 
-        // Vector from robot to target
-        double dx = TARGET_X - robotX;
-        double dy = TARGET_Y - robotY;
+        // Avoid division by zero
+        if (Math.abs(robotY) < 0.001) {
+            // Robot is at y=0, turret should point straight left or right
+            return robotX > 0 ? -90.0 : 90.0;
+        }
 
-        // Calculate angle using atan2 (returns radians, -PI to PI)
-        // atan2(dy, dx) gives angle where 0° = positive X axis
-        // Convert to field coordinates where 0° = positive Y axis (forward)
-        double angleRad = Math.atan2(dx, dy);  // Note: swapped dx,dy for field coords
+        // Calculate angle: -atan(x/y)
+        // Negative because CCW is negative in our turret convention
+        double angleRad = -Math.atan(robotX / robotY);
         double angleDeg = Math.toDegrees(angleRad);
 
         return angleDeg;
     }
 
     /**
-     * Get distance from robot to target
+     * Get distance from robot to target (in inches)
      */
     private double getDistanceToTarget() {
         double robotX = getCorrectedX();
@@ -662,7 +794,12 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         if (turret != null) turret.update();
 
         // Update turret field controller for auto-aim
+        // Continuously recalculate target angle based on current position
         if (turretField != null && autoAimEnabled && drive != null) {
+            // Continuously update the target angle from odometry + persistent offset
+            double targetAngle = calculateAngleToTarget() + turretOffset;
+            turretField.setTargetFieldAngle(targetAngle);
+
             turretField.update(drive.getHeadingDegrees());
             turretError = turretField.getFieldError();
         }
