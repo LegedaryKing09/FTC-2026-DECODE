@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -115,12 +116,12 @@ public class SixMotorDriveController {
 
         pinpoint = opMode.hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
-        motor1Left.setDirection(DcMotor.Direction.REVERSE);
-        motor2Left.setDirection(DcMotor.Direction.REVERSE);
-        motor3Left.setDirection(DcMotor.Direction.REVERSE);
-        motor1Right.setDirection(DcMotor.Direction.FORWARD);
+        motor1Left.setDirection(DcMotor.Direction.FORWARD);
+        motor2Left.setDirection(DcMotor.Direction.FORWARD);
+        motor3Left.setDirection(DcMotor.Direction.FORWARD);
+        motor1Right.setDirection(DcMotor.Direction.REVERSE);
         motor2Right.setDirection(DcMotor.Direction.REVERSE);
-        motor3Right.setDirection(DcMotor.Direction.FORWARD);
+        motor3Right.setDirection(DcMotor.Direction.REVERSE);
 
 
         setMotorsBrakeMode();
