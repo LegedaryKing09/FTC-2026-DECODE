@@ -82,7 +82,7 @@ public class EightWheelDriveTest extends LinearOpMode {
         while (opModeIsActive()) {
             // Get raw joystick inputs
             double rawDrive = -gamepad1.left_stick_y;
-            double rawTurn = gamepad1.right_stick_x;
+            double rawTurn = -gamepad1.right_stick_x;
 
             // Apply speed multipliers based on mode
             double drive, turn;
