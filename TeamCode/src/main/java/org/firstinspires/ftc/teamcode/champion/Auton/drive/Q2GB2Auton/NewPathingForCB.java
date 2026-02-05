@@ -34,6 +34,9 @@ public class NewPathingForCB extends LinearOpMode {
     NewShooterController shooterController;
     NewIntakeController intakeController;
     NewRampController rampController;
+    LimelightAlignmentController limelightController;
+    NewAutoShootController autoShootController;
+    NewAutonController autonController;
     AutoTankDrive tankDrive;
     TurretFieldController turretField;
     TurretController turret;
@@ -160,6 +163,39 @@ public class NewPathingForCB extends LinearOpMode {
             rampController = new NewRampController(this);
             rampController.setTargetAngle(CONSTANT_RAMP_ANGLE);
         } catch (Exception e) {
+            //
+        }
+
+        // Initialize autoncontroller
+        autonController = new NewAutonController(
+                this,
+                driveController,
+                transferController,
+                uptakeController,
+                shooterController,
+                intakeController,
+                limelightController,
+                autoShootController,
+                rampController
+        );
+
+        try {
+            autoMethod = new AutonMethods(
+                    this,
+                    driveController,
+                    transferController,
+                    uptakeController,
+                    shooterController,
+                    intakeController,
+                    limelightController,
+                    autoShootController,
+                    rampController,
+                    autonController,
+                    tankDrive,  // You'll need to move tankDrive initialization before this
+                    turretField,
+                    turret
+            );
+        } catch (Exception e){
             //
         }
 
