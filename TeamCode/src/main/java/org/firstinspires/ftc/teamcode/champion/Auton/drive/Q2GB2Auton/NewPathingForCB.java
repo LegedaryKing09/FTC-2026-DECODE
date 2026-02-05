@@ -1,7 +1,4 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
-import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2Auton.FarBlue.FIRST_BACKWARD;
-import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2Auton.FarBlue.INITIAL_FORWARD;
-
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
@@ -11,10 +8,7 @@ import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
-import org.firstinspires.ftc.teamcode.champion.RobotState;
-import org.firstinspires.ftc.teamcode.champion.controller.AutonTurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
@@ -27,14 +21,13 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
-
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "FarBlue GB2 3 balls", group = "Competition")
-public class FB3 extends LinearOpMode {
+@Autonomous(name = "New Pathing for CB", group = "Test")
+public class NewPathingForCB extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -51,34 +44,45 @@ public class FB3 extends LinearOpMode {
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
+    public static double AUTON_START_X = 49.6;
+    public static double AUTON_START_Y = 9.0;
+    public static double AUTON_START_HEADING = 45.0;
+
+    // ========
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 4100.0;
-    public static double CONSTANT_RAMP_ANGLE = 0.6;
-
+    public static double CONSTANT_SHOOTER_RPM = 3000.0;
+    public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
-    public static double INITIAL_FORWARD = 23.0;
-    public static double SECOND_BACKWARD = 44.0;
-    public static double INTAKE_FORWARD = 30.0;
-    public static double INTAKE_BACKWARD = 30.0;
+    public static double INITIAL_BACKWARD = 30.0;
+    public static double BACKWARD_Y = -25.0;
+    public static double SPLINE_ANGLE = -60.0;
+    public static double SECOND_INTAKE_DISTANCE = 38.0;
+    public static double THIRD_INTAKE_DISTANCE = 60.0;
+    public static double SPLINE_X = 0.0;
+    public static double SPLINE_Y = -50.0;
+    public static double SECOND_SPLINE_X = 45.0;
+    public static double SECOND_SPLINE_Y = -60.0;
+    public static double SECOND_SPLINE_ANGLE = -60.0;
+    public static double SECOND_COMEBACK_POSITION = SPLINE_X + 5.0;
+    public static double THIRD_COMEBACK_POSITION = SPLINE_X + 8.0;
+    public static double SECOND_FORWARD= 24.0;
     public static double ENDING_DISTANCE = 30.0;
-
 
     // turning angle parameters
     public static double DEGREE_ZERO = 0.0;
     public static double PICK_UP_ANGLE = 90.0;
+    public static double DEGREE_45 = 45.0;
 
     // turning perfection
-    public static double HEADING_CORRECTION_KP = 0.015;
-    public static double HEADING_CORRECTION_MAX_VEL = 0.3;
+    public static double HEADING_CORRECTION_KP = 0.005;
+    public static double HEADING_CORRECTION_MAX_VEL = 0.16;
     public static int HEADING_STABLE_SAMPLES = 3;
     public static double HEADING_TIMEOUT_MS = 280;
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 280;
     public static long SHOOT_TIME_MS = 3000;
-    public static double AUTON_START_X = 49.6;
-    public static double AUTON_START_Y = 9.0;
     private final ElapsedTime globalTimer = new ElapsedTime();
     private final ElapsedTime timer = new ElapsedTime();
 
@@ -89,7 +93,7 @@ public class FB3 extends LinearOpMode {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_LEFT = -23.0;
+    public static double AUTO_AIM_LEFT = 0;
 
     @Override
     public void runOpMode() {
@@ -119,9 +123,8 @@ public class FB3 extends LinearOpMode {
     }
 
     private void initializeRobot() {
-        // Initialize drive controller
         driveController = new SixWheelDriveController(this);
-        driveController.resetOdometry();
+        driveController.resetOdometry();  // <-- ADDED THIS LINE
         driveController.setDriveMode(SixWheelDriveController.DriveMode.POWER);
 
         // Initialize intake
@@ -211,15 +214,79 @@ public class FB3 extends LinearOpMode {
     private void executeAutonomousSequence() {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // 1. shoot 3 balls
-        autoAimTurretLeft();
+        // GO BACK FOR SHOOTING
+        Action Initial_Forward = tankDrive.actionBuilder(currentPose)
+                .lineToX(INITIAL_BACKWARD)
+                .build();
+        Actions.runBlocking(Initial_Forward);
+
+        // SHOOT
         shootBalls();
 
-        // 2. go forward
-        Action moveForward1 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + INITIAL_FORWARD)
+        // SPLINE FOR INTAKE
+        intakeSpline(INITIAL_BACKWARD, SPLINE_Y, SPLINE_ANGLE);
+
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Backward = tankDrive.actionBuilder(currentPose)
+                .lineToY(BACKWARD_Y)
                 .build();
-        Actions.runBlocking(moveForward1);
+        Actions.runBlocking(Backward);
+
+        shootBalls();
+
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        // 1. Spline
+        Action SPLINE_2 = tankDrive.actionBuilder(currentPose)
+                .splineTo(new Vector2d(SECOND_SPLINE_X, SECOND_SPLINE_Y), Math.toRadians(SECOND_SPLINE_ANGLE))
+                .build();
+        Actions.runBlocking(SPLINE_2);
+
+//        // 3. Go for Intake
+//        intakeForwardRoadRunner(FIRST_INTAKE_DISTANCE);
+//        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+//        // 4. Go Backward
+//        Action Backward1 = tankDrive.actionBuilder(currentPose)
+//                .lineToX()
+//                .build();
+//        Actions.runBlocking(Backward1);
+//
+//        // 5. shooting
+//        shootBalls();
+//
+//
+//        // 3. Go for Intake
+//        intakeForwardRoadRunner(SECOND_INTAKE_DISTANCE);
+//        currentPose = tankDrive.pinpointLocalizer.getPose();
+//
+//        // 4. Go Backward
+//        Action Backward2 = tankDrive.actionBuilder(currentPose)
+//                .lineToX(SECOND_COMEBACK_POSITION)
+//                .build();
+//        Actions.runBlocking(Backward2);
+//
+//        // 5. shooting
+//        shootBalls();
+//
+//        // 6. Go for Intake
+//        intakeForwardRoadRunner(THIRD_INTAKE_DISTANCE);
+//        currentPose = tankDrive.pinpointLocalizer.getPose();
+//
+//        // 7. Go Backward
+//        Action Backward3 = tankDrive.actionBuilder(currentPose)
+//                .lineToX(THIRD_COMEBACK_POSITION)
+//                .build();
+//        Actions.runBlocking(Backward3);
+//
+//        // 8. shooting
+//        shootBalls();
+//
+//        currentPose = tankDrive.pinpointLocalizer.getPose();
+//        // exit out
+//        Action Forward = tankDrive.actionBuilder(currentPose)
+//                .lineToX(SPLINE_X + 20)
+//                .build();
+//        Actions.runBlocking(Forward);
 
     }
 
@@ -281,7 +348,8 @@ public class FB3 extends LinearOpMode {
         sleep(200);
     }
 
-    private void intakeForwardRoadRunner() {
+
+    private void intakeSpline(double splineX, double splineY, double splineAngle) {
         intakeModeActive = true;
         uptakeStoppedBySwitch = false;
 
@@ -297,8 +365,9 @@ public class FB3 extends LinearOpMode {
 
         // Get current pose and build trajectory
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        // 1. Spline
         Action moveForward = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y + INTAKE_FORWARD)
+                .splineTo(new Vector2d(INITIAL_BACKWARD, SPLINE_Y), Math.toRadians(SPLINE_ANGLE))
                 .build();
 
         // Create a custom action that combines RoadRunner movement with intake control
@@ -311,6 +380,12 @@ public class FB3 extends LinearOpMode {
                 intakeController.update();
                 transferController.update();
                 uptakeController.update();
+                if (turretField != null && turretField.isEnabled()){
+                    turret.update();
+                    turretField.update(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                    );
+                }
                 return moveAction.run(packet);
             }
         };
@@ -325,6 +400,12 @@ public class FB3 extends LinearOpMode {
             intakeController.update();
             transferController.update();
             uptakeController.update();
+            if (turretField != null && turretField.isEnabled()){
+                turret.update();
+                turretField.update(
+                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                );
+            }
             sleep(30);
         }
 
@@ -367,32 +448,73 @@ public class FB3 extends LinearOpMode {
     }
 
     private void cleanup() {
-        Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-        double rawX = rawPose.position.x;
-        double rawY = rawPose.position.y;
+        double fieldX = AUTON_START_X;
+        double fieldY = AUTON_START_Y;
+        double fieldHeading = Math.toRadians(AUTON_START_HEADING);
+        double rawX = 0, rawY = 0;
+        double deltaX = 0, deltaY = 0;
+        double deltaHeading = 0;
 
-        // === COORDINATE TRANSFORMATION ===
-        // SWAP_XY = true, NEGATE_X = false, NEGATE_Y = true
-        double deltaX = rawY;       // Swapped, not negated
-        double deltaY = -rawX;      // Swapped, then negated
+        try {
+            // Try to get pose from RoadRunner's pinpoint localizer
+            Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
+            rawX = rawPose.position.x;
+            rawY = rawPose.position.y;
+            deltaHeading = rawPose.heading.toDouble();  // This is delta from start (0)
 
-        // Add delta to starting position
-        double fieldX = AUTON_START_X + deltaX;
-        double fieldY = AUTON_START_Y + deltaY;
+            // === COORDINATE TRANSFORMATION ===
+            // SWAP_XY = true, NEGATE_X = false, NEGATE_Y = true
+            deltaX = rawY;       // Swapped, not negated
+            deltaY = -rawX;      // Swapped, then negated
 
-        // Save CORRECTED field coordinates
-        PoseStorage.currentPose = new Pose2d(
-                new Vector2d(fieldX, fieldY),
-                rawPose.heading
-        );
-        if (turret != null) {
-            PoseStorage.turretAngle = turret.getTurretAngle();
+            // Add delta to starting position
+            fieldX = AUTON_START_X + deltaX;
+            fieldY = AUTON_START_Y + deltaY;
+            fieldHeading = Math.toRadians(AUTON_START_HEADING) + deltaHeading;  // Add starting heading
+
+        } catch (Exception e) {
+            // If RoadRunner fails, try the SixWheelDriveController odometry
+            telemetry.addData("WARNING", "RoadRunner getPose failed: " + e.getMessage());
+            try {
+                if (driveController != null) {
+                    driveController.updateOdometry();
+                    rawX = driveController.getX();
+                    rawY = driveController.getY();
+                    deltaHeading = driveController.getHeading();
+
+                    // Same transformation
+                    deltaX = rawY;
+                    deltaY = -rawX;
+                    fieldX = AUTON_START_X + deltaX;
+                    fieldY = AUTON_START_Y + deltaY;
+                    fieldHeading = Math.toRadians(AUTON_START_HEADING) + deltaHeading;
+                }
+            } catch (Exception e2) {
+                telemetry.addData("WARNING", "DriveController also failed: " + e2.getMessage());
+                // Use starting position as fallback
+            }
         }
-        telemetry.addLine("=== AUTON COMPLETE ===");
-        telemetry.addData("Raw Odom", "x=%.1f, y=%.1f", rawX, rawY);
-        telemetry.addData("Delta (corrected)", "dx=%.1f, dy=%.1f", deltaX, deltaY);
+
+        // Save to PoseStorage (even if we only have starting position)
+        try {
+            PoseStorage.currentPose = new Pose2d(
+                    new Vector2d(fieldX, fieldY),
+                    fieldHeading
+            );
+        } catch (Exception e) {
+            telemetry.addData("WARNING", "Pose2d creation failed: " + e.getMessage());
+        }
+
+        // Save turret angle
+        if (turret != null) {
+            try {
+                PoseStorage.turretAngle = turret.getTurretAngle();
+            } catch (Exception e) {
+                PoseStorage.turretAngle = 0;
+            }
+        }
         telemetry.addData("Field Pose SAVED", "x=%.1f, y=%.1f, h=%.1f°",
-                fieldX, fieldY, rawPose.heading);
+                fieldX, fieldY, Math.toDegrees(fieldHeading));
         telemetry.addData("Turret SAVED", "%.1f°", PoseStorage.turretAngle);
         telemetry.update();
         sleep(2000);
@@ -487,37 +609,6 @@ public class FB3 extends LinearOpMode {
         tankDrive.setDrivePowers(new PoseVelocity2d(new Vector2d(0, 0), 0));
         sleep(50);
     }
-
-    private void backwardTurret(double distance){
-        if(turretField != null){
-            turretField.setTargetFieldAngle(AUTO_AIM_LEFT);
-            turretField.enable();
-        }
-
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action moveForward = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x - distance)
-                .build();
-
-        Action intakeAction = new Action() {
-            private Action moveAction = moveForward;
-
-            @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
-                if (turretField != null && turretField.isEnabled()){
-                    turret.update();
-                    turretField.update(
-                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                    );
-                }
-                return moveAction.run(packet);
-            }
-        };
-
-        // Run the combined action
-        Actions.runBlocking(intakeAction);
-    }
-
 
     private void autoAimTurretLeft () {
         if (turretField == null) return;

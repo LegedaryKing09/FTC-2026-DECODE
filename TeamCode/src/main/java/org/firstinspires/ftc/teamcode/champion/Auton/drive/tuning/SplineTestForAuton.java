@@ -4,6 +4,7 @@ import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.CB.
 import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.CB.HEADING_CORRECTION_MAX_VEL;
 import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.CB.HEADING_STABLE_SAMPLES;
 import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.CB.HEADING_TIMEOUT_MS;
+import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.NewPathingForCB.SPLINE_Y;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
@@ -21,8 +22,12 @@ import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;;
 @Autonomous(name = "Spline Test For Auton", group = "Tuning")
 public class SplineTestForAuton extends LinearOpMode {
     AutoTankDrive tankDrive;
-    public static double X_DISTANCE = 24.0;
-    public static double Y_DISTANCE = 8.0;
+    public static double X_DISTANCE = 25.0;
+    public static double Y_DISTANCE = -10.0;
+    public static double HEADING_CORRECTION_KP = 0.005;
+    public static double HEADING_CORRECTION_MAX_VEL = 0.16;
+    public static int HEADING_STABLE_SAMPLES = 3;
+    public static double HEADING_TIMEOUT_MS = 280;
 
     @Override
     public void runOpMode() {
@@ -42,11 +47,33 @@ public class SplineTestForAuton extends LinearOpMode {
     private void Spline() {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
+        Action Initial_Forward = tankDrive.actionBuilder(currentPose)
+                .lineToX(24)
+                .build();
+        Actions.runBlocking(Initial_Forward);
+        HeadingCorrection(0,0.5);
+
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        Action Turn = tankDrive.actionBuilder(currentPose)
+                .turnTo(-90)
+                .build();
+        Actions.runBlocking(Turn);
+        HeadingCorrection(-90,0.5);
+
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        // 1. Spline
         Action Spline = tankDrive.actionBuilder(currentPose)
-                .splineTo(new Vector2d(X_DISTANCE, Y_DISTANCE), 0)
+                .splineTo(new Vector2d(10, -10), 0)
                 .build();
         Actions.runBlocking(Spline);
         HeadingCorrection(0,0.5);
+
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action FORWARD = tankDrive.actionBuilder(currentPose)
+                .lineToX(55)
+                .build();
+        Actions.runBlocking(FORWARD);
 
     }
 
