@@ -66,8 +66,6 @@ public class NewPathingForCB extends LinearOpMode {
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
-    private Thread shooterThread;
-    private volatile boolean runShooter = false;
     public boolean intakeModeActive = false;
     public boolean uptakeStoppedBySwitch = false;
 
@@ -78,6 +76,27 @@ public class NewPathingForCB extends LinearOpMode {
         // Define starting pose
         Pose2d startPose = new Pose2d(0, 0, 0);
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
+
+        try {
+            autoMethod = new AutonMethods(
+                    this,
+                    driveController,
+                    transferController,
+                    uptakeController,
+                    shooterController,
+                    intakeController,
+                    limelightController,
+                    autoShootController,
+                    rampController,
+                    autonController,
+                    tankDrive,
+                    turretField,
+                    turret
+            );
+            autoMethod.uptakeSwitch = uptakeSwitch;
+        } catch (Exception e){
+           //
+        }
 
         waitForStart();
         if (!opModeIsActive()) return;
@@ -178,26 +197,6 @@ public class NewPathingForCB extends LinearOpMode {
                 autoShootController,
                 rampController
         );
-
-        try {
-            autoMethod = new AutonMethods(
-                    this,
-                    driveController,
-                    transferController,
-                    uptakeController,
-                    shooterController,
-                    intakeController,
-                    limelightController,
-                    autoShootController,
-                    rampController,
-                    autonController,
-                    tankDrive,  // You'll need to move tankDrive initialization before this
-                    turretField,
-                    turret
-            );
-        } catch (Exception e){
-            //
-        }
 
     }
 

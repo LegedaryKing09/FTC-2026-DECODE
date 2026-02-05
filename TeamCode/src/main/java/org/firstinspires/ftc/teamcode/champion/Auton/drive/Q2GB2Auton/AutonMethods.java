@@ -76,7 +76,7 @@ public class AutonMethods {
         this.turretField = turretField;
         this.turret = turret;
     }
-    private AnalogInput uptakeSwitch;
+    public AnalogInput uptakeSwitch;
 
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
     public static double AUTON_START_X = 49.6;
