@@ -101,7 +101,7 @@ public class AutonMethods {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_ANGLE = -359.0;
+    public static double AUTO_AIM_ANGLE = 180.0;
 
     public void shootBalls() {
         // Wait for RPM stabilization
@@ -453,7 +453,7 @@ public class AutonMethods {
     public void autoAimTurretLeft () {
         if (turretField == null) return;
 
-        turretField.autoAim(
+        turretField.autoAimWithWrap(
                 AUTO_AIM_ANGLE,
                 () -> Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble()),
                 () -> opMode.opModeIsActive()
