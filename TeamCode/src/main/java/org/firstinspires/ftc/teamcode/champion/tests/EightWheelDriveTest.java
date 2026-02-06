@@ -20,14 +20,6 @@ public class EightWheelDriveTest extends LinearOpMode {
     public static String R2_NAME = "r2";
     public static String R3_NAME = "r3";
 
-    // === TUNABLE SENSITIVITY PARAMETERS ===
-    // Joystick deadzone - ignores tiny movements below this threshold
-    public static double JOYSTICK_DEADZONE = 0.05;
-
-    // Sensitivity curve exponent (1.0 = linear, >1.0 = less sensitive at low speeds)
-    // Higher values = more gradual acceleration, easier fine control
-    public static double DRIVE_SENSITIVITY_CURVE = 2.5;  // Try 1.5 to 3.0
-    public static double TURN_SENSITIVITY_CURVE = 3;   // Try 1.5 to 3.0
 
     // Speed multipliers
     public static double FAST_SPEED_MULTIPLIER = 1;
@@ -53,11 +45,11 @@ public class EightWheelDriveTest extends LinearOpMode {
 
         // Set motor directions - UPDATE THESE BASED ON YOUR TEST RESULTS
         // EXAMPLE - Replace with your tested combination:
-        motor1Left.setDirection(DcMotorSimple.Direction.REVERSE);
+        motor1Left.setDirection(DcMotorSimple.Direction.FORWARD);
         motor2Left.setDirection(DcMotorSimple.Direction.FORWARD);
-        motor3Left.setDirection(DcMotorSimple.Direction.REVERSE);
-        motor1Right.setDirection(DcMotorSimple.Direction.FORWARD);
-        motor2Right.setDirection(DcMotorSimple.Direction.FORWARD);
+        motor3Left.setDirection(DcMotorSimple.Direction.FORWARD);
+        motor1Right.setDirection(DcMotorSimple.Direction.REVERSE);
+        motor2Right.setDirection(DcMotorSimple.Direction.REVERSE);
         motor3Right.setDirection(DcMotorSimple.Direction.REVERSE);
 
         // Set brake mode
@@ -90,24 +82,16 @@ public class EightWheelDriveTest extends LinearOpMode {
         while (opModeIsActive()) {
             // Get raw joystick inputs
             double rawDrive = -gamepad1.left_stick_y;
-            double rawTurn = gamepad1.right_stick_x;
-
-            // Apply deadzone
-            rawDrive = applyDeadzone(rawDrive, JOYSTICK_DEADZONE);
-            rawTurn = applyDeadzone(rawTurn, JOYSTICK_DEADZONE);
-
-            // Apply sensitivity curve
-            double curveDrive = applySensitivityCurve(rawDrive, DRIVE_SENSITIVITY_CURVE);
-            double curveTurn = applySensitivityCurve(rawTurn, TURN_SENSITIVITY_CURVE);
+            double rawTurn = -gamepad1.right_stick_x;
 
             // Apply speed multipliers based on mode
             double drive, turn;
             if (isFastSpeedMode) {
-                drive = curveDrive * FAST_SPEED_MULTIPLIER;
-                turn = curveTurn * FAST_TURN_MULTIPLIER;
+                drive = rawDrive * FAST_SPEED_MULTIPLIER;
+                turn = rawTurn * FAST_TURN_MULTIPLIER;
             } else {
-                drive = curveDrive * SLOW_SPEED_MULTIPLIER;
-                turn = curveTurn * SLOW_TURN_MULTIPLIER;
+                drive = rawDrive * SLOW_SPEED_MULTIPLIER;
+                turn = rawTurn * SLOW_TURN_MULTIPLIER;
             }
 
             // Calculate left and right power (arcade drive)
@@ -138,7 +122,7 @@ public class EightWheelDriveTest extends LinearOpMode {
             }
 
             // Display telemetry
-            displayTelemetry(rawDrive, rawTurn, curveDrive, curveTurn, leftPower, rightPower);
+            displayTelemetry(rawDrive, rawTurn, leftPower, rightPower);
             telemetry.update();
         }
     }
@@ -173,7 +157,6 @@ public class EightWheelDriveTest extends LinearOpMode {
     }
 
     private void displayTelemetry(double rawDrive, double rawTurn,
-                                  double curveDrive, double curveTurn,
                                   double leftPower, double rightPower) {
         telemetry.addLine("=== EIGHT WHEEL SENSITIVITY TEST ===");
         telemetry.addLine();
@@ -184,17 +167,12 @@ public class EightWheelDriveTest extends LinearOpMode {
 
         // Sensitivity settings
         telemetry.addLine("--- SENSITIVITY SETTINGS ---");
-        telemetry.addData("Deadzone", String.format(Locale.US, "%.2f", JOYSTICK_DEADZONE));
-        telemetry.addData("Drive Curve", String.format(Locale.US, "%.1f", DRIVE_SENSITIVITY_CURVE));
-        telemetry.addData("Turn Curve", String.format(Locale.US, "%.1f", TURN_SENSITIVITY_CURVE));
         telemetry.addLine();
 
         // Raw vs processed inputs
         telemetry.addLine("--- JOYSTICK PROCESSING ---");
         telemetry.addData("Raw Drive", String.format(Locale.US, "%.2f", rawDrive));
-        telemetry.addData("→ After Curve", String.format(Locale.US, "%.2f", curveDrive));
         telemetry.addData("Raw Turn", String.format(Locale.US, "%.2f", rawTurn));
-        telemetry.addData("→ After Curve", String.format(Locale.US, "%.2f", curveTurn));
         telemetry.addLine();
 
         // Final motor commands
