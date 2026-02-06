@@ -101,7 +101,7 @@ public class AutonMethods {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_ANGLE = 180.0;
+    public static double AUTO_AIM_ANGLE = -179.8;
 
     public void shootBalls() {
         // Wait for RPM stabilization
