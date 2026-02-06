@@ -321,6 +321,9 @@ public class TurretFieldController {
     }
 
     public static double AUTO_AIM_TIMEOUT_MS = 1800.0;
+    public static double WRAP_POWER = 0.4;           // Power to use during wrap-around
+    public static double WRAP_TIMEOUT_MS = 2500.0;   // Timeout for wrap phase
+    public static double WRAP_MARGIN_DEG = 10.0;     // How far past the opposite limit to target during wrap
 
     public boolean autoAim(HeadingProvider headingProvider, OpModeChecker opModeChecker) {
         return autoAim(TARGET_FIELD_ANGLE, headingProvider, opModeChecker, null);
@@ -361,12 +364,12 @@ public class TurretFieldController {
 
             if (telemetry != null) {
                 telemetry.addData("AutoAim", "Aiming...");
-                telemetry.addData("Robot Heading", "%.1f°", heading);
-                telemetry.addData("Turret Angle", "%.1f°", turret.getTurretAngle());
-                telemetry.addData("Required Turret", "%.1f°", debugRequiredTurret);
-                telemetry.addData("Field Target", "%.1f°", TARGET_FIELD_ANGLE);
-                telemetry.addData("Actual Facing", "%.1f°", debugActualFieldFacing);
-                telemetry.addData("Error", "%.1f°", lastFieldError);
+                telemetry.addData("Robot Heading", "%.1f\u00B0", heading);
+                telemetry.addData("Turret Angle", "%.1f\u00B0", turret.getTurretAngle());
+                telemetry.addData("Required Turret", "%.1f\u00B0", debugRequiredTurret);
+                telemetry.addData("Field Target", "%.1f\u00B0", TARGET_FIELD_ANGLE);
+                telemetry.addData("Actual Facing", "%.1f\u00B0", debugActualFieldFacing);
+                telemetry.addData("Error", "%.1f\u00B0", lastFieldError);
                 telemetry.addData("Dead Zone", inDeadZone);
                 telemetry.addData("Power", "%.2f", lastPower);
                 telemetry.update();
@@ -403,5 +406,195 @@ public class TurretFieldController {
 
         disable();
         return false;
+    }
+
+    // ========== AUTO-AIM WITH DEAD ZONE WRAP-AROUND (for Auton only) ==========
+
+    /**
+     * Auton-only auto-aim that wraps around the dead zone if the direct path is blocked.
+     *
+     * If the required turret angle falls in the dead zone (between CW_LIMIT and CCW_LIMIT
+     * going through the back), this method will command the turret to spin the OTHER direction
+     * all the way around to reach the target from the opposite side.
+     *
+     * Example: target requires +150 deg but CW_LIMIT is +120 deg.
+     *   -> Instead of giving up, spin CCW through -179 and wrap to reach the equivalent angle.
+     *
+     * @param targetAngle     Desired field-relative angle
+     * @param headingProvider  Provides current robot heading
+     * @param opModeChecker    Checks if opmode is still active
+     * @param telemetry        Optional telemetry for debug
+     * @return true if aligned, false on timeout/failure
+     */
+    public boolean autoAimWithWrap(double targetAngle,
+                                   HeadingProvider headingProvider,
+                                   OpModeChecker opModeChecker,
+                                   org.firstinspires.ftc.robotcore.external.Telemetry telemetry) {
+
+        setTargetFieldAngle(targetAngle);
+        enable();
+
+        long startTime = System.currentTimeMillis();
+        int alignedCount = 0;
+        final int REQUIRED_ALIGNED_CYCLES = 5;
+
+        while (opModeChecker.isActive()) {
+            long elapsed = System.currentTimeMillis() - startTime;
+
+            if (elapsed > AUTO_AIM_TIMEOUT_MS + WRAP_TIMEOUT_MS) {
+                if (telemetry != null) {
+                    telemetry.addData("AutoAimWrap", "TIMEOUT");
+                    telemetry.update();
+                }
+                disable();
+                return false;
+            }
+
+            turret.update();
+            double heading = headingProvider.getHeadingDegrees();
+            update(heading);
+
+            if (telemetry != null) {
+                telemetry.addData("AutoAimWrap", "Aiming...");
+                telemetry.addData("Turret Angle", "%.1f\u00B0", turret.getTurretAngle());
+                telemetry.addData("Required Turret", "%.1f\u00B0", debugRequiredTurret);
+                telemetry.addData("Error", "%.1f\u00B0", lastFieldError);
+                telemetry.addData("Dead Zone", inDeadZone);
+                telemetry.addData("Power", "%.2f", lastPower);
+                telemetry.update();
+            }
+
+            // If we hit the dead zone, wrap around instead of giving up
+            if (inDeadZone && Math.abs(lastPower) < 0.01) {
+                if (telemetry != null) {
+                    telemetry.addData("AutoAimWrap", "WRAPPING AROUND...");
+                    telemetry.update();
+                }
+
+                boolean wrapSuccess = executeWrapAround(headingProvider, opModeChecker, telemetry);
+                if (!wrapSuccess) {
+                    disable();
+                    return false;
+                }
+                // After wrap, reset PID and continue normal aiming loop
+                resetPID();
+                startTime = System.currentTimeMillis(); // Reset timeout for final alignment
+                continue;
+            }
+
+            if (isAligned()) {
+                alignedCount++;
+                if (alignedCount >= REQUIRED_ALIGNED_CYCLES) {
+                    if (telemetry != null) {
+                        telemetry.addData("AutoAimWrap", "ALIGNED!");
+                        telemetry.update();
+                    }
+                    return true;
+                }
+            } else {
+                alignedCount = 0;
+            }
+
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                disable();
+                return false;
+            }
+        }
+
+        disable();
+        return false;
+    }
+
+    /** Convenience overload without telemetry */
+    public boolean autoAimWithWrap(double targetAngle,
+                                   HeadingProvider headingProvider,
+                                   OpModeChecker opModeChecker) {
+        return autoAimWithWrap(targetAngle, headingProvider, opModeChecker, null);
+    }
+
+    /**
+     * Executes the wrap-around maneuver.
+     *
+     * Determines which limit the turret is stuck at, then drives it in the
+     * OPPOSITE direction (temporarily ignoring limits) until it passes through
+     * the other limit, at which point normal PID control can take over.
+     *
+     * If stuck at CW_LIMIT (+120):  drive CCW past CCW_LIMIT (-179) to wrap
+     * If stuck at CCW_LIMIT (-179):  drive CW past CW_LIMIT (+120) to wrap
+     */
+    private boolean executeWrapAround(HeadingProvider headingProvider,
+                                      OpModeChecker opModeChecker,
+                                      org.firstinspires.ftc.robotcore.external.Telemetry telemetry) {
+
+        double currentAngle = turret.getTurretAngle();
+
+        // Determine which limit we're stuck at and choose wrap direction
+        boolean stuckAtCW = Math.abs(currentAngle - CW_LIMIT) < 5.0;
+        boolean stuckAtCCW = Math.abs(currentAngle - CCW_LIMIT) < 5.0;
+
+        if (!stuckAtCW && !stuckAtCCW) {
+            // Not actually stuck at a limit, shouldn't happen but bail safely
+            return false;
+        }
+
+        // If stuck at CW limit, wrap CCW (negative power) to reach past CCW limit
+        // If stuck at CCW limit, wrap CW (positive power) to reach past CW limit
+        double wrapPower = stuckAtCW ? -WRAP_POWER : WRAP_POWER;
+        double targetLimitToPass = stuckAtCW ? (CCW_LIMIT + WRAP_MARGIN_DEG) : (CW_LIMIT - WRAP_MARGIN_DEG);
+
+        // Temporarily disable limits so the turret can spin freely
+        boolean originalUseLimits = USE_LIMITS;
+        USE_LIMITS = false;
+
+        long wrapStart = System.currentTimeMillis();
+
+        while (opModeChecker.isActive()) {
+            long elapsed = System.currentTimeMillis() - wrapStart;
+            if (elapsed > WRAP_TIMEOUT_MS) {
+                USE_LIMITS = originalUseLimits;
+                turret.stop();
+                if (telemetry != null) {
+                    telemetry.addData("AutoAimWrap", "WRAP TIMEOUT");
+                    telemetry.update();
+                }
+                return false;
+            }
+
+            turret.update();
+            turret.setPower(wrapPower);
+            currentAngle = turret.getTurretAngle();
+
+            if (telemetry != null) {
+                telemetry.addData("AutoAimWrap", "Wrapping %s", stuckAtCW ? "CCW" : "CW");
+                telemetry.addData("Turret Angle", "%.1f\u00B0", currentAngle);
+                telemetry.addData("Target to pass", "%.1f\u00B0", targetLimitToPass);
+                telemetry.addData("Wrap Power", "%.2f", wrapPower);
+                telemetry.update();
+            }
+
+            // Check if we've wrapped past the opposite limit
+            if (stuckAtCW && currentAngle <= targetLimitToPass) {
+                break; // Wrapped CCW past CCW limit zone
+            }
+            if (stuckAtCCW && currentAngle >= targetLimitToPass) {
+                break; // Wrapped CW past CW limit zone
+            }
+
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                USE_LIMITS = originalUseLimits;
+                turret.stop();
+                return false;
+            }
+        }
+
+        // Re-enable limits and let normal PID take over
+        USE_LIMITS = originalUseLimits;
+        turret.stop();
+        inDeadZone = false;
+        return true;
     }
 }
