@@ -55,8 +55,8 @@ public final class AutoTankDrive {
         public double physicalTrackWidthInches = 12.441984508; // actual measurement: 14.
         // Path profile parameters (velocity and acceleration limits)
         public double maxWheelVel = 100;
-        public double minProfileAccel = -30;
-        public double maxProfileAccel = 30;
+        public double minProfileAccel = -35;
+        public double maxProfileAccel = 35;
 
         // forwardramplogger
         public double kS = 1.3659839492491705;

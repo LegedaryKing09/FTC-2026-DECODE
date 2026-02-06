@@ -49,20 +49,28 @@ public class NewPathingForCB extends LinearOpMode {
     // ==================================
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 3000.0;
+    public static double CONSTANT_SHOOTER_RPM = 3200.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
     public static double INITIAL_BACKWARD = 30.0;
     public static double FIRST_BACKWARD_Y = -25.0;
     public static double SPLINE_Y = -50.0;
-    public static double SECOND_SPLINE_X = 45.0;
-    public static double SECOND_SPLINE_Y = -60.0;
+    public static double SECOND_SPLINE_X = 50.0;
+    public static double SECOND_SPLINE_Y = -50.0;
+    public static double THIRD_SPLINE_X = 35.0;
+    public static double THIRD_SPLINE_Y = -15.0;
     public static double ENDING_DISTANCE = 30.0;
+    public static double FOURTH_SPLINE_X = 65.0;
+    public static double FOURTH_SPLINE_Y = -60.0;
+    public static double FIFTH_SPLINE_X = 35.0;
+    public static double FIFTH_SPLINE_Y = -10.0;
 
     // turning angle parameters
     public static double SPLINE_ANGLE = -60.0;
-    public static double SECOND_SPLINE_ANGLE = -60.0;
-    public static double THIRD_SPLINE_ANGLE = -60.0;
+    public static double SECOND_SPLINE_ANGLE = -90.0;
+    public static double THIRD_SPLINE_ANGLE = 100.0;
+    public static double FOURTH_SPLINE_ANGLE = -60.0;
+    public static double FIFTH_SPLINE_ANGLE = 100.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -220,7 +228,6 @@ public class NewPathingForCB extends LinearOpMode {
 
         // AUTO AIM AND SHOOT (FIRST LINE)
         autoMethod.shootBalls();
-        turretField.disable();
 
         // SPLINE FOR INTAKE (SECOND LINE)
         autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
@@ -228,14 +235,27 @@ public class NewPathingForCB extends LinearOpMode {
         // GO BACK FOR SHOOTING (SECOND LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action splineBackward = tankDrive.actionBuilder(currentPose)
-                .splineTo(new Vector2d(INITIAL_BACKWARD, FIRST_BACKWARD_Y), THIRD_SPLINE_ANGLE)
+                .setReversed(true)
+                .splineTo(new Vector2d(THIRD_SPLINE_X, THIRD_SPLINE_Y), Math.toRadians(THIRD_SPLINE_ANGLE))
                 .build();
         Actions.runBlocking(splineBackward);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
+        // SPLINE FOR INTAKE (THIRD LINE)
+        autoMethod.intakeSpline(FOURTH_SPLINE_X, FOURTH_SPLINE_Y, FOURTH_SPLINE_ANGLE);
 
+        // GO BACK FOR SHOOTING (THIRD LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action splineBackward2 = tankDrive.actionBuilder(currentPose)
+                .setReversed(true)
+                .splineTo(new Vector2d(FIFTH_SPLINE_X, FIFTH_SPLINE_Y), Math.toRadians(FIFTH_SPLINE_ANGLE))
+                .build();
+        Actions.runBlocking(splineBackward2);
+
+        // AUTO AIM AND SHOOT (SECOND LINE)
+        autoMethod.shootBalls();
+        
     }
 }
