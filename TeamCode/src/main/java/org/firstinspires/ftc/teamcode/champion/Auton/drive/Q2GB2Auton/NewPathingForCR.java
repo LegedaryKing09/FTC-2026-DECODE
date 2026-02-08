@@ -26,8 +26,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "New Pathing for CB", group = "Test")
-public class NewPathingForCB extends LinearOpMode {
+@Autonomous(name = "New Pathing for CR", group = "Test")
+public class NewPathingForCR extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -49,12 +49,12 @@ public class NewPathingForCB extends LinearOpMode {
     // ==================================
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 3400.0;
+    public static double CONSTANT_SHOOTER_RPM = 3200.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
     public static double INITIAL_BACKWARD = 35.0;
-    public static double FIRST_BACKWARD_Y = -22.0;
-    public static double SPLINE_Y = -48.0;
+    public static double FIRST_BACKWARD_Y = -17.0;
+    public static double SPLINE_Y = -45.0;
     public static double SPLINE_X = 35.0;
     public static double SECOND_SPLINE_X = 50.0;
     public static double SECOND_SPLINE_Y = -52.0;
@@ -62,9 +62,9 @@ public class NewPathingForCB extends LinearOpMode {
     public static double THIRD_SPLINE_Y = -15.0;
     public static double ENDING_DISTANCE = 30.0;
     public static double FOURTH_SPLINE_X = 70.0;
-    public static double FOURTH_SPLINE_Y = -70.0;
-    public static double FIFTH_SPLINE_X = 45.0;
-    public static double FIFTH_SPLINE_Y = -20.0;
+    public static double FOURTH_SPLINE_Y = -60.0;
+    public static double FIFTH_SPLINE_X = 35.0;
+    public static double FIFTH_SPLINE_Y = -10.0;
 
     // turning angle parameters
     public static double SPLINE_ANGLE = -50.0;
@@ -104,7 +104,7 @@ public class NewPathingForCB extends LinearOpMode {
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
         } catch (Exception e){
-           //
+            //
         }
 
         waitForStart();
@@ -222,12 +222,12 @@ public class NewPathingForCB extends LinearOpMode {
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
-        autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
+        autoMethod.intakeSpline(SPLINE_X, -SPLINE_Y, -SPLINE_ANGLE);
 
         // GO BACK FOR SHOOTING (FIRST LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
-                .lineToY(FIRST_BACKWARD_Y)
+                .lineToY(-FIRST_BACKWARD_Y)
                 .build();
         Actions.runBlocking(Backward);
 
@@ -235,13 +235,13 @@ public class NewPathingForCB extends LinearOpMode {
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
-        autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
+        autoMethod.intakeSpline(SECOND_SPLINE_X, -SECOND_SPLINE_Y, -SECOND_SPLINE_ANGLE);
 
         // GO BACK FOR SHOOTING (SECOND LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action splineBackward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(THIRD_SPLINE_X, THIRD_SPLINE_Y), Math.toRadians(THIRD_SPLINE_ANGLE))
+                .splineTo(new Vector2d(THIRD_SPLINE_X, -THIRD_SPLINE_Y), Math.toRadians(-THIRD_SPLINE_ANGLE))
                 .build();
         Actions.runBlocking(splineBackward);
 
@@ -249,13 +249,13 @@ public class NewPathingForCB extends LinearOpMode {
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
-        autoMethod.intakeSpline(FOURTH_SPLINE_X, FOURTH_SPLINE_Y, FOURTH_SPLINE_ANGLE);
+        autoMethod.intakeSpline(FOURTH_SPLINE_X, -FOURTH_SPLINE_Y, -FOURTH_SPLINE_ANGLE);
 
         // GO BACK FOR SHOOTING (THIRD LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action splineBackward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(FIFTH_SPLINE_X, FIFTH_SPLINE_Y), Math.toRadians(FIFTH_SPLINE_ANGLE))
+                .splineTo(new Vector2d(FIFTH_SPLINE_X, -FIFTH_SPLINE_Y), Math.toRadians(-FIFTH_SPLINE_ANGLE))
                 .build();
         Actions.runBlocking(splineBackward2);
 
