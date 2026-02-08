@@ -23,7 +23,6 @@ import java.util.Locale;
 
 /**
  * 超级无敌高级Teleop
- *
  * FIELD-CENTRIC AUTO-AIM (NO TurretFieldController):
  * - Inherits position from auton via PoseStorage
  * - Continuously tracks robot position on field
@@ -31,12 +30,10 @@ import java.util.Locale;
  *   turret-relative angle, then converts directly to servo position:
  *     servoPos = 0.5 + (turretAngle / 315.0)
  * - Runs every loop for continuous aiming while driving
- *
  * TURRET SERVO MAPPING:
  * - Servo 0.0 to 1.0 = 315° total range
  * - Servo 0.5 = 0° (field forward)
  * - Servo 0.0 = -157.5°, Servo 1.0 = +157.5°
- *
  * === DRIVER 1 (gamepad1) - ARCADE DRIVE (FULL POWER) ===
  * Left Stick Y:   Forward/Backward (1.0 power)
  * Right Stick X:  Turn Left/Right (1.0 power)
@@ -44,22 +41,17 @@ import java.util.Locale;
  *                 Ball switch auto-stops uptake when ball detected,
  *                 auto-restarts when ball leaves
  * Left Bumper:    HOLD to VOMIT (reverse intake + transfer + uptake)
- *
  * === DRIVER 2 (gamepad2) ===
  * Right Trigger:  HOLD to SHOOT - runs intake + transfer + uptake,
  *                 BYPASSES ball detection (forces balls through shooter)
- *
  * Left Bumper:    RETRACT ramp (angle goes more negative)
  * Left Trigger:   EXTEND ramp (angle goes less negative, toward 0°)
- *
  * D-Pad Up:       RPM +100
  * D-Pad Down:     RPM -100
  * D-Pad Right:    Turret offset +1 degree
  * D-Pad Left:     Turret offset -1 degree
- *
  * Right Stick X:  Manual turret - DISABLES AUTO-AIM when moved!
  *                 Auto-aim stays off until next preset button is pressed
- *
  * Y Button:       FAR preset - enables auto-aim + sets RPM/ramp
  * A Button:       CLOSE preset - AUTO RPM/RAMP based on distance to goal
  * X Button:       Set RPM to IDLE (2000 RPM)
