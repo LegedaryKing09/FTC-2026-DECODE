@@ -310,6 +310,25 @@ public class TurretFieldController {
     public double getLastDTerm() { return lastDTerm; }
     public double getLastFTerm() { return 0.0; }  // Kept for compatibility
 
+    // ========== LIMELIGHT CORRECTION ==========
+
+    /**
+     * Apply a Limelight TX correction to TURRET_OFFSET.
+     * Call when driver 2 presses B — reads tx, adds it to offset,
+     * so all future auto-aiming is corrected.
+     */
+    public void applyLimelightCorrection(double tx) {
+        TURRET_OFFSET += tx;
+    }
+
+    public double getTurretOffset() {
+        return TURRET_OFFSET;
+    }
+
+    public void resetTurretOffset() {
+        TURRET_OFFSET = 0.0;
+    }
+
     // ========== AUTO-AIM ==========
 
     public interface HeadingProvider {
@@ -359,6 +378,19 @@ public class TurretFieldController {
             double heading = headingProvider.getHeadingDegrees();
             update(heading);
 
+            if (telemetry != null) {
+                telemetry.addData("AutoAim", "Aiming...");
+                telemetry.addData("Robot Heading", "%.1f°", heading);
+                telemetry.addData("Turret Angle", "%.1f°", turret.getTurretAngle());
+                telemetry.addData("Required Turret", "%.1f°", debugRequiredTurret);
+                telemetry.addData("Field Target", "%.1f°", TARGET_FIELD_ANGLE);
+                telemetry.addData("Actual Facing", "%.1f°", debugActualFieldFacing);
+                telemetry.addData("Error", "%.1f°", lastFieldError);
+                telemetry.addData("Dead Zone", inDeadZone);
+                telemetry.addData("Power", "%.2f", lastPower);
+                telemetry.update();
+            }
+
             if (inDeadZone && Math.abs(lastPower) < 0.01) {
                 if (telemetry != null) {
                     telemetry.addData("AutoAim", "IN DEAD ZONE");
@@ -392,31 +424,177 @@ public class TurretFieldController {
         return false;
     }
 
+    // ========== AUTO-AIM WITH WRAP (Auton only) ==========
+
+    public static double WRAP_POWER = 0.35;
+    public static double AUTON_AIM_TOLERANCE = 3.0;
+
     /**
-     * Auton auto-aim with dead zone wrap-around.
-     * Checks if the required turret angle is in the dead zone,
-     * and if so, adjusts the field target by 360 so the turret
-     * goes the other way. Then calls the normal autoAim.
+     * Auton turret aim - always drives CW to reach the target turret angle.
+     * Ignores dead zone limits - just keeps spinning CW until the turret
+     * reaches the required angle. Simple and predictable.
+     *
+     * @param targetFieldAngle  Desired field-relative angle
+     * @param headingProvider   Provides current robot heading
+     * @param opModeChecker     Checks if opmode is still active
+     * @param telemetry         Optional telemetry for debug
+     * @return true if reached target, false on timeout
+     */
+    public boolean autoAimCW(double targetFieldAngle,
+                             HeadingProvider headingProvider,
+                             OpModeChecker opModeChecker,
+                             org.firstinspires.ftc.robotcore.external.Telemetry telemetry) {
+
+        long startTime = System.currentTimeMillis();
+
+        while (opModeChecker.isActive()) {
+            long elapsed = System.currentTimeMillis() - startTime;
+            if (elapsed > AUTO_AIM_TIMEOUT_MS) {
+                turret.stop();
+                if (telemetry != null) {
+                    telemetry.addData("AutoAimCW", "TIMEOUT");
+                    telemetry.update();
+                }
+                return false;
+            }
+
+            turret.update();
+            double heading = headingProvider.getHeadingDegrees();
+            double effectiveHeading = INVERT_HEADING ? -heading : heading;
+            double currentTurretAngle = turret.getTurretAngle();
+
+            // Calculate where turret needs to be
+            double requiredTurretAngle = targetFieldAngle - effectiveHeading - TURRET_OFFSET;
+            requiredTurretAngle = normalizeAngle(requiredTurretAngle);
+
+            // How far off are we
+            double error = normalizeAngle(requiredTurretAngle - currentTurretAngle);
+
+            if (telemetry != null) {
+                telemetry.addData("AutoAimCW", "Driving CW...");
+                telemetry.addData("Robot Heading", "%.1f", heading);
+                telemetry.addData("Turret Angle", "%.1f", currentTurretAngle);
+                telemetry.addData("Required Turret", "%.1f", requiredTurretAngle);
+                telemetry.addData("Field Target", "%.1f", targetFieldAngle);
+                telemetry.addData("Error", "%.1f", error);
+                telemetry.update();
+            }
+
+            // Close enough - stop
+            if (Math.abs(error) <= AUTON_AIM_TOLERANCE) {
+                turret.stop();
+                if (telemetry != null) {
+                    telemetry.addData("AutoAimCW", "ALIGNED!");
+                    telemetry.update();
+                }
+                return true;
+            }
+
+            // Always drive CW (positive power)
+            turret.setPower(WRAP_POWER);
+
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                turret.stop();
+                return false;
+            }
+        }
+
+        turret.stop();
+        return false;
+    }
+
+    public boolean autoAimCW(double targetFieldAngle,
+                             HeadingProvider headingProvider,
+                             OpModeChecker opModeChecker) {
+        return autoAimCW(targetFieldAngle, headingProvider, opModeChecker, null);
+    }
+
+    // ========== AUTO-AIM WITH DEAD ZONE WRAP (Auton) ==========
+
+    /**
+     * Same as autoAim, but if the target is in the dead zone,
+     * drives the turret the other way around instead of stopping.
      */
     public boolean autoAimWithWrap(double targetAngle,
                                    HeadingProvider headingProvider,
                                    OpModeChecker opModeChecker,
                                    org.firstinspires.ftc.robotcore.external.Telemetry telemetry) {
 
-        double heading = headingProvider.getHeadingDegrees();
-        double effectiveHeading = INVERT_HEADING ? -heading : heading;
+        setTargetFieldAngle(targetAngle);
+        enable();
 
-        double requiredTurretAngle = targetAngle - effectiveHeading - TURRET_OFFSET;
-        requiredTurretAngle = normalizeAngle(requiredTurretAngle);
+        long startTime = System.currentTimeMillis();
+        int alignedCount = 0;
+        final int REQUIRED_ALIGNED_CYCLES = 5;
 
-        // If in the dead zone, offset the field target by 360 to go the other way
-        if (requiredTurretAngle > CW_LIMIT) {
-            targetAngle -= 360.0;
-        } else if (requiredTurretAngle < CCW_LIMIT) {
-            targetAngle += 360.0;
+        while (opModeChecker.isActive()) {
+            long elapsed = System.currentTimeMillis() - startTime;
+
+            if (elapsed > AUTO_AIM_TIMEOUT_MS) {
+                if (telemetry != null) {
+                    telemetry.addData("AutoAimWrap", "TIMEOUT");
+                    telemetry.update();
+                }
+                disable();
+                return false;
+            }
+
+            turret.update();
+            double heading = headingProvider.getHeadingDegrees();
+            update(heading);
+
+            if (telemetry != null) {
+                telemetry.addData("AutoAimWrap", inDeadZone ? "Wrapping..." : "Aiming...");
+                telemetry.addData("Robot Heading", "%.1f", heading);
+                telemetry.addData("Turret Angle", "%.1f", turret.getTurretAngle());
+                telemetry.addData("Required Turret", "%.1f", debugRequiredTurret);
+                telemetry.addData("Field Target", "%.1f", TARGET_FIELD_ANGLE);
+                telemetry.addData("Actual Facing", "%.1f", debugActualFieldFacing);
+                telemetry.addData("Error", "%.1f", lastFieldError);
+                telemetry.addData("Dead Zone", inDeadZone);
+                telemetry.addData("Power", "%.2f", lastPower);
+                telemetry.addData("Turret Offset", "%.1f", TURRET_OFFSET);
+                telemetry.update();
+            }
+
+            // Instead of giving up in dead zone, drive the other way
+            if (inDeadZone) {
+                if (debugRequiredTurret >= CW_LIMIT) {
+                    turret.setPower(-WRAP_POWER);
+                } else {
+                    turret.setPower(WRAP_POWER);
+                }
+                resetPID();
+
+                try { Thread.sleep(20); } catch (InterruptedException e) { disable(); return false; }
+                continue;
+            }
+
+            if (isAligned()) {
+                alignedCount++;
+                if (alignedCount >= REQUIRED_ALIGNED_CYCLES) {
+                    if (telemetry != null) {
+                        telemetry.addData("AutoAimWrap", "ALIGNED!");
+                        telemetry.update();
+                    }
+                    return true;
+                }
+            } else {
+                alignedCount = 0;
+            }
+
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                disable();
+                return false;
+            }
         }
 
-        return autoAim(targetAngle, headingProvider, opModeChecker, telemetry);
+        disable();
+        return false;
     }
 
     public boolean autoAimWithWrap(double targetAngle,

@@ -13,7 +13,7 @@ public class NewShooterController {
     private final ElapsedTime runtime;
 
     // Motor direction control (tune these if motors spin opposite ways)
-    public static boolean motor1Reversed = true;
+    public static boolean motor1Reversed = false;
     public static boolean motor2Reversed = true;  // Often mounted opposite
 
     // Target RPM control

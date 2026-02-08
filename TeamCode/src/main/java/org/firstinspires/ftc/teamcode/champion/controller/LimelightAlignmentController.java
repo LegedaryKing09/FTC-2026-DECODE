@@ -675,4 +675,63 @@ public class LimelightAlignmentController {
 
         opMode.telemetry.update();
     }
+
+    /**
+     * Read the current TX value from the target AprilTag.
+     * Returns the averaged TX in degrees, or 0 if no tag found.
+     * TX is inverted to match turret convention.
+     */
+    public double getTx() {
+        if (limelight == null) return 0;
+
+        try {
+            double sumTx = 0;
+            int validReadings = 0;
+
+            for (int i = 0; i < 5; i++) {
+                LLResult result = limelight.getLatestResult();
+                if (result != null && result.isValid()) {
+                    List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+                    for (LLResultTypes.FiducialResult fiducial : fiducials) {
+                        if (fiducial.getFiducialId() == targetTagId) {
+                            sumTx += fiducial.getTargetXDegrees();
+                            validReadings++;
+                            break;
+                        }
+                    }
+                }
+                try {
+                    sleep(20);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return 0;
+                }
+            }
+
+            if (validReadings > 0) {
+                return -(sumTx / validReadings);  // Inverted to match turret convention
+            }
+        } catch (Exception e) {
+            // Read failed
+        }
+        return 0;
+    }
+
+    /**
+     * Returns true if the Limelight currently sees the target tag.
+     */
+    public boolean canSeeTarget() {
+        if (limelight == null) return false;
+        try {
+            LLResult result = limelight.getLatestResult();
+            if (result != null && result.isValid()) {
+                for (LLResultTypes.FiducialResult fiducial : result.getFiducialResults()) {
+                    if (fiducial.getFiducialId() == targetTagId) return true;
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return false;
+    }
 }
