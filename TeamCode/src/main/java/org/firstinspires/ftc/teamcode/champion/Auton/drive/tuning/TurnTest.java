@@ -48,28 +48,24 @@ public class TurnTest extends LinearOpMode {
                 .turnTo(Math.toRadians(TURN_45))
                 .build();
         Actions.runBlocking(turnLeft1);
-        HeadingCorrection(TURN_45, 0.5);
 
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action turnLeft2 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(TURN_90))
                 .build();
         Actions.runBlocking(turnLeft2);
-        HeadingCorrection(TURN_90, 0.5);
 
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action turnLeft3 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(TURN_45))
                 .build();
         Actions.runBlocking(turnLeft3);
-        HeadingCorrection(TURN_45, 0.5);
 
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action turnLeft4 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(TURN_0))
                 .build();
         Actions.runBlocking(turnLeft4);
-        HeadingCorrection(TURN_0, 0.5);
 
 
     }

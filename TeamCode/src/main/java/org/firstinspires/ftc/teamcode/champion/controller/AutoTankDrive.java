@@ -75,8 +75,8 @@ public final class AutoTankDrive {
         public double ramseteBBar = 2.0;
 
         // Turn controller gains (proportional and velocity feedback)
-        public double turnGain = 24; // Proportional gain for turn error correction
-        public double turnVelGain = 0; // Velocity feedback gain for turn smoothing
+        public double turnGain = 48; // Proportional gain for turn error correction
+        public double turnVelGain = 0.005; // Velocity feedback gain for turn smoothing
 
         // use angular ramplogger with perpendicular and parallel graphs
         public double pinpointXOffset = -3732.7689001334834 * inPerTick;  // 4.5

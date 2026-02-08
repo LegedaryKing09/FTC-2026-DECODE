@@ -26,8 +26,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "New Pathing for CB", group = "Test")
-public class NewPathingForCB extends LinearOpMode {
+@Autonomous(name = "New Pathing for FR", group = "Test")
+public class NewPathingForFR extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -49,29 +49,24 @@ public class NewPathingForCB extends LinearOpMode {
     // ==================================
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 3400.0;
+    public static double CONSTANT_SHOOTER_RPM = 4100.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
-    public static double INITIAL_BACKWARD = 35.0;
-    public static double FIRST_BACKWARD_Y = -22.0;
-    public static double SPLINE_Y = -48.0;
-    public static double SPLINE_X = 35.0;
-    public static double SECOND_SPLINE_X = 50.0;
-    public static double SECOND_SPLINE_Y = -52.0;
-    public static double THIRD_SPLINE_X = 35.0;
-    public static double THIRD_SPLINE_Y = -15.0;
-    public static double ENDING_DISTANCE = 30.0;
-    public static double FOURTH_SPLINE_X = 70.0;
-    public static double FOURTH_SPLINE_Y = -70.0;
-    public static double FIFTH_SPLINE_X = 45.0;
-    public static double FIFTH_SPLINE_Y = -20.0;
+    public static double INTAKE_DISTANCE = 40.0;
+    public static double STARTING_POSITION_X = 0.0;
+    public static double STARTING_POSITION_Y = 0.0;
+    public static double FIRST_SPLINE_X = 30.0;
+    public static double FIRST_SPLINE_Y = 30.0;
+    public static double SECOND_SPLINE_X = 30.0;
+    public static double SECOND_SPLINE_Y = 54.0;
+    public static double THIRD_SPLINE_X = 30.0;
+    public static double THIRD_SPLINE_Y = 78.0;
 
     // turning angle parameters
-    public static double SPLINE_ANGLE = -50.0;
-    public static double SECOND_SPLINE_ANGLE = -110.0;
-    public static double THIRD_SPLINE_ANGLE = 100.0;
-    public static double FOURTH_SPLINE_ANGLE = -60.0;
-    public static double FIFTH_SPLINE_ANGLE = 100.0;
+    public static double STARTING_ANGLE = 0.0;
+    public static double FIRST_SPLINE_ANGLE = 90.0;
+    public static double SECOND_SPLINE_ANGLE = 90.0;
+    public static double THIRD_SPLINE_ANGLE = 90.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -104,7 +99,7 @@ public class NewPathingForCB extends LinearOpMode {
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
         } catch (Exception e){
-           //
+            //
         }
 
         waitForStart();
@@ -210,28 +205,32 @@ public class NewPathingForCB extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // GO BACK FOR SHOOTING
-        Action Initial_Forward = tankDrive.actionBuilder(currentPose)
-                .lineToX(INITIAL_BACKWARD)
-                .build();
-        Actions.runBlocking(Initial_Forward);
 
         // SHOOT
         autoMethod.shootBalls();
 
-        // SPLINE FOR INTAKE (FIRST LINE)
-        autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
+        // INTAKE
+        autoMethod.intakeSForward(INTAKE_DISTANCE);
 
-        // GO BACK FOR SHOOTING (FIRST LINE)
-        currentPose = tankDrive.pinpointLocalizer.getPose();
+        // BACKWARD FOR SHOOTING
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
-                .lineToY(FIRST_BACKWARD_Y)
+                .lineToX(STARTING_POSITION_X)
                 .build();
         Actions.runBlocking(Backward);
 
-        // AUTO AIM AND SHOOT (FIRST LINE)
+        // SPLINE FOR INTAKE (FIRST LINE)
+        autoMethod.intakeSpline(FIRST_SPLINE_X, FIRST_SPLINE_Y, FIRST_SPLINE_ANGLE);
+
+        // GO BACK FOR SHOOTING (FIRST LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action splineBackward = tankDrive.actionBuilder(currentPose)
+                .setReversed(true)
+                .splineTo(new Vector2d(STARTING_POSITION_X, STARTING_POSITION_Y), Math.toRadians(STARTING_ANGLE))
+                .build();
+        Actions.runBlocking(splineBackward);
+
+        // SHOOT
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -239,28 +238,30 @@ public class NewPathingForCB extends LinearOpMode {
 
         // GO BACK FOR SHOOTING (SECOND LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action splineBackward = tankDrive.actionBuilder(currentPose)
-                .setReversed(true)
-                .splineTo(new Vector2d(THIRD_SPLINE_X, THIRD_SPLINE_Y), Math.toRadians(THIRD_SPLINE_ANGLE))
-                .build();
-        Actions.runBlocking(splineBackward);
-
-        // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.shootBalls();
-
-        // SPLINE FOR INTAKE (THIRD LINE)
-        autoMethod.intakeSpline(FOURTH_SPLINE_X, FOURTH_SPLINE_Y, FOURTH_SPLINE_ANGLE);
-
-        // GO BACK FOR SHOOTING (THIRD LINE)
-        currentPose = tankDrive.pinpointLocalizer.getPose();
         Action splineBackward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(FIFTH_SPLINE_X, FIFTH_SPLINE_Y), Math.toRadians(FIFTH_SPLINE_ANGLE))
+                .splineTo(new Vector2d(STARTING_POSITION_X, STARTING_POSITION_Y), Math.toRadians(STARTING_ANGLE))
                 .build();
         Actions.runBlocking(splineBackward2);
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
+        // SHOOT
         autoMethod.shootBalls();
+
+        // SPLINE FOR INTAKE (THIRD LINE)
+        autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
+
+        // GO BACK FOR SHOOTING (FIRST LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action splineBackward3 = tankDrive.actionBuilder(currentPose)
+                .setReversed(true)
+                .splineTo(new Vector2d(STARTING_POSITION_X, STARTING_POSITION_Y), Math.toRadians(STARTING_ANGLE))
+                .build();
+        Actions.runBlocking(splineBackward3);
+
+        // SHOOT
+        autoMethod.shootBalls();
+
+
 
     }
 }
