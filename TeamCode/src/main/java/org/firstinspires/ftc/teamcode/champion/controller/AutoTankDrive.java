@@ -469,13 +469,22 @@ public final class AutoTankDrive {
             double leftPower = feedforward.compute(wheelVelocities.left) / batteryVoltage;
             double rightPower = feedforward.compute(wheelVelocities.right) / batteryVoltage;
 
-
             double feedforwardComponent = targetPose.heading.velocity().value();
             double proportionalComponent = PARAMS.turnGain * headingError;
             double velocityComponent = PARAMS.turnVelGain * (currentVelocity.angVel - targetPose.heading.velocity().value());
 
             leftPower = Math.max(-1.0, Math.min(1.0, leftPower));
             rightPower = Math.max(-1.0, Math.min(1.0, rightPower));
+
+            // prevents unstable oscillation
+            if (elapsedTime > 0.3) {  // After initial 300ms
+                double angularVelDegrees = Math.toDegrees(Math.abs(velocityCommand.angVel.value()));
+                double headingErrorDegrees = Math.abs(turnAngleErrorDeg);
+                if (angularVelDegrees > 400 && headingErrorDegrees < 5) { // if the angular speed goes crazy, stop
+                    stopMotors();
+                    return false;
+                }
+            }
 
             // Apply motor powers
             setMotorPowers(leftPower, rightPower);

@@ -26,7 +26,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "CB - GB2", group = "Competition")
+@Autonomous(name = "CLOSE BLUE - 9 BALLS", group = "Competition")
 public class CB extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
@@ -52,8 +52,10 @@ public class CB extends LinearOpMode {
     public static double CONSTANT_SHOOTER_RPM = 3200.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance
-    public static double INITIAL_BACKWARD = 40.0;
-    public static double INTAKE_DISTANCE = 35.0;
+    public static double INITIAL_BACKWARD = 30.0;
+    public static double INTAKE_DISTANCE = 25.0;
+    public static double INTAKE_BACKWARD = 25.0;
+    public static double SECOND_LINE_PICKUP_BACKWARD = 25.0;
 
     // turning angle
     public static double PICK_UP_ANGLE = 45.0;
@@ -208,7 +210,7 @@ public class CB extends LinearOpMode {
         // SHOOT
         autoMethod.shootBalls();
 
-        // TURN
+        // TURN TO 90 DEGREE ANGLE
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Turn1 = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
@@ -216,15 +218,68 @@ public class CB extends LinearOpMode {
         Actions.runBlocking(Turn1);
         autoMethod.HeadingCorrection(PICK_UP_ANGLE, 0.5);
 
-        // GO FORWARD WITH INTAKE
+        // GO FORWARD WITH INTAKE (FIRST LINE)
         autoMethod.intakeSForward(INTAKE_DISTANCE);
 
-        // GO BACK FOR SHOOTING
+        // GO BACK FOR SHOOTING (FIRST LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward1 = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + INITIAL_BACKWARD)
+                .lineToX(currentPose.position.x - INTAKE_BACKWARD)
                 .build();
         Actions.runBlocking(Backward1);
 
+        // SHOOT (FIRST LINE)
+        autoMethod.shootBalls();
+
+        // TURN TO 0 DEGREE ANGLE  (SECOND LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Turn2 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(ZERO_DEGREE))
+                .build();
+        Actions.runBlocking(Turn2);
+        autoMethod.HeadingCorrection(ZERO_DEGREE, 0.5);
+
+        // GO BACK FOR PICKUP (SECOND LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Backward2 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - SECOND_LINE_PICKUP_BACKWARD)
+                .build();
+        Actions.runBlocking(Backward2);
+
+        // TURN TO 90 DEGREE ANGLE  (SECOND LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Turn3 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(PICK_UP_ANGLE))
+                .build();
+        Actions.runBlocking(Turn3);
+        autoMethod.HeadingCorrection(PICK_UP_ANGLE, 0.5);
+
+        // GO FORWARD WITH INTAKE (SECOND LINE)
+        autoMethod.intakeSForward(INTAKE_DISTANCE);
+
+        // GO BACK AFTER INTAKE (SECOND LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Backward3 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - INTAKE_BACKWARD)
+                .build();
+        Actions.runBlocking(Backward3);
+
+        // TURN TO 0 DEGREE ANGLE  (SECOND LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Turn4 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(ZERO_DEGREE))
+                .build();
+        Actions.runBlocking(Turn4);
+        autoMethod.HeadingCorrection(ZERO_DEGREE, 0.5);
+
+        // GO FORWARD FOR SHOOTING (SECOND LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Forward = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x + SECOND_LINE_PICKUP_BACKWARD)
+                .build();
+        Actions.runBlocking(Forward);
+
+        // SHOOT (SECOND LINE)
+        autoMethod.shootBalls();
     }
 }
