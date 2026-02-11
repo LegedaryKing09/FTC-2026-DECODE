@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode.champion.tests;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import org.firstinspires.ftc.teamcode.champion.controller.JohnController;
+import org.firstinspires.ftc.teamcode.champion.controller.JohnBotControllers.JohnController;
 
 import java.util.List;
 
