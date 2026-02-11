@@ -49,21 +49,21 @@ public final class AutoTankDrive {
 
     public static class Params {
         // forwardpushtest
-        public double inPerTick = 0.0019582245431; //  real distance divided by the ticks traveled recorded
+        public double inPerTick = 0.0019193857965; //  real distance divided by the ticks traveled recorded
 
         // distance betweent the wheels but use the angularramplogger
-        public double physicalTrackWidthInches = 12.441984508; // actual measurement: 14.
+        public double physicalTrackWidthInches = 13.436665115; // actual measurement: 14.
         // Path profile parameters (velocity and acceleration limits)
         public double maxWheelVel = 100;
-        public double minProfileAccel = -35;
+        public double minProfileAccel = -30;
         public double maxProfileAccel = 35;
 
         // forwardramplogger
-        public double kS = 1.3659839492491705;
-        public double kV = 0.0002176927881595613;
+        public double kS = 1.6112805154897916;
+        public double kV = 0.0002942025919378449;
 
         // manual feedforward tuner using the graph and compare
-        public double kA = 0.00005; // vref vs v0 and match it as tightly as possible. start with this value 0.0000001
+        public double kA = 0.00004; // vref vs v0 and match it as tightly as possible. start with this value 0.0000001
 
         // Turn profile parameters (angular velocity and acceleration limits)
         public double maxAngVel = Math.PI;
@@ -75,12 +75,12 @@ public final class AutoTankDrive {
         public double ramseteBBar = 2.0;
 
         // Turn controller gains (proportional and velocity feedback)
-        public double turnGain = 48; // Proportional gain for turn error correction
-        public double turnVelGain = 0.005; // Velocity feedback gain for turn smoothing
+        public double turnGain = 32; // Proportional gain for turn error correction
+        public double turnVelGain = 0.01; // Velocity feedback gain for turn smoothing
 
         // use angular ramplogger with perpendicular and parallel graphs
-        public double pinpointXOffset = -3732.7689001334834 * inPerTick;  // 4.5
-        public double pinpointYOffset = -2467.9050623902135 * inPerTick;   // 6.8
+        public double pinpointXOffset = -3285.5802426340447 * inPerTick;
+        public double pinpointYOffset = -2336.5808095776065 * inPerTick;
     }
 
 

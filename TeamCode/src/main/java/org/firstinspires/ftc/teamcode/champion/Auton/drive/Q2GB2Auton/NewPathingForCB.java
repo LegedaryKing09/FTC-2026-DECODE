@@ -54,21 +54,20 @@ public class NewPathingForCB extends LinearOpMode {
     // Distance parameters
     public static double INITIAL_BACKWARD = 35.0;
     public static double FIRST_BACKWARD_Y = -22.0;
-    public static double SPLINE_Y = -48.0;
-    public static double SPLINE_X = 35.0;
-    public static double SECOND_SPLINE_X = 50.0;
-    public static double SECOND_SPLINE_Y = -52.0;
-    public static double THIRD_SPLINE_X = 35.0;
+    public static double SPLINE_Y = -42.0;
+    public static double SPLINE_X = 38.0;
+    public static double SECOND_SPLINE_X = 53.0;
+    public static double SECOND_SPLINE_Y = -48.0;
+    public static double THIRD_SPLINE_X = 45.0;
     public static double THIRD_SPLINE_Y = -15.0;
-    public static double ENDING_DISTANCE = 30.0;
     public static double FOURTH_SPLINE_X = 70.0;
-    public static double FOURTH_SPLINE_Y = -70.0;
+    public static double FOURTH_SPLINE_Y = -50.0;
     public static double FIFTH_SPLINE_X = 45.0;
-    public static double FIFTH_SPLINE_Y = -20.0;
+    public static double FIFTH_SPLINE_Y = -10.0;
 
     // turning angle parameters
-    public static double SPLINE_ANGLE = -50.0;
-    public static double SECOND_SPLINE_ANGLE = -110.0;
+    public static double SPLINE_ANGLE = -90.0;
+    public static double SECOND_SPLINE_ANGLE = -115.0;
     public static double THIRD_SPLINE_ANGLE = 100.0;
     public static double FOURTH_SPLINE_ANGLE = -60.0;
     public static double FIFTH_SPLINE_ANGLE = 100.0;
@@ -219,6 +218,7 @@ public class NewPathingForCB extends LinearOpMode {
         Actions.runBlocking(Initial_Forward);
 
         // SHOOT
+        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
@@ -232,6 +232,7 @@ public class NewPathingForCB extends LinearOpMode {
         Actions.runBlocking(Backward);
 
         // AUTO AIM AND SHOOT (FIRST LINE)
+        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -246,6 +247,7 @@ public class NewPathingForCB extends LinearOpMode {
         Actions.runBlocking(splineBackward);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
+        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -260,6 +262,7 @@ public class NewPathingForCB extends LinearOpMode {
         Actions.runBlocking(splineBackward2);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
+        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
     }

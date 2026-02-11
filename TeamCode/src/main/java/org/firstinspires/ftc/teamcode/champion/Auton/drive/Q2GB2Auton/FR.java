@@ -1,7 +1,4 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
-import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2Auton.FarBlue.FIRST_BACKWARD;
-import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2Auton.FarBlue.INITIAL_FORWARD;
-
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
