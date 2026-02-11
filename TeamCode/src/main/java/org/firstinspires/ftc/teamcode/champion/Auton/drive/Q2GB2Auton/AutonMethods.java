@@ -1,8 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import static android.os.SystemClock.sleep;
 
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
-
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
@@ -47,6 +45,9 @@ public class AutonMethods {
     private final AutoTankDrive tankDrive;
     private final TurretFieldController turretField;
     private final TurretController turret;
+    
+    public org.firstinspires.ftc.robotcore.external.Telemetry telemetry;
+
     public AutonMethods(
             LinearOpMode opMode,
             SixWheelDriveController driveController,
