@@ -219,7 +219,7 @@ public class CB extends LinearOpMode {
         autoMethod.HeadingCorrection(PICK_UP_ANGLE, 0.5);
 
         // GO FORWARD WITH INTAKE (FIRST LINE)
-        autoMethod.intakeSForward(INTAKE_DISTANCE);
+        autoMethod.intakeXForward(INTAKE_DISTANCE);
 
         // GO BACK FOR SHOOTING (FIRST LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -255,7 +255,7 @@ public class CB extends LinearOpMode {
         autoMethod.HeadingCorrection(PICK_UP_ANGLE, 0.5);
 
         // GO FORWARD WITH INTAKE (SECOND LINE)
-        autoMethod.intakeSForward(INTAKE_DISTANCE);
+        autoMethod.intakeXForward(INTAKE_DISTANCE);
 
         // GO BACK AFTER INTAKE (SECOND LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();

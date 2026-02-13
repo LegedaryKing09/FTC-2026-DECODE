@@ -26,8 +26,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "New Pathing for FR", group = "Test")
-public class NewPathingForFR extends LinearOpMode {
+@Autonomous(name = "RELEASE for CB - 6 balls", group = "Test")
+public class ReleasePathingCB extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -49,24 +49,25 @@ public class NewPathingForFR extends LinearOpMode {
     // ==================================
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 4100.0;
+    public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
-    public static double INTAKE_DISTANCE = 40.0;
-    public static double STARTING_POSITION_X = 0.0;
-    public static double STARTING_POSITION_Y = 0.0;
-    public static double FIRST_SPLINE_X = 30.0;
-    public static double FIRST_SPLINE_Y = 30.0;
-    public static double SECOND_SPLINE_X = 30.0;
-    public static double SECOND_SPLINE_Y = 54.0;
-    public static double THIRD_SPLINE_X = 30.0;
-    public static double THIRD_SPLINE_Y = 78.0;
+    public static double INITIAL_BACKWARD = -30.0;
+    public static double FIRST_BACKWARD_Y = -22.0;
+    public static double SPLINE_Y = -52.0;
+    public static double SPLINE_X = -11.0;
+    public static double SECOND_SPLINE_X = 12.0;
+    public static double SECOND_SPLINE_Y = -52.0;
+    public static double THIRD_SPLINE_X = -5.0;
+    public static double THIRD_SPLINE_Y = -54.0;
+    public static double RELEASE_X = -20.0;
+    public static double RELEASE_Y = -35.0;
 
     // turning angle parameters
-    public static double STARTING_ANGLE = 0.0;
-    public static double FIRST_SPLINE_ANGLE = 90.0;
-    public static double SECOND_SPLINE_ANGLE = 90.0;
-    public static double THIRD_SPLINE_ANGLE = 90.0;
+    public static double RELEASE_ANGLE = -180.0;
+    public static double SPLINE_ANGLE = -90.0;
+    public static double SECOND_SPLINE_ANGLE = -180.0;
+    public static double THIRD_SPLINE_ANGLE = -90.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -78,7 +79,7 @@ public class NewPathingForFR extends LinearOpMode {
         initializeRobot();
 
         // Define starting pose
-        Pose2d startPose = new Pose2d(0, 0, 0);
+        Pose2d startPose = new Pose2d(-55, -55, Math.toRadians(45));
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
@@ -205,61 +206,47 @@ public class NewPathingForFR extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+
+        // GO BACK FOR SHOOTING
+        Action Initial_Forward = tankDrive.actionBuilder(currentPose)
+                .lineToX(INITIAL_BACKWARD)
+                .build();
+        Actions.runBlocking(Initial_Forward);
 
         // SHOOT
+        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
-        // INTAKE
-        autoMethod.intakeXForward(INTAKE_DISTANCE);
+        // SPLINE FOR INTAKE (FIRST LINE)
+        autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
 
-        // BACKWARD FOR SHOOTING
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        // GO BACK FOR SHOOTING (FIRST LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
-                .lineToX(STARTING_POSITION_X)
+                .setReversed(true)
+                .splineTo(new Vector2d(RELEASE_X, RELEASE_Y),Math.toRadians(RELEASE_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
 
-        // SPLINE FOR INTAKE (FIRST LINE)
-        autoMethod.intakeSpline(FIRST_SPLINE_X, FIRST_SPLINE_Y, FIRST_SPLINE_ANGLE);
+        // AUTO AIM AND SHOOT (FIRST LINE)
+        autoMethod.autoAimTurretLeft();
+        autoMethod.shootBalls();
+
+        // RELEASE
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action RELEASE = tankDrive.actionBuilder(currentPose)
+                .splineTo(new Vector2d(0, -65),Math.toRadians(-90))
+                .build();
+        Actions.runBlocking(RELEASE);
 
         // GO BACK FOR SHOOTING (FIRST LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action splineBackward = tankDrive.actionBuilder(currentPose)
+        Action Backward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(STARTING_POSITION_X, STARTING_POSITION_Y), Math.toRadians(STARTING_ANGLE))
+                .splineTo(new Vector2d(RELEASE_X, RELEASE_Y),Math.toRadians(RELEASE_ANGLE))
                 .build();
-        Actions.runBlocking(splineBackward);
-
-        // SHOOT
-        autoMethod.shootBalls();
-
-        // SPLINE FOR INTAKE (SECOND LINE)
-        autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
-
-        // GO BACK FOR SHOOTING (SECOND LINE)
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action splineBackward2 = tankDrive.actionBuilder(currentPose)
-                .setReversed(true)
-                .splineTo(new Vector2d(STARTING_POSITION_X, STARTING_POSITION_Y), Math.toRadians(STARTING_ANGLE))
-                .build();
-        Actions.runBlocking(splineBackward2);
-
-        // SHOOT
-        autoMethod.shootBalls();
-
-        // SPLINE FOR INTAKE (THIRD LINE)
-        autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
-
-        // GO BACK FOR SHOOTING (FIRST LINE)
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action splineBackward3 = tankDrive.actionBuilder(currentPose)
-                .setReversed(true)
-                .splineTo(new Vector2d(STARTING_POSITION_X, STARTING_POSITION_Y), Math.toRadians(STARTING_ANGLE))
-                .build();
-        Actions.runBlocking(splineBackward3);
-
-        // SHOOT
-        autoMethod.shootBalls();
+        Actions.runBlocking(Backward2);
 
 
 

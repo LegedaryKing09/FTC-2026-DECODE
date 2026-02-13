@@ -237,7 +237,7 @@ public class AutonMethods {
         uptakeController.update();
     }
 
-    public void intakeSForward(double distance) {
+    public void intakeXForward(double distance) {
         intakeModeActive = true;
         uptakeStoppedBySwitch = false;
 
@@ -256,6 +256,80 @@ public class AutonMethods {
         // 1. Spline
         Action moveForward = tankDrive.actionBuilder(currentPose)
                 .lineToX(currentPose.position.x + distance)
+                .build();
+
+        // Create a custom action that combines RoadRunner movement with intake control
+        Action intakeAction = new Action() {
+            private Action moveAction = moveForward;
+
+            @Override
+            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+                checkUptakeSwitch();
+                intakeController.update();
+                transferController.update();
+                uptakeController.update();
+                if (turretField != null && turretField.isEnabled()){
+                    turret.update();
+                    turretField.update(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                    );
+                }
+                return moveAction.run(packet);
+            }
+        };
+
+        // Run the combined action
+        Actions.runBlocking(intakeAction);
+
+        // Keep intake and transfer running for 2 more seconds after stopping
+        timer.reset();
+        while (opMode.opModeIsActive() && timer.milliseconds() < INTAKE_TIME_MS) {
+            checkUptakeSwitch();
+            intakeController.update();
+            transferController.update();
+            uptakeController.update();
+            if (turretField != null && turretField.isEnabled()){
+                turret.update();
+                turretField.update(
+                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                );
+            }
+            sleep(30);
+        }
+
+        // Stop all systems
+        intakeModeActive = false;
+        uptakeStoppedBySwitch = false;
+
+        intakeController.setState(false);
+        intakeController.update();
+
+        transferController.setState(false);
+        transferController.update();
+
+        uptakeController.setState(false);
+        uptakeController.update();
+    }
+
+    public void intakeYForward(double distance) {
+        intakeModeActive = true;
+        uptakeStoppedBySwitch = false;
+
+        // Start all systems
+        intakeController.setState(true);
+        intakeController.update();
+
+        transferController.setState(true);
+        transferController.update();
+
+        uptakeController.setState(true);
+        uptakeController.update();
+
+        // Get current pose and build trajectory
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        // 1. Spline
+        Action moveForward = tankDrive.actionBuilder(currentPose)
+                .lineToY(currentPose.position.y + distance)
                 .build();
 
         // Create a custom action that combines RoadRunner movement with intake control

@@ -53,6 +53,7 @@ public class FB extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = 0.6;
     // Distance
     public static double FIRST_PICKUP_DISTANCE = 30.0;
+    public static double FIRST_LINE_BACKWARD = 30.0;
     public static double INTAKE_DISTANCE = 25.0;
     public static double INTAKE_BACKWARD = 25.0;
     public static double SECOND_LINE_PICKUP_BACKWARD = 25.0;
@@ -210,9 +211,39 @@ public class FB extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward1);
 
-        // GO FORWARD WITH INTAKE (FIRST LINE)
-        autoMethod.intakeSForward(INTAKE_DISTANCE);
+        // TURN FOR PICKUP (FIRST LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action turn1 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(PICK_UP_ANGLE))
+                .build();
+        Actions.runBlocking(turn1);
+        autoMethod.HeadingCorrection(PICK_UP_ANGLE, 0.5);
 
-       
+        // INTAKE (FIRST LINE)
+        autoMethod.intakeYForward(INTAKE_DISTANCE);
+
+        // GO BACKWARD FOR SHOOTING (FIRST LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Backward2 = tankDrive.actionBuilder(currentPose)
+                .lineToY(currentPose.position.y + FIRST_PICKUP_DISTANCE)
+                .build();
+        Actions.runBlocking(Backward2);
+
+        // TURN FOR SHOOTING (FIRST LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action turn2 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(ZERO_DEGREE))
+                .build();
+        Actions.runBlocking(turn2);
+        autoMethod.HeadingCorrection(ZERO_DEGREE, 0.5);
+
+        // GO BACK FOR SHOOTING
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Backward3 = tankDrive.actionBuilder(currentPose)
+                .lineToX(currentPose.position.x - FIRST_LINE_BACKWARD)
+                .build();
+        Actions.runBlocking(Backward3);
+
+
     }
 }
