@@ -52,12 +52,13 @@ public class FBNEW extends LinearOpMode {
     public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
-    public static double INITIAL_X = 0.0;
+    public static double COMEBACK_X = 0.0;
+    public static double INITIAL_X = 5.0;
     public static double INITIAL_Y = 0.0;
-    public static double SPLINE_Y = 25.0;
-    public static double SPLINE_X = 18.0;
+    public static double SPLINE_Y = 30.0;
+    public static double SPLINE_X = 15.0;
     public static double SECOND_SPLINE_X = 38.0;
-    public static double SECOND_SPLINE_Y = 25.0;
+    public static double SECOND_SPLINE_Y = 24.0;
     public static double THIRD_SPLINE_X = 54.0;
     public static double THIRD_SPLINE_Y = 25.0;
     public static double PICK_UP_DISTANCE = 48.0;
@@ -208,7 +209,7 @@ public class FBNEW extends LinearOpMode {
     private void executeAutonomousSequence() {
 
         // SHOOT
-        autoMethod.autoAimTurretLeft();
+//        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
@@ -223,7 +224,7 @@ public class FBNEW extends LinearOpMode {
         Actions.runBlocking(Backward);
 
         // AUTO AIM AND SHOOT (FIRST LINE)
-        autoMethod.autoAimTurretLeft();
+//        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -238,7 +239,7 @@ public class FBNEW extends LinearOpMode {
         Actions.runBlocking(Backward2);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
+//        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -253,28 +254,7 @@ public class FBNEW extends LinearOpMode {
         Actions.runBlocking(Backward3);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
-        autoMethod.shootBalls();
-
-        // TURN FOR SHOOTING
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action Turn1 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(TURN_ANGLE))
-                .build();
-        Actions.runBlocking(Turn1);
-
-        // GO FOR PICKUP
-        autoMethod.intakeYForward(PICK_UP_DISTANCE);
-
-        // GO BACK FOR SHOOTING
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action INTAKEBACKWARD = tankDrive.actionBuilder(currentPose)
-                .lineToY(INITIAL_X)
-                .build();
-        Actions.runBlocking(INTAKEBACKWARD);
-
-        // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
+//        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
     }

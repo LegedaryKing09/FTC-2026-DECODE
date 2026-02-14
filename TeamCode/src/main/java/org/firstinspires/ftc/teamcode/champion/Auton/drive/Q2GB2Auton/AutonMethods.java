@@ -385,32 +385,6 @@ public class AutonMethods {
         uptakeController.update();
     }
 
-    public void BackwardTurret(double distance) {
-
-        // Get current pose and build trajectory
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action moveBackward = tankDrive.actionBuilder(currentPose)
-                .lineToY(distance)
-                .build();
-
-        // Create a custom action that combines RoadRunner movement with intake control
-        Action intakeAction = new Action() {
-            private Action moveAction = moveBackward;
-
-            @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
-                if (turretField != null && turretField.isEnabled()){
-                    turret.update();
-                    turretField.update(
-                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                    );
-                }
-                return moveAction.run(packet);
-            }
-        };
-        // Run the combined action
-        Actions.runBlocking(intakeAction);
-    }
 
     public boolean isBallAtUptake() {
         if (uptakeSwitch == null) return true;
