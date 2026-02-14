@@ -26,8 +26,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "CB From MeepMeep - 12 BALLS", group = "Test")
-public class CBNEW extends LinearOpMode {
+@Autonomous(name = "FB From MeepMeep - 12 BALLS", group = "Test")
+public class FBNEW extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -52,18 +52,22 @@ public class CBNEW extends LinearOpMode {
     public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
-    public static double INITIAL_BACKWARD = -30.0;
-    public static double SPLINE_Y = -52.0;
-    public static double SPLINE_X = -11.0;
-    public static double SECOND_SPLINE_X = 12.0;
-    public static double SECOND_SPLINE_Y = -52.0;
-    public static double THIRD_SPLINE_X = 35.0;
-    public static double THIRD_SPLINE_Y = -52.0;
+    public static double INITIAL_X = 0.0;
+    public static double INITIAL_Y = 0.0;
+    public static double SPLINE_Y = 25.0;
+    public static double SPLINE_X = 18.0;
+    public static double SECOND_SPLINE_X = 38.0;
+    public static double SECOND_SPLINE_Y = 25.0;
+    public static double THIRD_SPLINE_X = 54.0;
+    public static double THIRD_SPLINE_Y = 25.0;
+    public static double PICK_UP_DISTANCE = 48.0;
 
     // turning angle parameters
-    public static double SPLINE_ANGLE = -90.0;
-    public static double SECOND_SPLINE_ANGLE = -90.0;
-    public static double THIRD_SPLINE_ANGLE = -90.0;
+    public static double INITIAL_ANGLE = 180.0;
+    public static double SPLINE_ANGLE = 90.0;
+    public static double SECOND_SPLINE_ANGLE = 90.0;
+    public static double THIRD_SPLINE_ANGLE = 90.0;
+    public static double TURN_ANGLE = 90.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -75,7 +79,7 @@ public class CBNEW extends LinearOpMode {
         initializeRobot();
 
         // Define starting pose
-        Pose2d startPose = new Pose2d(-55, -55, Math.toRadians(45));
+        Pose2d startPose = new Pose2d(0, 0, Math.toRadians(0));
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
@@ -202,13 +206,6 @@ public class CBNEW extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
-
-        // GO BACK FOR SHOOTING
-        Action Initial_Forward = tankDrive.actionBuilder(currentPose)
-                .lineToX(INITIAL_BACKWARD)
-                .build();
-        Actions.runBlocking(Initial_Forward);
 
         // SHOOT
         autoMethod.autoAimTurretLeft();
@@ -218,10 +215,10 @@ public class CBNEW extends LinearOpMode {
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
 
         // GO BACK FOR SHOOTING (FIRST LINE)
-        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 1), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
 
@@ -236,7 +233,7 @@ public class CBNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 3), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward2);
 
@@ -251,9 +248,30 @@ public class CBNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward3 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 5), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward3);
+
+        // AUTO AIM AND SHOOT (SECOND LINE)
+        autoMethod.autoAimTurretLeft();
+        autoMethod.shootBalls();
+
+        // TURN FOR SHOOTING
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Turn1 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(TURN_ANGLE))
+                .build();
+        Actions.runBlocking(Turn1);
+
+        // GO FOR PICKUP
+        autoMethod.intakeYForward(PICK_UP_DISTANCE);
+
+        // GO BACK FOR SHOOTING
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action INTAKEBACKWARD = tankDrive.actionBuilder(currentPose)
+                .lineToY(INITIAL_X)
+                .build();
+        Actions.runBlocking(INTAKEBACKWARD);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
         autoMethod.autoAimTurretLeft();

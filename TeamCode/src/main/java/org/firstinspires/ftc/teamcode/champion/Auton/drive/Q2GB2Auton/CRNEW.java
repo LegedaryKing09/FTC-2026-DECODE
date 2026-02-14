@@ -26,8 +26,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "CB From MeepMeep - 12 BALLS", group = "Test")
-public class CBNEW extends LinearOpMode {
+@Autonomous(name = "CR From MeepMeep - 12 BALLS", group = "Test")
+public class CRNEW extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -52,18 +52,21 @@ public class CBNEW extends LinearOpMode {
     public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
-    public static double INITIAL_BACKWARD = -30.0;
-    public static double SPLINE_Y = -52.0;
-    public static double SPLINE_X = -11.0;
-    public static double SECOND_SPLINE_X = 12.0;
-    public static double SECOND_SPLINE_Y = -52.0;
-    public static double THIRD_SPLINE_X = 35.0;
-    public static double THIRD_SPLINE_Y = -52.0;
+    public static double INITIAL_BACKWARD = 24.0;
+    public static double SPLINE_Y = 18.0;
+    public static double SPLINE_X = 14.0;
+    public static double SECOND_SPLINE_X = 28.0;
+    public static double SECOND_SPLINE_Y = 30.0;
+    public static double THIRD_SPLINE_X = 30.0;
+    public static double THIRD_SPLINE_Y = 48.0;
+    public static double GOBACK_SPLINE_X = 30.0;
+    public static double GOBACK_SPLINE_Y = 0.0;
 
     // turning angle parameters
-    public static double SPLINE_ANGLE = -90.0;
-    public static double SECOND_SPLINE_ANGLE = -90.0;
-    public static double THIRD_SPLINE_ANGLE = -90.0;
+    public static double SPLINE_ANGLE = 135.0;
+    public static double SECOND_SPLINE_ANGLE = 135.0;
+    public static double THIRD_SPLINE_ANGLE = 135.0;
+    public static double GOBACK_ANGLE = 180.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -75,7 +78,7 @@ public class CBNEW extends LinearOpMode {
         initializeRobot();
 
         // Define starting pose
-        Pose2d startPose = new Pose2d(-55, -55, Math.toRadians(45));
+        Pose2d startPose = new Pose2d(0, 0, Math.toRadians(0));
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
@@ -221,7 +224,7 @@ public class CBNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
 
@@ -236,7 +239,7 @@ public class CBNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward2);
 
@@ -251,7 +254,7 @@ public class CBNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward3 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward3);
 
