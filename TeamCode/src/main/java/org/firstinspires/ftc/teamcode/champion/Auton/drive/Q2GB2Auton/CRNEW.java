@@ -75,9 +75,11 @@ public class CRNEW extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        driveController.YAW_SCALAR = 1;
-
         initializeRobot();
+
+        // Set yaw scalar and re-apply to pinpoint (constructor used default of -1.0)
+        driveController.YAW_SCALAR = 1;
+        driveController.getPinpoint().setYawScalar(driveController.YAW_SCALAR);
 
         // Define starting pose
         Pose2d startPose = new Pose2d(0, 0, Math.toRadians(0));
