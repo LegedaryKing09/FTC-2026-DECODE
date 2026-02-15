@@ -15,11 +15,11 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -38,9 +38,9 @@ public class CBNEW extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
-    TurretFieldController turretField;
     TurretController turret;
     AutonMethods autoMethod;
+    TurretFieldController turretField;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -109,6 +109,9 @@ public class CBNEW extends LinearOpMode {
         shooterController.startShooting();
         autoMethod.startShooterThread();
 
+        // Enable turret auto-aim
+        autoMethod.autoAimTurretLeft();
+
         sleep(100);
 
         // Execute autonomous sequence using RoadRunner
@@ -173,7 +176,6 @@ public class CBNEW extends LinearOpMode {
         // initialize turret
         try {
             turret = new TurretController(this);
-            turretField = new TurretFieldController(turret);
         } catch (Exception e) {
             //
         }
@@ -198,7 +200,6 @@ public class CBNEW extends LinearOpMode {
                 autoShootController,
                 rampController
         );
-
     }
 
     private void executeAutonomousSequence() {
@@ -211,7 +212,6 @@ public class CBNEW extends LinearOpMode {
         Actions.runBlocking(Initial_Forward);
 
         // SHOOT
-        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
@@ -225,8 +225,7 @@ public class CBNEW extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
-        // AUTO AIM AND SHOOT (FIRST LINE)
-        autoMethod.autoAimTurretLeft();
+        // SHOOT (FIRST LINE)
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -240,8 +239,7 @@ public class CBNEW extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward2);
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
+        // SHOOT (SECOND LINE)
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -255,9 +253,7 @@ public class CBNEW extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward3);
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
+        // SHOOT (THIRD LINE)
         autoMethod.shootBalls();
-
     }
-}
+ }
