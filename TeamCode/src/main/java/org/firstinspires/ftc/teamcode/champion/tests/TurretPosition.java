@@ -7,27 +7,25 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoController;
 
 /**
- * Test OpMode to find your turret zero position.
+ * Test OpMode to run turret servos individually to check for fighting.
  *
- * HOW TO USE:
- * 1. Run this opmode – servos are disabled so turret moves freely
- * 2. Turn the turret by hand to your desired "0 degrees" position
- * 3. Press A to lock servos – they will hold current position
- * 4. Use D-pad left/right to nudge position in small increments
- * 5. Read "Servo Position" from telemetry
- * 6. Put that value into TurretController.ZERO_POSITION
+ * CONTROLS:
+ * X = Servo 1 ONLY (disables servo 2)
+ * Y = Servo 2 ONLY (disables servo 1)
+ * A = BOTH servos enabled
+ * B = FREE both (disable PWM)
  *
- * Press A to lock servos at mid position (0.5).
- * Press B to free servos again.
- * D-pad left/right to nudge position (while locked).
+ * D-pad left/right = nudge position
+ * D-pad up/down = bigger nudge (10x)
  */
 @Config
-@TeleOp(name = "Turret Zero Finder", group = "Test")
+@TeleOp(name = "Turret Single Servo Test", group = "Test")
 public class TurretPosition extends LinearOpMode {
 
     public static String SERVO1_NAME = "turret1";
     public static String SERVO2_NAME = "turret2";
     public static double NUDGE_AMOUNT = 0.005;
+    public static double BIG_NUDGE = 0.05;
 
     @Override
     public void runOpMode() {
@@ -39,59 +37,106 @@ public class TurretPosition extends LinearOpMode {
         controller1.pwmDisable();
         controller2.pwmDisable();
 
-        telemetry.addData("Status", "Servos DISABLED - turn turret by hand");
+        telemetry.addData("Status", "Both DISABLED - press X/Y/A to enable");
         telemetry.update();
 
         waitForStart();
 
-        boolean servosEnabled = false;
-        boolean lastA = false;
-        boolean lastB = false;
-        boolean lastLeft = false;
-        boolean lastRight = false;
-        double servoPos = 0.5;  // Start at midpoint
+        boolean lastX = false, lastY = false, lastA = false, lastB = false;
+        boolean lastLeft = false, lastRight = false;
+        boolean lastUp = false, lastDown = false;
+
+        boolean servo1Enabled = false;
+        boolean servo2Enabled = false;
+        double servoPos = 0.5;
 
         while (opModeIsActive()) {
-            // A = lock servos at current position
+            // X = servo 1 only
+            if (gamepad1.x && !lastX) {
+                controller1.pwmEnable();
+                controller2.pwmDisable();
+                servo1.setPosition(servoPos);
+                servo1Enabled = true;
+                servo2Enabled = false;
+            }
+            lastX = gamepad1.x;
+
+            // Y = servo 2 only
+            if (gamepad1.y && !lastY) {
+                controller1.pwmDisable();
+                controller2.pwmEnable();
+                servo2.setPosition(servoPos);
+                servo1Enabled = false;
+                servo2Enabled = true;
+            }
+            lastY = gamepad1.y;
+
+            // A = both servos
             if (gamepad1.a && !lastA) {
                 controller1.pwmEnable();
                 controller2.pwmEnable();
                 servo1.setPosition(servoPos);
                 servo2.setPosition(servoPos);
-                servosEnabled = true;
+                servo1Enabled = true;
+                servo2Enabled = true;
             }
             lastA = gamepad1.a;
 
-            // B = free servos
+            // B = free both
             if (gamepad1.b && !lastB) {
                 controller1.pwmDisable();
                 controller2.pwmDisable();
-                servosEnabled = false;
+                servo1Enabled = false;
+                servo2Enabled = false;
             }
             lastB = gamepad1.b;
 
-            // D-pad nudge while locked
-            if (servosEnabled) {
-                if (gamepad1.dpad_right && !lastRight) {
-                    servoPos = Math.min(1.0, servoPos + NUDGE_AMOUNT);
-                    servo1.setPosition(servoPos);
-                    servo2.setPosition(servoPos);
-                }
-                if (gamepad1.dpad_left && !lastLeft) {
-                    servoPos = Math.max(0.0, servoPos - NUDGE_AMOUNT);
-                    servo1.setPosition(servoPos);
-                    servo2.setPosition(servoPos);
-                }
+            // D-pad left/right = small nudge
+            if (gamepad1.dpad_right && !lastRight) {
+                servoPos = Math.min(1.0, servoPos + NUDGE_AMOUNT);
+                if (servo1Enabled) servo1.setPosition(servoPos);
+                if (servo2Enabled) servo2.setPosition(servoPos);
             }
-            lastLeft = gamepad1.dpad_left;
             lastRight = gamepad1.dpad_right;
 
-            telemetry.addData("Servo Position", "%.4f", servoPos);
-            telemetry.addData("Servos", servosEnabled ? "LOCKED" : "FREE");
-            telemetry.addData("A = Lock", "B = Free");
-            telemetry.addData("D-pad L/R", "Nudge position (when locked)");
+            if (gamepad1.dpad_left && !lastLeft) {
+                servoPos = Math.max(0.0, servoPos - NUDGE_AMOUNT);
+                if (servo1Enabled) servo1.setPosition(servoPos);
+                if (servo2Enabled) servo2.setPosition(servoPos);
+            }
+            lastLeft = gamepad1.dpad_left;
+
+            // D-pad up/down = big nudge
+            if (gamepad1.dpad_up && !lastUp) {
+                servoPos = Math.min(1.0, servoPos + BIG_NUDGE);
+                if (servo1Enabled) servo1.setPosition(servoPos);
+                if (servo2Enabled) servo2.setPosition(servoPos);
+            }
+            lastUp = gamepad1.dpad_up;
+
+            if (gamepad1.dpad_down && !lastDown) {
+                servoPos = Math.max(0.0, servoPos - BIG_NUDGE);
+                if (servo1Enabled) servo1.setPosition(servoPos);
+                if (servo2Enabled) servo2.setPosition(servoPos);
+            }
+            lastDown = gamepad1.dpad_down;
+
+            // Telemetry
+            String mode;
+            if (servo1Enabled && servo2Enabled) mode = "BOTH";
+            else if (servo1Enabled) mode = "SERVO 1 ONLY";
+            else if (servo2Enabled) mode = "SERVO 2 ONLY";
+            else mode = "FREE";
+
+            telemetry.addData("Mode", mode);
+            telemetry.addData("Position", "%.4f", servoPos);
             telemetry.addLine();
-            telemetry.addData(">>> ZERO_POSITION", "%.4f", servoPos);
+            telemetry.addData("X", "Servo 1 only");
+            telemetry.addData("Y", "Servo 2 only");
+            telemetry.addData("A", "Both servos");
+            telemetry.addData("B", "Free both");
+            telemetry.addData("D-pad L/R", "Small nudge (%.3f)", NUDGE_AMOUNT);
+            telemetry.addData("D-pad U/D", "Big nudge (%.3f)", BIG_NUDGE);
             telemetry.update();
 
             sleep(20);

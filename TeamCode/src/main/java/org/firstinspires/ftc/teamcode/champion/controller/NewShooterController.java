@@ -23,19 +23,19 @@ public class NewShooterController {
     public static double MAX_RPM = 6000.0;
 
     // PID gains (tunable via FTC Dashboard)
-    public static double kP = 0.9;   // Proportional gain (scaled for RPM error -> power)
-    public static double kI = 0.009;   // Integral gain
-    public static double kD = 0.09;      // Derivative gain (start with 0)
+    public static double kP = 0.95;   // Proportional gain (scaled for RPM error -> power)
+    public static double kI = 0.02;   // Integral gain
+    public static double kD = 0.0375;      // Derivative gain (start with 0)
 
     // Feedforward gain (helps reach target faster)
-    public static double kF = 0;  // Feedforward: power per RPM
+    public static double kF = 0.025;  // Feedforward: power per RPM
 
     // PID limits
     public static double MAX_INTEGRAL = 10000.0;  // Integral windup limit
     public static double maxPower = 1.0;
 
     // RPM tolerance for "at target" check
-    public static double RPM_TOLERANCE = 50.0;
+    public static double RPM_TOLERANCE = 100.0;
 
     // Encoder ticks per revolution (for your motor)
     public static double TICKS_PER_REVOLUTION = 28;

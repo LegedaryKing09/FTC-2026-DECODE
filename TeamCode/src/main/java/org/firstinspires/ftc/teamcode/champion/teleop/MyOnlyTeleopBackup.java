@@ -1,12 +1,15 @@
 package org.firstinspires.ftc.teamcode.champion.teleop;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.acmerobotics.roadrunner.Pose2d;
 
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
@@ -15,48 +18,96 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
-
+import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
+import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 
 /**
- * BACKUP Teleop - Manual Turret Only (No Auto-Aim)
- * Use this if auton data transfer failed or auto-aim isn't working.
- * All turret control is manual via right stick.
- * === DRIVER 1 (gamepad1) - ARCADE DRIVE ===
- * Left Stick Y:   Forward/Backward
- * Right Stick X:  Turn Left/Right
- * Right Bumper:   Toggle intake + transfer + uptake
- * Left Bumper:    HOLD to VOMIT (reverse all)
+ * 超级无敌高级Teleop
+ *
+ * FIELD-CENTRIC AUTO-AIM (NO TurretFieldController):
+ * - Inherits position from auton via PoseStorage
+ * - Continuously tracks robot position on field
+ * - Auto-calculates FIELD angle to target, subtracts robot heading to get
+ *   turret-relative angle, then converts directly to servo position:
+ *     servoPos = 0.5 + (turretAngle / 315.0)
+ * - Runs every loop for continuous aiming while driving
+ *
+ * TURRET SERVO MAPPING:
+ * - Servo 0.0 to 1.0 = 315° total range
+ * - Servo 0.5 = 0° (field forward)
+ * - Servo 0.0 = -157.5°, Servo 1.0 = +157.5°
+ *
+ * === DRIVER 1 (gamepad1) - ARCADE DRIVE (FULL POWER) ===
+ * Left Stick Y:   Forward/Backward (1.0 power)
+ * Right Stick X:  Turn Left/Right (1.0 power)
+ * Right Bumper:   Toggle intake + transfer + uptake (all three)
+ *                 Ball switch auto-stops uptake when ball detected,
+ *                 auto-restarts when ball leaves
+ * Left Bumper:    HOLD to VOMIT (reverse intake + transfer + uptake)
+ *
  * === DRIVER 2 (gamepad2) ===
- * Right Trigger:  HOLD to SHOOT (bypass ball detection)
- * Right Stick X:  Manual turret control
- * Left Bumper:    RETRACT ramp
- * Left Trigger:   EXTEND ramp
+ * Right Trigger:  HOLD to SHOOT - runs intake + transfer + uptake,
+ *                 BYPASSES ball detection (forces balls through shooter)
+ *
+ * Left Bumper:    RETRACT ramp (angle goes more negative)
+ * Left Trigger:   EXTEND ramp (angle goes less negative, toward 0°)
+ *
  * D-Pad Up:       RPM +100
  * D-Pad Down:     RPM -100
- * Y Button:       FAR preset (RPM + ramp only, NO auto-aim)
- * A Button:       CLOSE preset (RPM + ramp only, NO auto-aim)
- * X Button:       Set RPM to IDLE
+ * D-Pad Right:    Turret offset +1 degree
+ * D-Pad Left:     Turret offset -1 degree
+ *
+ * Right Stick X:  Manual turret - DISABLES AUTO-AIM when moved!
+ *                 Auto-aim stays off until next preset button is pressed
+ *
+ * Y Button:       FAR preset - enables auto-aim + sets RPM/ramp
+ * A Button:       CLOSE preset - AUTO RPM/RAMP based on distance to goal
+ * X Button:       Set RPM to IDLE (2000 RPM)
  */
 @Config
-@TeleOp(name = "Undefeated Backup Teleop", group = "Competition")
+@TeleOp(name = "NB的Teleop Backup", group = "Competition")
 public class MyOnlyTeleopBackup extends LinearOpMode {
 
     // === PRESETS ===
-    public static double FAR_RPM = 4100.0;
-    public static double FAR_RAMP_ANGLE = 0.6;
+    public static double FAR_RPM = 5000.0;
+    public static double FAR_RAMP_ANGLE = 0.42;
+    public static double FAR_TURRET = -23;
 
-    public static double CLOSE_RPM = 3100.0;
-    public static double CLOSE_RAMP_ANGLE = 0.449;
+    // CLOSE preset now uses distance-based lookup
+    public static double CLOSE_TURRET = -45;
 
     public static double IDLE_RPM = 2000.0;
 
+    // === DISTANCE-BASED SHOOTING TABLE ===
+    // Distance (inches) = base distance + 18 inches offset
+    // Each entry: {distance, ramp angle, RPM}
+    // Piecewise: if distance is within ±6 inches of a calibrated point, use that setting
+    public static double DISTANCE_TOLERANCE = 6.0;  // ±6 inches
+
+    // Calibration points (distance already includes +18 offset)
+    public static double DIST_1 = 24.0;   public static double RAMP_1 = 0.4;  public static double RPM_1 = 4300;
+    public static double DIST_2 = 36.0;   public static double RAMP_2 = 0.4;  public static double RPM_2 = 4300;
+    public static double DIST_3 = 48.0;   public static double RAMP_3 = 0.4;  public static double RPM_3 = 4300;
+    public static double DIST_4 = 60.0;   public static double RAMP_4 = 0.40;  public static double RPM_4 = 4300;
+    public static double DIST_5 = 72.0;   public static double RAMP_5 = 0.43;  public static double RPM_5 = 4300;
+
+    // === TARGET POSITION (where turret aims at) ===
+    public static double TARGET_X = 0.0;  // Field X coordinate to aim at
+    public static double TARGET_Y = 0.0;  // Field Y coordinate to aim at
+
+    // === AUTON STARTING POSITION ===
+    public static double AUTON_START_X = 48;
+    public static double AUTON_START_Y = 137;
+    public static double AUTON_START_HEADING = 0.0;  // degrees
+
     // === ADJUSTMENTS ===
-    public static double RAMP_INCREMENT = 0.05;
+    public static double RAMP_INCREMENT_DEGREES = 0.05;  // Always positive, direction handled in code
     public static double RPM_INCREMENT = 100.0;
-    public static double TURRET_MANUAL_SENSITIVITY = 0.2;
+    public static double TURRET_MANUAL_SENSITIVITY = 0.01;
 
     // === BALL DETECTION ===
-    public static double UPTAKE_SWITCH_THRESHOLD = 2.5;
+    // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
+    public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
     // === CONTROLLERS ===
     private SixWheelDriveController drive;
@@ -66,12 +117,17 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
     private UptakeController uptake;
     private NewShooterController shooter;
     private NewRampController ramp;
+    private LimelightAlignmentController limelightController;
 
     // Ball detection switch
     private AnalogInput uptakeSwitch;
 
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
+    private final ElapsedTime loopTimer = new ElapsedTime();
+
+    // FTC Dashboard
+    private FtcDashboard dashboard;
 
     // === GAMEPAD 1 BUTTON STATES ===
     private boolean lastRB1 = false;
@@ -80,10 +136,14 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
     private boolean lastY2 = false;
     private boolean lastA2 = false;
     private boolean lastX2 = false;
+    private boolean lastDpadLeft2 = false;
+    private boolean lastDpadRight2 = false;
     private boolean lastDpadUp2 = false;
     private boolean lastDpadDown2 = false;
     private boolean lastLB2 = false;
     private boolean lastLT2Pressed = false;
+
+    private boolean lastGamepad2B = false;
 
     // Trigger threshold
     private static final double TRIGGER_THRESHOLD = 0.2;
@@ -95,20 +155,45 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
 
     // === Preset mode tracking ===
     private enum PresetMode { IDLE, FAR, CLOSE }
+    private PresetMode currentPresetMode = PresetMode.IDLE;
 
     @Override
     public void runOpMode() {
+        // Read the static pose from auton
+        Pose2d autonPose = PoseStorage.currentPose;
 
         initializeHardware();
 
         sleep(300);
 
+        // Set position from auton, or use AUTON_START values if auton was skipped (pose is 0,0,0)
+        if (drive != null) {
+            double startX, startY, startHeading;
+
+            // Check if auton was skipped (PoseStorage is at origin)
+            if (autonPose.position.x == 0 && autonPose.position.y == 0 && autonPose.heading.toDouble() == 0) {
+                // Auton skipped - use configured start position
+                startX = AUTON_START_X;
+                startY = AUTON_START_Y;
+                startHeading = Math.toRadians(AUTON_START_HEADING);
+            } else {
+                // Auton ran - use saved pose
+                startX = autonPose.position.x;
+                startY = autonPose.position.y;
+                startHeading = autonPose.heading.toDouble();
+            }
+
+            drive.setPosition(startX, startY, startHeading);
+            drive.updateOdometry();
+        }
+
         waitForStart();
         runtime.reset();
 
-        // Initialize turret at current position as 0°
+        // Initialize turret to center (0° field angle)
         if (turret != null) {
-            turret.initialize();
+            turret.setServoPosition(0.5);
+            turret.setTarget(TARGET_X, TARGET_Y);
         }
 
         // Initialize ramp
@@ -116,28 +201,41 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
             ramp.initialize();
         }
 
-        // Start shooter at idle RPM
+        // Auto-aim starts DISABLED
+        if (turret != null) {
+            turret.disableAutoAim();
+        }
+
+        // Start shooter at idle RPM (2000)
         if (shooter != null) {
             shooter.setTargetRPM(IDLE_RPM);
             currentTargetRPM = IDLE_RPM;
             shooter.startShooting();
         }
 
+        loopTimer.reset();
+
         while (opModeIsActive()) {
-            // Handle controls
+
+            // === FAST UPDATES (every loop) ===
             handleDriveControls();
             handleDriver1Controls();
             handleDriver2Controls();
 
-            // Ball detection (when intake mode active and RT not held)
+            // === BALL DETECTION: Auto-control uptake based on switch ===
+            // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
+            // BYPASS: When gamepad2 RT is held, ignore ball detection and keep uptake running
             boolean bypassBallDetection = gamepad2.right_trigger > TRIGGER_THRESHOLD;
+
             if (intakeModeActive && uptakeSwitch != null && !bypassBallDetection) {
                 double switchVoltage = uptakeSwitch.getVoltage();
                 if (switchVoltage < UPTAKE_SWITCH_THRESHOLD) {
+                    // Ball detected - stop uptake (intake + transfer keep running)
                     if (uptake != null && uptake.isActive()) {
                         uptake.toggle();
                     }
                 } else {
+                    // No ball - restart uptake if it's not running
                     if (uptake != null && !uptake.isActive()) {
                         uptake.reversed = false;
                         uptake.toggle();
@@ -145,55 +243,140 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
                 }
             }
 
-            // Update all systems
+            // Update all controllers
             updateAllSystems();
+
+            // === TELEMETRY ===
+            updateTelemetry();
         }
 
         // Cleanup
         if (shooter != null) shooter.stopShooting();
     }
 
+    // =========================================================================
+    // DISTANCE / SHOOTING PARAMS
+    // =========================================================================
+
+    /**
+     * Get RPM and Ramp angle based on distance using piecewise function
+     * Returns double[2] where [0] = RPM, [1] = ramp angle
+     * Distance tolerance is ±6 inches from calibrated points
+     */
+    private double[] getShootingParamsForDistance(double distance) {
+        double[] distances = {DIST_1, DIST_2, DIST_3, DIST_4, DIST_5};
+        double[] rpms = {RPM_1, RPM_2, RPM_3, RPM_4, RPM_5};
+        double[] ramps = {RAMP_1, RAMP_2, RAMP_3, RAMP_4, RAMP_5};
+
+        // Check each calibration point with tolerance
+        for (int i = 0; i < distances.length; i++) {
+            if (Math.abs(distance - distances[i]) <= DISTANCE_TOLERANCE) {
+                return new double[]{rpms[i], ramps[i]};
+            }
+        }
+
+        // No match - use closest point
+        double minDiff = Double.MAX_VALUE;
+        int bestIdx = 2;
+        for (int i = 0; i < distances.length; i++) {
+            double diff = Math.abs(distance - distances[i]);
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestIdx = i;
+            }
+        }
+        return new double[]{rpms[bestIdx], ramps[bestIdx]};
+    }
+
+    /**
+     * Update telemetry with ramp, RPM, turret angle, and odometry
+     */
+    private void updateTelemetry() {
+        if (shooter != null) {
+            telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
+        }
+        if (turret != null) {
+            telemetry.addData("Turret", "%.3f %s", turret.getCommandedPosition(),
+                    turret.isAutoAimEnabled() ? "AIM" : "MAN");
+        }
+        telemetry.addData("Mode", currentPresetMode);
+        telemetry.update();
+
+        // Dashboard graphs
+        if (dashboard != null) {
+            TelemetryPacket packet = new TelemetryPacket();
+            if (drive != null) {
+                packet.put("x", drive.getX());
+                packet.put("y", drive.getY());
+                packet.put("heading", drive.getHeadingDegrees());
+            }
+            dashboard.sendTelemetryPacket(packet);
+        }
+    }
+
+    /**
+     * Initialize hardware
+     */
     private void initializeHardware() {
+        // FTC Dashboard
+        dashboard = FtcDashboard.getInstance();
+
         // Drive controller
         try {
             drive = new SixWheelDriveController(this);
-        } catch (Exception ignored) {
             drive.setDriveMode(SixWheelDriveController.DriveMode.POWER);
+        } catch (Exception e) {
+            // Drive init failed
         }
 
-        // Turret
+        // Turret (no TurretFieldController needed)
         try {
             turret = new TurretController(this);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            // Turret init failed
+        }
+
+        // Ramp
+        try {
+            ramp = new NewRampController(this);
+        } catch (Exception e) {
+            // Ramp init failed
         }
 
         // Intake
+        DcMotor intakeMotor = null;
         try {
-            DcMotor intakeMotor = hardwareMap.get(DcMotor.class, "intake");
-            intake = new NewIntakeController(intakeMotor);
-        } catch (Exception ignored) {
+            intakeMotor = hardwareMap.get(DcMotor.class, "intake");
+        } catch (Exception e) {
+            // Intake init failed
         }
+        intake = new NewIntakeController(intakeMotor);
 
         // Transfer
+        DcMotor transferMotor = null;
         try {
-            DcMotor transferMotor = hardwareMap.get(DcMotor.class, "transfer");
-            transfer = new NewTransferController(transferMotor);
-        } catch (Exception ignored) {
+            transferMotor = hardwareMap.get(DcMotor.class, "transfer");
+        } catch (Exception e) {
+            // Transfer init failed
         }
+        transfer = new NewTransferController(transferMotor);
 
         // Uptake
+        CRServo uptakeServo = null;
+        CRServo uptakeServo2 = null;
         try {
-            CRServo servo1 = hardwareMap.get(CRServo.class, "servo1");
-            CRServo servo2 = hardwareMap.get(CRServo.class, "servo2");
-            uptake = new UptakeController(servo1, servo2);
-        } catch (Exception ignored) {
+            uptakeServo = hardwareMap.get(CRServo.class, "servo1");
+            uptakeServo2 = hardwareMap.get(CRServo.class, "servo2");
+        } catch (Exception e) {
+            // Uptake init failed
         }
+        uptake = new UptakeController(uptakeServo, uptakeServo2);
 
-        // Uptake switch
+        // Uptake ball detection switch
         try {
             uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
         } catch (Exception e) {
-            // Optional
+            // Uptake switch init failed
         }
 
         // Shooter
@@ -202,28 +385,35 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         try {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            // Shooter init failed
         }
-        shooter = new NewShooterController(shooterMotor1,shooterMotor2);
+        shooter = new NewShooterController(shooterMotor1, shooterMotor2);
 
-        // Ramp
+        // Limelight
         try {
-            ramp = new NewRampController(this);
-        } catch (Exception ignored) {
+            limelightController = new LimelightAlignmentController(this, drive);
+        } catch (Exception e) {
+            // Limelight init failed - limelightController stays null
         }
     }
 
     // === DRIVE SENSITIVITY ===
     public static double DRIVE_EXPONENT = 2.0;  // 1.0 = linear, 2.0 = squared, 3.0 = cubed
-    public static double TURN_EXPONENT = 2.0;   // Higher = more precision at low speeds
-
+    public static double TURN_EXPONENT = 3.0;   // Higher = more precision at low speeds
     /**
      * Apply sensitivity curve to joystick input
+     * Keeps the sign but applies power curve for more control at low speeds
      */
     private double applyCurve(double input, double exponent) {
         return Math.copySign(Math.pow(Math.abs(input), exponent), input);
     }
 
+    /**
+     * Drive controls - ARCADE DRIVE with SENSITIVITY CURVE
+     * Left Stick Y = Forward/Backward
+     * Right Stick X = Turn
+     */
     private void handleDriveControls() {
         if (drive == null) return;
 
@@ -243,86 +433,166 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         drive.tankDrive(leftPower, rightPower);
     }
 
+    /**
+     * Driver 1 controls
+     */
     private void handleDriver1Controls() {
-        // === RB: TOGGLE INTAKE MODE ===
+        // Right bumper - toggle intake + transfer + uptake (all three)
         boolean currentRB1 = gamepad1.right_bumper;
         if (currentRB1 && !lastRB1) {
-            intakeModeActive = !intakeModeActive;
-            if (intakeModeActive) {
-                if (intake != null) { intake.reversed = false; intake.toggle(); }
-                if (transfer != null) { transfer.reversed = false; transfer.toggle(); }
-                if (uptake != null) { uptake.reversed = false; uptake.toggle(); }
+            if (!intakeModeActive) {
+                startIntakeMode();
             } else {
-                if (intake != null && intake.isActive()) intake.toggle();
-                if (transfer != null && transfer.isActive()) transfer.toggle();
-                if (uptake != null && uptake.isActive()) uptake.toggle();
+                stopIntakeMode();
             }
         }
         lastRB1 = currentRB1;
 
-        // === LB: HOLD TO VOMIT ===
+        // Left bumper - VOMIT (hold to reverse intake + transfer + uptake)
         if (gamepad1.left_bumper) {
-            if (intake != null) { intake.reversed = true; if (!intake.isActive()) intake.toggle(); }
-            if (transfer != null) { transfer.reversed = true; if (!transfer.isActive()) transfer.toggle(); }
-            if (uptake != null) { uptake.reversed = true; if (!uptake.isActive()) uptake.toggle(); }
+            // Hold LB = reverse all systems
+            if (intake != null) {
+                intake.reversed = true;
+                intake.setState(true);
+            }
+            if (transfer != null) {
+                transfer.reversed = true;
+                transfer.setState(true);
+            }
+            if (uptake != null) {
+                uptake.reversed = true;
+                uptake.setState(true);
+            }
         } else {
-            if (intake != null && intake.reversed) { intake.reversed = false; if (intake.isActive()) intake.toggle(); }
-            if (transfer != null && transfer.reversed) { transfer.reversed = false; if (transfer.isActive()) transfer.toggle(); }
-            if (uptake != null && uptake.reversed) { uptake.reversed = false; if (uptake.isActive()) uptake.toggle(); }
+            // Release LB = stop vomit (only if we were vomiting)
+            if (intake != null && intake.reversed) {
+                intake.reversed = false;
+                intake.setState(false);
+            }
+            if (transfer != null && transfer.reversed) {
+                transfer.reversed = false;
+                transfer.setState(false);
+            }
+            if (uptake != null && uptake.reversed) {
+                uptake.reversed = false;
+                uptake.setState(false);
+            }
         }
     }
 
+    /**
+     * Start intake mode - intake + transfer + uptake (all three)
+     */
+    private void startIntakeMode() {
+        intakeModeActive = true;
+
+        if (intake != null && !intake.isActive()) {
+            intake.reversed = false;
+            intake.toggle();
+        }
+        if (transfer != null && !transfer.isActive()) {
+            transfer.reversed = false;
+            transfer.toggle();
+        }
+        if (uptake != null && !uptake.isActive()) {
+            uptake.reversed = false;
+            uptake.toggle();
+        }
+    }
+
+    /**
+     * Stop intake mode - intake + transfer + uptake (all three)
+     * EXCEPTION: If driver 2 is holding RT (shooting), uptake stays running
+     */
+    private void stopIntakeMode() {
+        intakeModeActive = false;
+        if (intake != null && intake.isActive()) intake.toggle();
+        if (transfer != null && transfer.isActive()) transfer.toggle();
+
+        // Only stop uptake if driver 2 is NOT shooting
+        boolean shooting = gamepad2.right_trigger > TRIGGER_THRESHOLD;
+        if (!shooting && uptake != null && uptake.isActive()) uptake.toggle();
+    }
+
+    /**
+     * Driver 2 controls
+     */
     private void handleDriver2Controls() {
-        // === RT: HOLD TO SHOOT ===
+
+        // === RT: HOLD TO SHOOT - Run ITU and bypass ball detection ===
+        // This forces balls through the shooter regardless of the uptake switch
         if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
+            // Start all three if not already running from trigger
             if (!allSystemsFromTrigger) {
-                if (intake != null && !intake.isActive()) { intake.reversed = false; intake.toggle(); }
-                if (transfer != null && !transfer.isActive()) { transfer.reversed = false; transfer.toggle(); }
-                if (uptake != null && !uptake.isActive()) { uptake.reversed = false; uptake.toggle(); }
+                if (intake != null && !intake.isActive()) {
+                    intake.reversed = false;
+                    intake.toggle();
+                }
+                if (transfer != null && !transfer.isActive()) {
+                    transfer.reversed = false;
+                    transfer.toggle();
+                }
+                if (uptake != null && !uptake.isActive()) {
+                    uptake.reversed = false;
+                    uptake.toggle();
+                }
                 allSystemsFromTrigger = true;
             }
         } else {
+            // RT released - stop systems that were started by trigger
             if (allSystemsFromTrigger) {
-                if (intake != null && intake.isActive()) intake.toggle();
-                if (transfer != null && transfer.isActive()) transfer.toggle();
-                if (uptake != null && uptake.isActive()) uptake.toggle();
+                // Only stop intake/transfer if driver 1 intake mode is off
+                if (!intakeModeActive) {
+                    if (intake != null && intake.isActive()) intake.toggle();
+                    if (transfer != null && transfer.isActive()) transfer.toggle();
+                    if (uptake != null && uptake.isActive()) uptake.toggle();
+                } else {
+                    // Driver 1 intake is still on — keep intake+transfer running,
+                    // but stop uptake so ball switch can control it again
+                    if (uptake != null && uptake.isActive()) uptake.toggle();
+                }
                 allSystemsFromTrigger = false;
             }
         }
 
-        // === RIGHT STICK X: MANUAL TURRET ===
-        double turretInput = gamepad2.right_stick_x;
-        if (turret != null) {
-            if (Math.abs(turretInput) > 0.1) {
-                turret.setPower(turretInput * TURRET_MANUAL_SENSITIVITY);
-            } else {
-                turret.stop();
+        // When driver 2 presses B: read Limelight tx, apply as turret offset correction
+        if (gamepad2.b && !lastGamepad2B) {
+            if (limelightController != null && turret != null && limelightController.canSeeTarget()) {
+                double tx = limelightController.getTx();
+                turret.addAimOffset(tx);
+            }
+        }
+        lastGamepad2B = gamepad2.b;
+
+        // === LB: RETRACT RAMP (more negative angle, toward -245°) ===
+
+        boolean ltPressed = gamepad2.left_bumper;
+        if (ltPressed && !lastLT2Pressed) {
+            if (ramp != null) {
+                double newTarget = ramp.getTargetAngle() - RAMP_INCREMENT_DEGREES;
+                ramp.setTargetAngle(newTarget);
             }
         }
 
-        // === LB: RETRACT RAMP ===
-        boolean currentLB2 = gamepad2.left_bumper;
+        lastLT2Pressed = ltPressed;
+
+        // === LT: EXTEND RAMP (less negative angle, toward 0°) ===
+        boolean currentLB2 = gamepad2.left_trigger > TRIGGER_THRESHOLD;
         if (currentLB2 && !lastLB2) {
             if (ramp != null) {
-                ramp.setTargetAngle(ramp.getTargetAngle() - RAMP_INCREMENT);
+                double newTarget = ramp.getTargetAngle() + RAMP_INCREMENT_DEGREES;
+                ramp.setTargetAngle(newTarget);
             }
         }
         lastLB2 = currentLB2;
-
-        // === LT: EXTEND RAMP ===
-        boolean ltPressed = gamepad2.left_trigger > TRIGGER_THRESHOLD;
-        if (ltPressed && !lastLT2Pressed) {
-            if (ramp != null) {
-                ramp.setTargetAngle(ramp.getTargetAngle() + RAMP_INCREMENT);
-            }
-        }
-        lastLT2Pressed = ltPressed;
 
         // === DPAD UP: RPM +100 ===
         boolean currentDpadUp2 = gamepad2.dpad_up;
         if (currentDpadUp2 && !lastDpadUp2) {
             currentTargetRPM += RPM_INCREMENT;
-            if (shooter != null) shooter.setTargetRPM(currentTargetRPM);
+            if (shooter != null) {
+                shooter.setTargetRPM(currentTargetRPM);
+            }
         }
         lastDpadUp2 = currentDpadUp2;
 
@@ -331,48 +601,134 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
         if (currentDpadDown2 && !lastDpadDown2) {
             currentTargetRPM -= RPM_INCREMENT;
             if (currentTargetRPM < IDLE_RPM) currentTargetRPM = IDLE_RPM;
-            if (shooter != null) shooter.setTargetRPM(currentTargetRPM);
+            if (shooter != null) {
+                shooter.setTargetRPM(currentTargetRPM);
+            }
         }
         lastDpadDown2 = currentDpadDown2;
 
-        // === Y: FAR PRESET (RPM + ramp only, NO auto-aim) ===
+        // === DPAD RIGHT: TURRET NUDGE RIGHT ===
+        boolean currentDpadRight2 = gamepad2.dpad_right;
+        if (currentDpadRight2 && !lastDpadRight2) {
+            if (turret != null) {
+                turret.disableAutoAim();
+                turret.nudge(TURRET_MANUAL_SENSITIVITY);
+            }
+        }
+        lastDpadRight2 = currentDpadRight2;
+
+        // === DPAD LEFT: TURRET NUDGE LEFT ===
+        boolean currentDpadLeft2 = gamepad2.dpad_left;
+        if (currentDpadLeft2 && !lastDpadLeft2) {
+            if (turret != null) {
+                turret.disableAutoAim();
+                turret.nudge(-TURRET_MANUAL_SENSITIVITY);
+            }
+        }
+        lastDpadLeft2 = currentDpadLeft2;
+
+
+        // === Y: FAR PRESET (always activates) ===
         boolean currentY2 = gamepad2.y;
         if (currentY2 && !lastY2) {
+            // Activate FAR preset
+            currentPresetMode = PresetMode.FAR;
             currentTargetRPM = FAR_RPM;
             if (shooter != null) {
                 shooter.setTargetRPM(FAR_RPM);
                 if (!shooter.isShootMode()) shooter.startShooting();
             }
             if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
-            // NO turret auto-aim - driver controls manually
+
+            // Enable continuous auto-aim
+            if (turret != null) turret.enableAutoAim();
         }
         lastY2 = currentY2;
 
-        // === A: CLOSE PRESET (RPM + ramp only, NO auto-aim) ===
+        // === A: CLOSE PRESET - DISTANCE-BASED RPM/RAMP ===
+        // Every press recalculates distance and updates RPM/ramp
         boolean currentA2 = gamepad2.a;
         if (currentA2 && !lastA2) {
-            currentTargetRPM = CLOSE_RPM;
+            currentPresetMode = PresetMode.CLOSE;
+
+            // Calculate distance to goal and get shooting parameters
+            double distance = getDistanceToTarget();
+            double[] params = getShootingParamsForDistance(distance);
+            double autoRPM = params[0];
+            double autoRamp = params[1];
+
+            // Apply the calculated RPM and ramp
+            currentTargetRPM = autoRPM;
             if (shooter != null) {
-                shooter.setTargetRPM(CLOSE_RPM);
+                shooter.setTargetRPM(autoRPM);
                 if (!shooter.isShootMode()) shooter.startShooting();
             }
-            if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
-            // NO turret auto-aim - driver controls manually
+            if (ramp != null) ramp.setTargetAngle(autoRamp);
+
+            // Enable continuous auto-aim
+            if (turret != null) turret.enableAutoAim();
         }
         lastA2 = currentA2;
 
-        // === X: SET RPM TO IDLE ===
+        // === X: SET RPM TO IDLE (2000) ===
         boolean currentX2 = gamepad2.x;
         if (currentX2 && !lastX2) {
+            currentPresetMode = PresetMode.IDLE;
             currentTargetRPM = IDLE_RPM;
-            if (shooter != null) shooter.setTargetRPM(IDLE_RPM);
+            if (shooter != null) {
+                shooter.setTargetRPM(IDLE_RPM);
+            }
         }
         lastX2 = currentX2;
     }
 
+    /**
+     * Get distance from robot to target (in inches)
+     */
+    private double getDistanceToTarget() {
+        double robotX = getCorrectedX();
+        double robotY = getCorrectedY();
+
+        double dx = TARGET_X - robotX;
+        double dy = TARGET_Y - robotY;
+
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Get corrected X position (now directly from drive since transformation is in controller)
+     */
+    private double getCorrectedX() {
+        if (drive == null) return AUTON_START_X;
+        return drive.getX();
+    }
+
+    /**
+     * Get corrected Y position (now directly from drive since transformation is in controller)
+     */
+    private double getCorrectedY() {
+        if (drive == null) return AUTON_START_Y;
+        return drive.getY();
+    }
+
+    /**
+     * Update all subsystem controllers
+     */
     private void updateAllSystems() {
-        if (drive != null) drive.updateOdometry();
-        if (turret != null) turret.update();
+        // Update odometry first
+        if (drive != null) {
+            drive.updateOdometry();
+        }
+
+        // Turret: either auto-aim or manual stepping, never both
+        if (turret != null) {
+            if (turret.isAutoAimEnabled() && drive != null) {
+                turret.updateAutoAim(drive.getX(), drive.getY(), drive.getHeadingDegrees());
+            } else {
+                turret.update();
+            }
+        }
+
         if (ramp != null) ramp.update();
         if (intake != null) intake.update();
         if (transfer != null) transfer.update();

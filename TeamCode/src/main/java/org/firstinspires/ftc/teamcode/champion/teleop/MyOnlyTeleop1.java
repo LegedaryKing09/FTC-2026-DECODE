@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.champion.teleop;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.AnalogInput;
@@ -19,10 +21,9 @@ import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 
-import java.util.Locale;
-
 /**
  * 超级无敌高级Teleop
+ *
  * FIELD-CENTRIC AUTO-AIM (NO TurretFieldController):
  * - Inherits position from auton via PoseStorage
  * - Continuously tracks robot position on field
@@ -30,10 +31,12 @@ import java.util.Locale;
  *   turret-relative angle, then converts directly to servo position:
  *     servoPos = 0.5 + (turretAngle / 315.0)
  * - Runs every loop for continuous aiming while driving
+ *
  * TURRET SERVO MAPPING:
  * - Servo 0.0 to 1.0 = 315° total range
  * - Servo 0.5 = 0° (field forward)
  * - Servo 0.0 = -157.5°, Servo 1.0 = +157.5°
+ *
  * === DRIVER 1 (gamepad1) - ARCADE DRIVE (FULL POWER) ===
  * Left Stick Y:   Forward/Backward (1.0 power)
  * Right Stick X:  Turn Left/Right (1.0 power)
@@ -41,17 +44,22 @@ import java.util.Locale;
  *                 Ball switch auto-stops uptake when ball detected,
  *                 auto-restarts when ball leaves
  * Left Bumper:    HOLD to VOMIT (reverse intake + transfer + uptake)
+ *
  * === DRIVER 2 (gamepad2) ===
  * Right Trigger:  HOLD to SHOOT - runs intake + transfer + uptake,
  *                 BYPASSES ball detection (forces balls through shooter)
+ *
  * Left Bumper:    RETRACT ramp (angle goes more negative)
  * Left Trigger:   EXTEND ramp (angle goes less negative, toward 0°)
+ *
  * D-Pad Up:       RPM +100
  * D-Pad Down:     RPM -100
- * D-Pad Right:    Turret offset +1 degree
- * D-Pad Left:     Turret offset -1 degree
+ * D-Pad Right:    HOLD to nudge turret aim offset right (continuous)
+ * D-Pad Left:     HOLD to nudge turret aim offset left (continuous)
+ *
  * Right Stick X:  Manual turret - DISABLES AUTO-AIM when moved!
  *                 Auto-aim stays off until next preset button is pressed
+ *
  * Y Button:       FAR preset - enables auto-aim + sets RPM/ramp
  * A Button:       CLOSE preset - AUTO RPM/RAMP based on distance to goal
  * X Button:       Set RPM to IDLE (2000 RPM)
@@ -61,8 +69,8 @@ import java.util.Locale;
 public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === PRESETS ===
-    public static double FAR_RPM = 5000.0;
-    public static double FAR_RAMP_ANGLE = 0.6;
+    public static double FAR_RPM = 4600.0;
+    public static double FAR_RAMP_ANGLE = 0.42;
     public static double FAR_TURRET = -23;
 
     // CLOSE preset now uses distance-based lookup
@@ -70,26 +78,22 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     public static double IDLE_RPM = 2000.0;
 
-    // === TURRET SERVO CONSTANTS ===
-    public static double TURRET_ZERO_POSITION = 0.5;   // Servo value at 0° field angle
-    public static double TURRET_RANGE_DEG = 315.0;     // Total degrees for servo 0→1
-
     // === DISTANCE-BASED SHOOTING TABLE ===
-    // Distance (inches) = base distance + 18 inches offset
+    // Distance (inches) = straight-line odometry distance to target
     // Each entry: {distance, ramp angle, RPM}
     // Piecewise: if distance is within ±6 inches of a calibrated point, use that setting
     public static double DISTANCE_TOLERANCE = 6.0;  // ±6 inches
 
-    // Calibration points (distance already includes +18 offset)
-    public static double DIST_1 = 24.0;   public static double RAMP_1 = 0.21;  public static double RPM_1 = 2750.0;
-    public static double DIST_2 = 36.0;   public static double RAMP_2 = 0.34;  public static double RPM_2 = 3100.0;
-    public static double DIST_3 = 48.0;   public static double RAMP_3 = 0.36;  public static double RPM_3 = 3150.0;
-    public static double DIST_4 = 60.0;   public static double RAMP_4 = 0.40;  public static double RPM_4 = 3250.0;
-    public static double DIST_5 = 72.0;   public static double RAMP_5 = 0.43;  public static double RPM_5 = 3450.0;
+    // Calibration points (straight-line odometry distance to target)
+    public static double DIST_1 = 24.0;   public static double RAMP_1 = 0;  public static double RPM_1 = 3550;
+    public static double DIST_2 = 36.0;   public static double RAMP_2 = 0.23;  public static double RPM_2 = 3600;
+    public static double DIST_3 = 48.0;   public static double RAMP_3 = 0.305;  public static double RPM_3 = 3750;
+    public static double DIST_4 = 60.0;   public static double RAMP_4 = 0.4;  public static double RPM_4 = 3850;
+    public static double DIST_5 = 72.0;   public static double RAMP_5 = 0.37;  public static double RPM_5 = 3925;
 
     // === TARGET POSITION (where turret aims at) ===
-    public static double TARGET_X = 0.0;  // Field X coordinate to aim at
-    public static double TARGET_Y = 0.0;  // Field Y coordinate to aim at
+    public static double TARGET_X = 16.0;  // Field X coordinate to aim at
+    public static double TARGET_Y = 18.0;  // Field Y coordinate to aim at
 
     // === AUTON STARTING POSITION ===
     public static double AUTON_START_X = 48;
@@ -98,9 +102,8 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === ADJUSTMENTS ===
     public static double RAMP_INCREMENT_DEGREES = 0.01;  // Always positive, direction handled in code
-    public static double TURRET_TARGET_INCREMENT = 1.0;
     public static double RPM_INCREMENT = 50.0;
-    public static double TURRET_MANUAL_SENSITIVITY = 0.008;
+    public static double TURRET_OFFSET_SPEED = 1;  // degrees per loop when dpad held
 
     // === BALL DETECTION ===
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
@@ -123,6 +126,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime loopTimer = new ElapsedTime();
 
+    // FTC Dashboard
+    private FtcDashboard dashboard;
+
     // === GAMEPAD 1 BUTTON STATES ===
     private boolean lastRB1 = false;
 
@@ -130,14 +136,13 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     private boolean lastY2 = false;
     private boolean lastA2 = false;
     private boolean lastX2 = false;
-    private boolean lastDpadLeft2 = false;
-    private boolean lastDpadRight2 = false;
     private boolean lastDpadUp2 = false;
     private boolean lastDpadDown2 = false;
     private boolean lastLB2 = false;
     private boolean lastLT2Pressed = false;
 
     private boolean lastGamepad2B = false;
+    private String lastLLTelemetry = null;
 
     // Trigger threshold
     private static final double TRIGGER_THRESHOLD = 0.2;
@@ -147,25 +152,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     private boolean allSystemsFromTrigger = false;
     private double currentTargetRPM = 0;
 
-    // Debug
-    private String rampDebug = "";
-
     // === Preset mode tracking ===
     private enum PresetMode { IDLE, FAR, CLOSE }
     private PresetMode currentPresetMode = PresetMode.IDLE;
-
-    // === Auto-aim state ===
-    private boolean autoAimEnabled = false;
-    private double turretOffset = 0.0;  // Persistent offset from D-pad adjustments
-
-    // === Turret telemetry ===
-    private double lastTargetFieldAngle = 0;
-    private double lastTurretRelativeAngle = 0;
-    private double lastServoPosition = TURRET_ZERO_POSITION;
-
-    // === Distance tracking for telemetry ===
-    private double lastCalculatedDistance = 0;
-    private String lastDistanceMatch = "NONE";
 
     @Override
     public void runOpMode() {
@@ -202,16 +191,19 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
         // Initialize turret to center (0° field angle)
         if (turret != null) {
-            turret.setServoPosition(TURRET_ZERO_POSITION);
+            turret.setServoPosition(0.5);
+            turret.setTarget(TARGET_X, TARGET_Y);
         }
 
-        // Initialize ramp - sets current position as 0°
+        // Initialize ramp
         if (ramp != null) {
             ramp.initialize();
         }
 
         // Auto-aim starts DISABLED
-        autoAimEnabled = false;
+        if (turret != null) {
+            turret.disableAutoAim();
+        }
 
         // Start shooter at idle RPM (2000)
         if (shooter != null) {
@@ -219,9 +211,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             currentTargetRPM = IDLE_RPM;
             shooter.startShooting();
         }
-
-        // Set telemetry to update as fast as possible
-        telemetry.setMsTransmissionInterval(0);
 
         loopTimer.reset();
 
@@ -265,92 +254,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     }
 
     // =========================================================================
-    // TURRET AUTO-AIM: Direct servo position from field angle
-    // =========================================================================
-
-    /**
-     * Calculate the FIELD angle from robot to target.
-     * Returns degrees where 0° = field forward (+Y direction).
-     * Uses atan2 for full 360° coverage.
-     *
-     * Convention: CCW = negative, CW = positive
-     */
-    private double calculateFieldAngleToTarget() {
-        double robotX = getCorrectedX();
-        double robotY = getCorrectedY();
-
-        double dx = TARGET_X - robotX;
-        double dy = TARGET_Y - robotY;
-
-        // Avoid division by zero
-        if (Math.abs(dy) < 0.001 && Math.abs(dx) < 0.001) {
-            return 0;
-        }
-
-        // atan2 gives angle from +Y axis (field forward)
-        // -atan(x/y) equivalent but handles all quadrants
-        double angleRad = Math.atan2(-dx, -dy);
-        return Math.toDegrees(angleRad);
-    }
-
-    /**
-     * Convert a desired FIELD angle to a servo position.
-     *
-     * Steps:
-     * 1. Get desired field angle to target
-     * 2. Subtract robot heading to get turret-relative angle
-     * 3. Convert to servo position: 0.5 + (angle / 315)
-     * 4. Clamp to [0, 1]
-     *
-     * @param fieldAngleDeg desired field angle in degrees
-     * @return servo position [0, 1]
-     */
-    private double fieldAngleToServoPosition(double fieldAngleDeg) {
-        // Get robot heading in degrees
-        double robotHeading = 0;
-        if (drive != null) {
-            robotHeading = drive.getHeadingDegrees();
-        }
-
-        // Turret angle relative to robot = field angle - robot heading
-        double turretAngle = fieldAngleDeg - robotHeading;
-
-        // Normalize to -180 to +180
-        while (turretAngle > 180) turretAngle -= 360;
-        while (turretAngle < -180) turretAngle += 360;
-
-        // Store for telemetry
-        lastTurretRelativeAngle = turretAngle;
-
-        // Convert to servo position: center is 0.5, full range is 315°
-        double servoPos = TURRET_ZERO_POSITION + (turretAngle / TURRET_RANGE_DEG);
-
-        // Clamp to valid servo range
-        servoPos = Math.max(0.0, Math.min(1.0, servoPos));
-
-        lastServoPosition = servoPos;
-        return servoPos;
-    }
-
-    /**
-     * Update turret auto-aim. Called every loop in updateAllSystems().
-     * Continuously recalculates field angle → turret relative → servo position.
-     */
-    private void updateAutoAim() {
-        if (!autoAimEnabled || turret == null || drive == null) return;
-
-        // Calculate field angle to target + driver offset
-        double fieldAngle = calculateFieldAngleToTarget() + turretOffset;
-        lastTargetFieldAngle = fieldAngle;
-
-        // Convert to servo position (accounts for robot heading)
-        double servoPos = fieldAngleToServoPosition(fieldAngle);
-
-        // Command the turret servo directly
-        turret.setServoPosition(servoPos);
-    }
-
-    // =========================================================================
     // DISTANCE / SHOOTING PARAMS
     // =========================================================================
 
@@ -360,50 +263,28 @@ public class MyOnlyTeleop1 extends LinearOpMode {
      * Distance tolerance is ±6 inches from calibrated points
      */
     private double[] getShootingParamsForDistance(double distance) {
-        // Check each calibration point with ±6 inch tolerance
-        // Points are checked in order from closest to farthest
-
-        if (Math.abs(distance - DIST_1) <= DISTANCE_TOLERANCE) {
-            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_1);
-            return new double[]{RPM_1, RAMP_1};
-        }
-        if (Math.abs(distance - DIST_2) <= DISTANCE_TOLERANCE) {
-            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_2);
-            return new double[]{RPM_2, RAMP_2};
-        }
-        if (Math.abs(distance - DIST_3) <= DISTANCE_TOLERANCE) {
-            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_3);
-            return new double[]{RPM_3, RAMP_3};
-        }
-        if (Math.abs(distance - DIST_4) <= DISTANCE_TOLERANCE) {
-            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_4);
-            return new double[]{RPM_4, RAMP_4};
-        }
-        if (Math.abs(distance - DIST_5) <= DISTANCE_TOLERANCE) {
-            lastDistanceMatch = String.format(Locale.US, "%.0f in (±6)", DIST_5);
-            return new double[]{RPM_5, RAMP_5};
-        }
-
-        // No match found - use closest calibration point
-        double minDiff = Double.MAX_VALUE;
-        double[] bestParams = new double[]{RPM_3, RAMP_3};  // Default to middle
-        String bestMatch = "FALLBACK";
-
         double[] distances = {DIST_1, DIST_2, DIST_3, DIST_4, DIST_5};
         double[] rpms = {RPM_1, RPM_2, RPM_3, RPM_4, RPM_5};
         double[] ramps = {RAMP_1, RAMP_2, RAMP_3, RAMP_4, RAMP_5};
 
+        // Check each calibration point with tolerance
+        for (int i = 0; i < distances.length; i++) {
+            if (Math.abs(distance - distances[i]) <= DISTANCE_TOLERANCE) {
+                return new double[]{rpms[i], ramps[i]};
+            }
+        }
+
+        // No match - use closest point
+        double minDiff = Double.MAX_VALUE;
+        int bestIdx = 2;
         for (int i = 0; i < distances.length; i++) {
             double diff = Math.abs(distance - distances[i]);
             if (diff < minDiff) {
                 minDiff = diff;
-                bestParams = new double[]{rpms[i], ramps[i]};
-                bestMatch = String.format(Locale.US, "CLOSEST: %.0f in", distances[i]);
+                bestIdx = i;
             }
         }
-
-        lastDistanceMatch = bestMatch;
-        return bestParams;
+        return new double[]{rpms[bestIdx], ramps[bestIdx]};
     }
 
     /**
@@ -414,23 +295,13 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
         }
         if (ramp != null) {
-            telemetry.addData("Ramp", "%.3f / %.3f", ramp.getCurrentAngle(), ramp.getTargetAngle());
+            telemetry.addData("Ramp Angle", "%.3f", ramp.getTargetAngle());
         }
         if (turret != null) {
-            telemetry.addData("Turret Servo", "%.3f", turret.getCommandedPosition());
+            telemetry.addData("Turret", turret.getCommandedPosition());
         }
-        if (autoAimEnabled) {
-            telemetry.addData("Field Angle", "%.1f", lastTargetFieldAngle);
-            telemetry.addData("Turret Rel", "%.1f", lastTurretRelativeAngle);
-        }
-        telemetry.addData("Offset", "%.1f", turretOffset);
-        if (drive != null) {
-            telemetry.addData("Pos", "%.1f, %.1f  H:%.1f", drive.getX(), drive.getY(), drive.getHeadingDegrees());
-        }
-        telemetry.addData("Dist", "%.1f %s", getDistanceToTarget(), lastDistanceMatch);
-        telemetry.addData("Mode", "%s %s", currentPresetMode, autoAimEnabled ? "AIM" : "MAN");
-        telemetry.addData("Loop", "%.0f ms", loopTimer.milliseconds());
-        loopTimer.reset();
+        telemetry.addData("Mode", currentPresetMode.toString());
+        telemetry.addData("Distance", "%.1f in", getDistanceToTarget());
         telemetry.update();
     }
 
@@ -438,6 +309,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
      * Initialize hardware
      */
     private void initializeHardware() {
+
         // Drive controller
         try {
             drive = new SixWheelDriveController(this);
@@ -518,7 +390,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // === DRIVE SENSITIVITY ===
     public static double DRIVE_EXPONENT = 2.0;  // 1.0 = linear, 2.0 = squared, 3.0 = cubed
     public static double TURN_EXPONENT = 3.0;   // Higher = more precision at low speeds
-
     /**
      * Apply sensitivity curve to joystick input
      * Keeps the sign but applies power curve for more control at low speeds
@@ -534,9 +405,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
      */
     private void handleDriveControls() {
         if (drive == null) return;
-
-        // Update odometry
-        drive.updateOdometry();
 
         // Get raw joystick inputs
         double rawDrive = -gamepad1.left_stick_y;
@@ -678,13 +546,36 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             }
         }
 
-        // When driver 2 presses B: read Limelight tx, apply as turret offset correction
+        // Sticky limelight telemetry (persists until next B press)
+        if (lastLLTelemetry != null) {
+            telemetry.addLine(lastLLTelemetry);
+        }
+
+        // When driver 2 presses B: Limelight recalibration
+        // Limelight is at robot center (servo 0.5). tx = degrees target is from center.
+        // Correct servo position = 0.5 + tx/315 (absolute, from center)
+        // Current servo position = where auto-aim has the turret
+        // Offset = correct - current, converted to degrees, added permanently
         if (gamepad2.b && !lastGamepad2B) {
-            if (limelightController != null && limelightController.canSeeTarget()) {
+            if (limelightController != null && turret != null && limelightController.canSeeTarget()) {
                 double tx = limelightController.getTx();
-                turretOffset += tx;
-                telemetry.addData("Limelight Fix", "Applied %.1f offset (total: %.1f)", tx, turretOffset);
-                telemetry.update();
+                double currentServo = turret.getCommandedPosition();
+
+                // Where servo should be, based on limelight reading from robot center
+                double correctServo = 0.5 + (tx / TurretController.SERVO_RANGE_DEG);
+                correctServo = Math.max(0.0, Math.min(1.0, correctServo));
+
+                // Difference in servo units, converted to degrees
+                double servoError = correctServo - currentServo;
+                double degreeOffset = servoError * TurretController.SERVO_RANGE_DEG;
+
+                turret.addAimOffset(degreeOffset);
+
+                lastLLTelemetry = String.format(
+                        "LL tx=%.1f correct=%.3f cur=%.3f err=%.3f deg=%.1f total=%.1f",
+                        tx, correctServo, currentServo, servoError, degreeOffset, turret.getAimOffset());
+            } else {
+                lastLLTelemetry = "LL: No target visible";
             }
         }
         lastGamepad2B = gamepad2.b;
@@ -694,9 +585,8 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         boolean ltPressed = gamepad2.left_bumper;
         if (ltPressed && !lastLT2Pressed) {
             if (ramp != null) {
-                double newTarget = ramp.getTargetAngle() - RAMP_INCREMENT_DEGREES;
+                double newTarget = ramp.getTargetAngle() + RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
-                rampDebug = "LB RETRACT: " + ramp.getTargetAngle();
             }
         }
 
@@ -706,9 +596,8 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         boolean currentLB2 = gamepad2.left_trigger > TRIGGER_THRESHOLD;
         if (currentLB2 && !lastLB2) {
             if (ramp != null) {
-                double newTarget = ramp.getTargetAngle() + RAMP_INCREMENT_DEGREES;
+                double newTarget = ramp.getTargetAngle() - RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
-                rampDebug = "LT EXTEND: " + ramp.getTargetAngle();
             }
         }
         lastLB2 = currentLB2;
@@ -734,34 +623,21 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         }
         lastDpadDown2 = currentDpadDown2;
 
-        // === DPAD RIGHT: TURRET OFFSET +1° ===
-        boolean currentDpadRight2 = gamepad2.dpad_right;
-        if (currentDpadRight2 && !lastDpadRight2) {
-            turretOffset += TURRET_TARGET_INCREMENT;
-        }
-        lastDpadRight2 = currentDpadRight2;
-
-        // === DPAD LEFT: TURRET OFFSET -1° ===
-        boolean currentDpadLeft2 = gamepad2.dpad_left;
-        if (currentDpadLeft2 && !lastDpadLeft2) {
-            turretOffset -= TURRET_TARGET_INCREMENT;
-        }
-        lastDpadLeft2 = currentDpadLeft2;
-
-        // === RIGHT STICK X: MANUAL TURRET ===
-        double turretInput = gamepad2.right_stick_x;
-        if (turret != null) {
-            if (Math.abs(turretInput) > 0.1) {
-                // Joystick moved - disable auto-aim and take manual control
-                autoAimEnabled = false;
-                turret.setPower(turretInput * TURRET_MANUAL_SENSITIVITY);
-            } else {
-                // Joystick released - stop turret only if not in auto-aim mode
-                if (!autoAimEnabled) {
-                    turret.stop();
-                }
+        // === DPAD RIGHT: TURRET AIM OFFSET RIGHT (continuous while held) ===
+        // Only if dpad_up/down not pressed (avoids accidental nudge when adjusting RPM)
+        if (gamepad2.dpad_right && !gamepad2.dpad_up && !gamepad2.dpad_down) {
+            if (turret != null) {
+                turret.addAimOffset(-TURRET_OFFSET_SPEED);
             }
         }
+
+        // === DPAD LEFT: TURRET AIM OFFSET LEFT (continuous while held) ===
+        if (gamepad2.dpad_left && !gamepad2.dpad_up && !gamepad2.dpad_down) {
+            if (turret != null) {
+                turret.addAimOffset(TURRET_OFFSET_SPEED);
+            }
+        }
+
 
         // === Y: FAR PRESET (always activates) ===
         boolean currentY2 = gamepad2.y;
@@ -776,7 +652,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
 
             // Enable continuous auto-aim
-            autoAimEnabled = true;
+            if (turret != null) turret.enableAutoAim();
         }
         lastY2 = currentY2;
 
@@ -788,7 +664,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
             // Calculate distance to goal and get shooting parameters
             double distance = getDistanceToTarget();
-            lastCalculatedDistance = distance;
             double[] params = getShootingParamsForDistance(distance);
             double autoRPM = params[0];
             double autoRamp = params[1];
@@ -802,7 +677,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             if (ramp != null) ramp.setTargetAngle(autoRamp);
 
             // Enable continuous auto-aim
-            autoAimEnabled = true;
+            if (turret != null) turret.enableAutoAim();
         }
         lastA2 = currentA2;
 
@@ -856,11 +731,14 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             drive.updateOdometry();
         }
 
-        // Turret update (handles manual setPower stepping)
-        if (turret != null) turret.update();
-
-        // Continuous auto-aim: recalculates every loop
-        updateAutoAim();
+        // Turret: either auto-aim or manual stepping, never both
+        if (turret != null) {
+            if (turret.isAutoAimEnabled() && drive != null) {
+                turret.updateAutoAim(drive.getX(), drive.getY(), drive.getHeadingDegrees());
+            } else {
+                turret.update();
+            }
+        }
 
         if (ramp != null) ramp.update();
         if (intake != null) intake.update();

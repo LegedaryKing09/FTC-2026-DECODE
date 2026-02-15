@@ -95,9 +95,9 @@ public class SixWheelDriveController {
     public static class OdometryParams {
         public static boolean USE_4_BAR_PODS = true;
         public static double ENCODER_RESOLUTION_MM = 19.89;  // mm per tick for 4-bar pods
-        public static double X_OFFSET_MM = -84.0;   // Forward pod offset
-        public static double Y_OFFSET_MM = -168.0;  // Strafe pod offset
-        public static double YAW_SCALAR = 1.0;      // Tune with OdometryTuner
+        public static double X_OFFSET_MM = -101.6;   // Forward pod offset
+        public static double Y_OFFSET_MM = -158.75;  // Strafe pod offset
+        public static double YAW_SCALAR = -1.0;      // Tune with OdometryTuner
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
 
