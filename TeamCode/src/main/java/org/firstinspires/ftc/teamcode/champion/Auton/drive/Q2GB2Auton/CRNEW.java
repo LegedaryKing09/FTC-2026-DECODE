@@ -213,8 +213,8 @@ public class CRNEW extends LinearOpMode {
                 .build();
         Actions.runBlocking(Initial_Forward);
 
-        // SHOOT
-        autoMethod.autoAimTurretLeft();
+//        // SHOOT
+//        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
@@ -228,8 +228,8 @@ public class CRNEW extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
-        // AUTO AIM AND SHOOT (FIRST LINE)
-        autoMethod.autoAimTurretLeft();
+//        // AUTO AIM AND SHOOT (FIRST LINE)
+//        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -244,7 +244,7 @@ public class CRNEW extends LinearOpMode {
         Actions.runBlocking(Backward2);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
+//        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -259,7 +259,7 @@ public class CRNEW extends LinearOpMode {
         Actions.runBlocking(Backward3);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
+//        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
     }
