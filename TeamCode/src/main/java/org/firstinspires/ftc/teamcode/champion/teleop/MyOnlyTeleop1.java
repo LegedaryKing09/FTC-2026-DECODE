@@ -572,6 +572,8 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         // Left bumper - VOMIT (hold to reverse intake + transfer + uptake)
         if (gamepad1.left_bumper) {
             // Hold LB = reverse all systems
+            intakeModeActive = false;
+
             if (intake != null) {
                 intake.reversed = true;
                 intake.setState(true);

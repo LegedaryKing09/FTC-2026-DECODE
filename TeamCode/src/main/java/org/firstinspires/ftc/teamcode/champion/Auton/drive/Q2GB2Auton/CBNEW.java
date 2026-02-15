@@ -2,13 +2,12 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
+
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
@@ -52,16 +51,16 @@ public class CBNEW extends LinearOpMode {
     public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
-    public static double INITIAL_BACKWARD = -30.0;
+    public static double INITIAL_BACKWARD_X = 25.0;
     public static double SPLINE_Y = -62.0;
-    public static double SPLINE_X = -7.0;
-    public static double SECOND_SPLINE_X = 12.0;
+    public static double SPLINE_X = 7.0;
+    public static double SECOND_SPLINE_X = -12.0;
     public static double SECOND_SPLINE_Y = -65.0;
-    public static double THIRD_SPLINE_X = 28.0;
+    public static double THIRD_SPLINE_X = -28.0;
     public static double THIRD_SPLINE_Y = -65.0;
 
     // turning angle parameters
-    public static double SPLINE_ANGLE = -90.0;
+    public static double SPLINE_ANGLE = 0;
     public static double SECOND_SPLINE_ANGLE = -90.0;
     public static double THIRD_SPLINE_ANGLE = -90.0;
 
@@ -75,7 +74,7 @@ public class CBNEW extends LinearOpMode {
         initializeRobot();
 
         // Define starting pose
-        Pose2d startPose = new Pose2d(-55, -55, Math.toRadians(45));
+        Pose2d startPose = new Pose2d(55, -55, Math.toRadians(45));
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
@@ -205,10 +204,10 @@ public class CBNEW extends LinearOpMode {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // GO BACK FOR SHOOTING
-        Action Initial_Forward = tankDrive.actionBuilder(currentPose)
-                .lineToX(INITIAL_BACKWARD)
+        Action Initial_Backward = tankDrive.actionBuilder(currentPose)
+                .lineToX(INITIAL_BACKWARD_X)
                 .build();
-        Actions.runBlocking(Initial_Forward);
+        Actions.runBlocking(Initial_Backward);
 
         // SHOOT
 //        autoMethod.autoAimTurretLeft();
@@ -221,7 +220,7 @@ public class CBNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(20,-35), Math.toRadians(-180))
                 .build();
         Actions.runBlocking(Backward);
 
@@ -236,7 +235,7 @@ public class CBNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(20,-35), Math.toRadians(-180))
                 .build();
         Actions.runBlocking(Backward2);
 
@@ -251,7 +250,7 @@ public class CBNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward3 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(20,-35), Math.toRadians(-180))
                 .build();
         Actions.runBlocking(Backward3);
 
