@@ -76,7 +76,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // CLOSE preset now uses distance-based lookup
     public static double CLOSE_TURRET = -45;
 
-    public static double IDLE_RPM = 2000.0;
+    public static double IDLE_RPM = 3900.0;
 
     // === DISTANCE-BASED SHOOTING TABLE ===
     // Distance (inches) = straight-line odometry distance to target
@@ -92,8 +92,8 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     public static double DIST_5 = 72.0;   public static double RAMP_5 = 0.37;  public static double RPM_5 = 3925;
 
     // === TARGET POSITION (where turret aims at) ===
-    public static double TARGET_X = 16.0;  // Field X coordinate to aim at
-    public static double TARGET_Y = 18.0;  // Field Y coordinate to aim at
+    public static double TARGET_X = 10.0;  // Field X coordinate to aim at
+    public static double TARGET_Y = 10.0;  // Field Y coordinate to aim at
 
     // === AUTON STARTING POSITION ===
     public static double AUTON_START_X = 48;
