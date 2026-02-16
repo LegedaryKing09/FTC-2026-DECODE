@@ -18,7 +18,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -39,7 +38,6 @@ public class CloseBlueNew extends LinearOpMode {
     AutoTankDrive tankDrive;
     TurretController turret;
     AutonMethods autoMethod;
-    TurretFieldController turretField;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -89,8 +87,6 @@ public class CloseBlueNew extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,

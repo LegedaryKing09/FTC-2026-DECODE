@@ -36,7 +36,6 @@ public class CR extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
-    TurretFieldController turretField;
     TurretController turret;
     AutonMethods autoMethod;
 
@@ -58,7 +57,6 @@ public class CR extends LinearOpMode {
     // turning angle
     public static double PICK_UP_ANGLE = -45.0;
     public static double ZERO_DEGREE = 45.0;
-    public static double SHOOTING_DEGREE = 0.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -81,8 +79,6 @@ public class CR extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
@@ -167,7 +163,6 @@ public class CR extends LinearOpMode {
         // initialize turret
         try {
             turret = new TurretController(this);
-            turretField = new TurretFieldController(turret);
         } catch (Exception e) {
             //
         }
@@ -180,7 +175,7 @@ public class CR extends LinearOpMode {
             //
         }
 
-        // Initialize autoncontroller
+        // Initialize auton_controller
         autonController = new NewAutonController(
                 this,
                 driveController,

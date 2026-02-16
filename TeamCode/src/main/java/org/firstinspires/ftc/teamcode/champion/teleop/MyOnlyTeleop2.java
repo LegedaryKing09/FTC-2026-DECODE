@@ -1,8 +1,8 @@
 package org.firstinspires.ftc.teamcode.champion.teleop;
 
-import com.acmerobotics.dashboard.FtcDashboard;
+import android.annotation.SuppressLint;
+
 import com.acmerobotics.dashboard.config.Config;
-import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.AnalogInput;
@@ -10,7 +10,6 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.acmerobotics.roadrunner.Pose2d;
-import org.firstinspires.ftc.teamcode.champion.RobotState;
 
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
@@ -18,21 +17,23 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
+import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
-
-
 
 /**
  * 超级无敌高级Teleop
- *
- * FIELD-CENTRIC AUTO-AIM:
+ * FIELD-CENTRIC AUTO-AIM (NO TurretFieldController):
  * - Inherits position from auton via PoseStorage
  * - Continuously tracks robot position on field
- * - Auto-calculates turret angle to aim at TARGET (0,0) or custom position
- * - Pressing Y or A preset calculates angle based on current robot position
- *
+ * - Auto-calculates FIELD angle to target, subtracts robot heading to get
+ *   turret-relative angle, then converts directly to servo position:
+ *     servoPos = 0.5 + (turretAngle / 315.0)
+ * - Runs every loop for continuous aiming while driving
+ * TURRET SERVO MAPPING:
+ * - Servo 0.0 to 1.0 = 315° total range
+ * - Servo 0.5 = 0° (field forward)
+ * - Servo 0.0 = -157.5°, Servo 1.0 = +157.5°
  * === DRIVER 1 (gamepad1) - ARCADE DRIVE (FULL POWER) ===
  * Left Stick Y:   Forward/Backward (1.0 power)
  * Right Stick X:  Turn Left/Right (1.0 power)
@@ -40,24 +41,19 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  *                 Ball switch auto-stops uptake when ball detected,
  *                 auto-restarts when ball leaves
  * Left Bumper:    HOLD to VOMIT (reverse intake + transfer + uptake)
- *
  * === DRIVER 2 (gamepad2) ===
  * Right Trigger:  HOLD to SHOOT - runs intake + transfer + uptake,
  *                 BYPASSES ball detection (forces balls through shooter)
- *
  * Left Bumper:    RETRACT ramp (angle goes more negative)
  * Left Trigger:   EXTEND ramp (angle goes less negative, toward 0°)
- *
  * D-Pad Up:       RPM +100
  * D-Pad Down:     RPM -100
- * D-Pad Right:    Turret target +1 degree (when auto-aim enabled)
- * D-Pad Left:     Turret target -1 degree (when auto-aim enabled)
- *
+ * D-Pad Right:    HOLD to nudge turret aim offset right (continuous)
+ * D-Pad Left:     HOLD to nudge turret aim offset left (continuous)
  * Right Stick X:  Manual turret - DISABLES AUTO-AIM when moved!
  *                 Auto-aim stays off until next preset button is pressed
- *
- * Y Button:       FAR preset - calculates turret angle to (0,0) based on position
- * A Button:       CLOSE preset - calculates turret angle to (0,0) based on position
+ * Y Button:       FAR preset - enables auto-aim + sets RPM/ramp
+ * A Button:       CLOSE preset - AUTO RPM/RAMP based on distance to goal
  * X Button:       Set RPM to IDLE (2000 RPM)
  */
 @Config
@@ -65,49 +61,51 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 public class MyOnlyTeleop2 extends LinearOpMode {
 
     // === PRESETS ===
-    public static double FAR_RPM = 4100.0;
-    public static double FAR_RAMP_ANGLE = 0.6;
-    public static double FAR_TURRET = 23;
-    // FAR_TURRET_ANGLE removed - now calculated dynamically
+    public static double FAR_RPM = 4600.0;
+    public static double FAR_RAMP_ANGLE = 0.42;
 
-    public static double CLOSE_RPM = 3100.0;
-    public static double CLOSE_RAMP_ANGLE = 0.449;
-    public static double CLOSE_TURRET = 43;
-    // CLOSE_TURRET_ANGLE removed - now calculated dynamically
+    public static double IDLE_RPM = 3900.0;
 
-    public static double IDLE_RPM = 2000.0;
+    // === DISTANCE-BASED SHOOTING TABLE ===
+    // Distance (inches) = straight-line odometry distance to target
+    // Each entry: {distance, ramp angle, RPM}
+    // Piecewise: if distance is within ±6 inches of a calibrated point, use that setting
+    public static double DISTANCE_TOLERANCE = 6.0;  // ±6 inches
+
+    // Calibration points (straight-line odometry distance to target)
+    public static double DIST_1 = 24.0;   public static double RAMP_1 = 0;  public static double RPM_1 = 3550;
+    public static double DIST_2 = 36.0;   public static double RAMP_2 = 0.23;  public static double RPM_2 = 3600;
+    public static double DIST_3 = 48.0;   public static double RAMP_3 = 0.305;  public static double RPM_3 = 3750;
+    public static double DIST_4 = 60.0;   public static double RAMP_4 = 0.4;  public static double RPM_4 = 3850;
+    public static double DIST_5 = 72.0;   public static double RAMP_5 = 0.37;  public static double RPM_5 = 3925;
 
     // === TARGET POSITION (where turret aims at) ===
-    public static double TARGET_X = 144.0;  // Field X coordinate to aim at
-    public static double TARGET_Y = 0.0;  // Field Y coordinate to aim at
+    public static double TARGET_X = 10.0;  // Field X coordinate to aim at
+    public static double TARGET_Y = 10.0;  // Field Y coordinate to aim at
 
     // === AUTON STARTING POSITION ===
-    public static double AUTON_START_X = 49.6;
-    public static double AUTON_START_Y = 9.0;
+    public static double AUTON_START_X = 48;
+    public static double AUTON_START_Y = 137;
     public static double AUTON_START_HEADING = 0.0;  // degrees
 
     // === ADJUSTMENTS ===
-    public static double RAMP_INCREMENT_DEGREES = 0.05;  // Always positive, direction handled in code
-    public static double TURRET_TARGET_INCREMENT = 1.0;
-    public static double RPM_INCREMENT = 100.0;
-    public static double TURRET_MANUAL_SENSITIVITY = 0.2;
+    public static double RAMP_INCREMENT_DEGREES = 0.01;  // Always positive, direction handled in code
+    public static double RPM_INCREMENT = 50.0;
+    public static double TURRET_OFFSET_SPEED = 1;  // degrees per loop when dpad held
 
     // === BALL DETECTION ===
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
 
-    // === TELEMETRY ===
-    public static double TELEMETRY_INTERVAL_MS = 100;
-
     // === CONTROLLERS ===
     private SixWheelDriveController drive;
     private TurretController turret;
-    private TurretFieldController turretField;
     private NewIntakeController intake;
     private NewTransferController transfer;
     private UptakeController uptake;
     private NewShooterController shooter;
     private NewRampController ramp;
+    private LimelightAlignmentController limelightController;
 
     // Ball detection switch
     private AnalogInput uptakeSwitch;
@@ -115,7 +113,6 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime loopTimer = new ElapsedTime();
-    private final ElapsedTime telemetryTimer = new ElapsedTime();
 
     // === GAMEPAD 1 BUTTON STATES ===
     private boolean lastRB1 = false;
@@ -124,12 +121,13 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     private boolean lastY2 = false;
     private boolean lastA2 = false;
     private boolean lastX2 = false;
-    private boolean lastDpadLeft2 = false;
-    private boolean lastDpadRight2 = false;
     private boolean lastDpadUp2 = false;
     private boolean lastDpadDown2 = false;
     private boolean lastLB2 = false;
     private boolean lastLT2Pressed = false;
+
+    private boolean lastGamepad2B = false;
+    private String lastLLTelemetry = null;
 
     // Trigger threshold
     private static final double TRIGGER_THRESHOLD = 0.2;
@@ -139,66 +137,57 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     private boolean allSystemsFromTrigger = false;
     private double currentTargetRPM = 0;
 
-    // Debug
-    private String rampDebug = "";
-
     // === Preset mode tracking ===
     private enum PresetMode { IDLE, FAR, CLOSE }
     private PresetMode currentPresetMode = PresetMode.IDLE;
 
-    // === Auto-aim state ===
-    private boolean autoAimEnabled = false;
-    public double turretError;
-
     @Override
     public void runOpMode() {
-        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
-
         // Read the static pose from auton
         Pose2d autonPose = PoseStorage.currentPose;
-
-        telemetry.addLine("=== POSE FROM STORAGE ===");
-        telemetry.addData("Auton Final Pose", "x=%.2f, y=%.2f, h=%.2f°",
-                autonPose.position.x, autonPose.position.y,
-                Math.toDegrees(autonPose.heading.toDouble()));
-        telemetry.update();
 
         initializeHardware();
 
         sleep(300);
 
-        // Set position from auton (transformation now handled in SixWheelDriveController)
+        // Set position from auton, or use AUTON_START values if auton was skipped (pose is 0,0,0)
         if (drive != null) {
-            drive.setPosition(
-                    autonPose.position.x,
-                    autonPose.position.y,
-                    autonPose.heading.toDouble()
-            );
-            drive.updateOdometry();
+            double startX, startY, startHeading;
 
-            telemetry.addData("Position SET", "x=%.1f, y=%.1f, h=%.1f°",
-                    drive.getX(), drive.getY(), drive.getHeadingDegrees());
+            // Check if auton was skipped (PoseStorage is at origin)
+            if (autonPose.position.x == 0 && autonPose.position.y == 0 && autonPose.heading.toDouble() == 0) {
+                // Auton skipped - use configured start position
+                startX = AUTON_START_X;
+                startY = AUTON_START_Y;
+                startHeading = Math.toRadians(AUTON_START_HEADING);
+            } else {
+                // Auton ran - use saved pose
+                startX = autonPose.position.x;
+                startY = autonPose.position.y;
+                startHeading = autonPose.heading.toDouble();
+            }
+
+            drive.setPosition(startX, startY, startHeading);
+            drive.updateOdometry();
         }
-        telemetry.update();
 
         waitForStart();
         runtime.reset();
 
-        // Initialize turret angle tracking AFTER start
+        // Initialize turret to center (0° field angle)
         if (turret != null) {
-            turret.restoreAngle(PoseStorage.turretAngle);
-            telemetry.addData("Turret RESTORED", "%.1f°", PoseStorage.turretAngle);
-            telemetry.update();
+            turret.setServoPosition(0.5);
+            turret.setTarget(TARGET_X, TARGET_Y);
         }
 
-        // Initialize ramp - sets current position as 0°
+        // Initialize ramp
         if (ramp != null) {
             ramp.initialize();
         }
 
         // Auto-aim starts DISABLED
-        if (turretField != null) {
-            turretField.disable();
+        if (turret != null) {
+            turret.disableAutoAim();
         }
 
         // Start shooter at idle RPM (2000)
@@ -209,7 +198,6 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         }
 
         loopTimer.reset();
-        telemetryTimer.reset();
 
         while (opModeIsActive()) {
 
@@ -242,43 +230,91 @@ public class MyOnlyTeleop2 extends LinearOpMode {
             // Update all controllers
             updateAllSystems();
 
-            // === SLOW UPDATES (telemetry) ===
-            if (telemetryTimer.milliseconds() >= TELEMETRY_INTERVAL_MS) {
-                telemetryTimer.reset();
-                updateTelemetry();
-            }
+            // === TELEMETRY ===
+            updateTelemetry();
         }
 
         // Cleanup
         if (shooter != null) shooter.stopShooting();
-        if (turretField != null) turretField.disable();
+    }
+
+    // =========================================================================
+    // DISTANCE / SHOOTING PARAMS
+    // =========================================================================
+
+    /**
+     * Get RPM and Ramp angle based on distance using piecewise function
+     * Returns double[2] where [0] = RPM, [1] = ramp angle
+     * Distance tolerance is ±6 inches from calibrated points
+     */
+    private double[] getShootingParamsForDistance(double distance) {
+        double[] distances = {DIST_1, DIST_2, DIST_3, DIST_4, DIST_5};
+        double[] rpm = {RPM_1, RPM_2, RPM_3, RPM_4, RPM_5};
+        double[] ramps = {RAMP_1, RAMP_2, RAMP_3, RAMP_4, RAMP_5};
+
+        // Check each calibration point with tolerance
+        for (int i = 0; i < distances.length; i++) {
+            if (Math.abs(distance - distances[i]) <= DISTANCE_TOLERANCE) {
+                return new double[]{rpm[i], ramps[i]};
+            }
+        }
+
+        // No match - use closest point
+        double minDiff = Double.MAX_VALUE;
+        int bestIdx = 2;
+        for (int i = 0; i < distances.length; i++) {
+            double diff = Math.abs(distance - distances[i]);
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestIdx = i;
+            }
+        }
+        return new double[]{rpm[bestIdx], ramps[bestIdx]};
+    }
+
+    /**
+     * Update telemetry with ramp, RPM, turret angle, and odometry
+     */
+    private void updateTelemetry() {
+        if (shooter != null) {
+            telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
+        }
+        if (ramp != null) {
+            telemetry.addData("Ramp Angle", "%.3f", ramp.getTargetAngle());
+        }
+        if (turret != null) {
+            telemetry.addData("Turret", turret.getCommandedPosition());
+        }
+        telemetry.addData("Mode", currentPresetMode.toString());
+        telemetry.addData("Distance", "%.1f in", getDistanceToTarget());
+        telemetry.update();
     }
 
     /**
      * Initialize hardware
      */
     private void initializeHardware() {
+
         // Drive controller
         try {
             drive = new SixWheelDriveController(this);
             drive.setDriveMode(SixWheelDriveController.DriveMode.POWER);
         } catch (Exception e) {
-            telemetry.addLine("WARNING: Drive controller failed to initialize");
+            // Drive init failed
         }
 
-        // Turret
+        // Turret (no TurretFieldController needed)
         try {
             turret = new TurretController(this);
-            turretField = new TurretFieldController(turret);
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Turret: " + e.getMessage());
+            // Turret init failed
         }
 
         // Ramp
         try {
             ramp = new NewRampController(this);
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Ramp: " + e.getMessage());
+            // Ramp init failed
         }
 
         // Intake
@@ -286,7 +322,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, "intake");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Intake: " + e.getMessage());
+            // Intake init failed
         }
         intake = new NewIntakeController(intakeMotor);
 
@@ -295,7 +331,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         try {
             transferMotor = hardwareMap.get(DcMotor.class, "transfer");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Transfer: " + e.getMessage());
+            // Transfer init failed
         }
         transfer = new NewTransferController(transferMotor);
 
@@ -306,7 +342,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
             uptakeServo = hardwareMap.get(CRServo.class, "servo1");
             uptakeServo2 = hardwareMap.get(CRServo.class, "servo2");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Uptake: " + e.getMessage());
+            // Uptake init failed
         }
         uptake = new UptakeController(uptakeServo, uptakeServo2);
 
@@ -314,7 +350,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         try {
             uptakeSwitch = hardwareMap.get(AnalogInput.class, "uptakeSwitch");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Uptake Switch: " + e.getMessage());
+            // Uptake switch init failed
         }
 
         // Shooter
@@ -324,41 +360,50 @@ public class MyOnlyTeleop2 extends LinearOpMode {
             shooterMotor1 = hardwareMap.get(DcMotor.class, "shooter1");
             shooterMotor2 = hardwareMap.get(DcMotor.class, "shooter2");
         } catch (Exception e) {
-            telemetry.addData("Hardware Init Error", "Shooter: " + e.getMessage());
+            // Shooter init failed
         }
-        shooter = new NewShooterController(shooterMotor1,shooterMotor2);
+        shooter = new NewShooterController(shooterMotor1, shooterMotor2);
+
+        // Limelight
+        try {
+            limelightController = new LimelightAlignmentController(this, drive);
+        } catch (Exception e) {
+            // Limelight init failed - limelightController stays null
+        }
     }
 
+    // === DRIVE SENSITIVITY ===
+    public static double DRIVE_EXPONENT = 2.0;  // 1.0 = linear, 2.0 = squared, 3.0 = cubed
+    public static double TURN_EXPONENT = 3.0;   // Higher = more precision at low speeds
     /**
-     * Sensitivity curve - CUBIC
+     * Apply sensitivity curve to joystick input
+     * Keeps the sign but applies power curve for more control at low speeds
      */
-    private double applySensitivityCurve(double input) {
-        return input * input * input;
+    private double applyCurve(double input, double exponent) {
+        return Math.copySign(Math.pow(Math.abs(input), exponent), input);
     }
 
     /**
-     * Drive controls - ARCADE DRIVE (FULL POWER)
+     * Drive controls - ARCADE DRIVE with SENSITIVITY CURVE
      * Left Stick Y = Forward/Backward
      * Right Stick X = Turn
      */
     private void handleDriveControls() {
         if (drive == null) return;
 
-        // Update odometry
-        drive.updateOdometry();
+        // Get raw joystick inputs
+        double rawDrive = -gamepad1.left_stick_y;
+        double rawTurn = gamepad1.right_stick_x;
 
-        // Set to power mode for direct control
-        drive.setDriveMode(SixWheelDriveController.DriveMode.POWER);
-
-        // Arcade drive: left stick Y for drive, right stick X for turn (FULL POWER)
-        double drivePower = -gamepad1.left_stick_y;
-        double turnPower = gamepad1.right_stick_x;
+        // Apply sensitivity curves
+        double drivePower = applyCurve(rawDrive, DRIVE_EXPONENT);
+        double turnPower = applyCurve(rawTurn, TURN_EXPONENT);
 
         // Calculate left and right powers
         double leftPower = drivePower + turnPower;
         double rightPower = drivePower - turnPower;
 
-        // Use tank drive at full power (no multipliers)
+        // Use tank drive (power mode)
         drive.tankDrive(leftPower, rightPower);
     }
 
@@ -380,6 +425,8 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         // Left bumper - VOMIT (hold to reverse intake + transfer + uptake)
         if (gamepad1.left_bumper) {
             // Hold LB = reverse all systems
+            intakeModeActive = false;
+
             if (intake != null) {
                 intake.reversed = true;
                 intake.setState(true);
@@ -431,18 +478,22 @@ public class MyOnlyTeleop2 extends LinearOpMode {
 
     /**
      * Stop intake mode - intake + transfer + uptake (all three)
-     * If uptake is already off (from switch), it stays off
+     * EXCEPTION: If driver 2 is holding RT (shooting), uptake stays running
      */
     private void stopIntakeMode() {
         intakeModeActive = false;
         if (intake != null && intake.isActive()) intake.toggle();
         if (transfer != null && transfer.isActive()) transfer.toggle();
-        if (uptake != null && uptake.isActive()) uptake.toggle();
+
+        // Only stop uptake if driver 2 is NOT shooting
+        boolean shooting = gamepad2.right_trigger > TRIGGER_THRESHOLD;
+        if (!shooting && uptake != null && uptake.isActive()) uptake.toggle();
     }
 
     /**
      * Driver 2 controls
      */
+    @SuppressLint("DefaultLocale")
     private void handleDriver2Controls() {
 
         // === RT: HOLD TO SHOOT - Run ITU and bypass ball detection ===
@@ -465,35 +516,70 @@ public class MyOnlyTeleop2 extends LinearOpMode {
                 allSystemsFromTrigger = true;
             }
         } else {
-            // Stop all three when released (only if started by trigger)
+            // RT released - stop systems that were started by trigger
             if (allSystemsFromTrigger) {
-                if (intake != null && intake.isActive()) intake.toggle();
-                if (transfer != null && transfer.isActive()) transfer.toggle();
+                // Only stop intake/transfer if driver 1 intake mode is off
+                if (!intakeModeActive) {
+                    if (intake != null && intake.isActive()) intake.toggle();
+                    if (transfer != null && transfer.isActive()) transfer.toggle();
+                }
                 if (uptake != null && uptake.isActive()) uptake.toggle();
                 allSystemsFromTrigger = false;
             }
         }
+
+        // Sticky limelight telemetry (persists until next B press)
+        if (lastLLTelemetry != null) {
+            telemetry.addLine(lastLLTelemetry);
+        }
+
+        // When driver 2 presses B: Limelight recalibration
+        // Limelight is at robot center (servo 0.5). tx = degrees target is from center.
+        // Correct servo position = 0.5 + tx/315 (absolute, from center)
+        // Current servo position = where auto-aim has the turret
+        // Offset = correct - current, converted to degrees, added permanently
+        if (gamepad2.b && !lastGamepad2B) {
+            if (limelightController != null && turret != null && limelightController.canSeeTarget()) {
+                double tx = limelightController.getTx();
+                double currentServo = turret.getCommandedPosition();
+
+                // Where servo should be, based on limelight reading from robot center
+                double correctServo = 0.5 + (tx / TurretController.SERVO_RANGE_DEG);
+                correctServo = Math.max(0.0, Math.min(1.0, correctServo));
+
+                // Difference in servo units, converted to degrees
+                double servoError = correctServo - currentServo;
+                double degreeOffset = servoError * TurretController.SERVO_RANGE_DEG;
+
+                turret.addAimOffset(degreeOffset);
+
+                lastLLTelemetry = String.format(
+                        "LL tx=%.1f correct=%.3f cur=%.3f err=%.3f deg=%.1f total=%.1f",
+                        tx, correctServo, currentServo, servoError, degreeOffset, turret.getAimOffset());
+            } else {
+                lastLLTelemetry = "LL: No target visible";
+            }
+        }
+        lastGamepad2B = gamepad2.b;
 
         // === LB: RETRACT RAMP (more negative angle, toward -245°) ===
 
         boolean ltPressed = gamepad2.left_bumper;
         if (ltPressed && !lastLT2Pressed) {
             if (ramp != null) {
-                double newTarget = ramp.getTargetAngle() - RAMP_INCREMENT_DEGREES;
+                double newTarget = ramp.getTargetAngle() + RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
-                rampDebug = "LB RETRACT: " + ramp.getTargetAngle();
             }
         }
 
         lastLT2Pressed = ltPressed;
 
         // === LT: EXTEND RAMP (less negative angle, toward 0°) ===
-        boolean currentLB2 = gamepad2.left_trigger> TRIGGER_THRESHOLD;
+        boolean currentLB2 = gamepad2.left_trigger > TRIGGER_THRESHOLD;
         if (currentLB2 && !lastLB2) {
             if (ramp != null) {
-                double newTarget = ramp.getTargetAngle() + RAMP_INCREMENT_DEGREES;
+                double newTarget = ramp.getTargetAngle() - RAMP_INCREMENT_DEGREES;
                 ramp.setTargetAngle(newTarget);
-                rampDebug = "LT EXTEND: " + ramp.getTargetAngle();
             }
         }
         lastLB2 = currentLB2;
@@ -519,41 +605,21 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         }
         lastDpadDown2 = currentDpadDown2;
 
-        // === DPAD RIGHT: TURRET TARGET +1° (only when auto-aim enabled) ===
-        boolean currentDpadRight2 = gamepad2.dpad_right;
-        if (currentDpadRight2 && !lastDpadRight2) {
-            if (autoAimEnabled && turretField != null) {
-                turretField.setTargetFieldAngle(turretField.getTargetFieldAngle() + TURRET_TARGET_INCREMENT);
+        // === DPAD RIGHT: TURRET AIM OFFSET RIGHT (continuous while held) ===
+        // Only if dpad_up/down not pressed (avoids accidental nudge when adjusting RPM)
+        if (gamepad2.dpad_right && !gamepad2.dpad_up && !gamepad2.dpad_down) {
+            if (turret != null) {
+                turret.addAimOffset(-TURRET_OFFSET_SPEED);
             }
         }
-        lastDpadRight2 = currentDpadRight2;
 
-        // === DPAD LEFT: TURRET TARGET -1° (only when auto-aim enabled) ===
-        boolean currentDpadLeft2 = gamepad2.dpad_left;
-        if (currentDpadLeft2 && !lastDpadLeft2) {
-            if (autoAimEnabled && turretField != null) {
-                turretField.setTargetFieldAngle(turretField.getTargetFieldAngle() - TURRET_TARGET_INCREMENT);
+        // === DPAD LEFT: TURRET AIM OFFSET LEFT (continuous while held) ===
+        if (gamepad2.dpad_left && !gamepad2.dpad_up && !gamepad2.dpad_down) {
+            if (turret != null) {
+                turret.addAimOffset(TURRET_OFFSET_SPEED);
             }
         }
-        lastDpadLeft2 = currentDpadLeft2;
 
-        // === RIGHT STICK X: MANUAL TURRET ===
-        double turretInput = gamepad2.right_stick_x;
-        if (turret != null) {
-            if (Math.abs(turretInput) > 0.1) {
-                // Joystick moved - disable auto-aim and take manual control
-                if (autoAimEnabled) {
-                    autoAimEnabled = false;
-                    if (turretField != null) turretField.disable();
-                }
-                turret.setPower(turretInput * TURRET_MANUAL_SENSITIVITY);
-            } else {
-                // Joystick released - stop turret only if not in auto-aim mode
-                if (!autoAimEnabled) {
-                    turret.stop();
-                }
-            }
-        }
 
         // === Y: FAR PRESET (always activates) ===
         boolean currentY2 = gamepad2.y;
@@ -566,34 +632,34 @@ public class MyOnlyTeleop2 extends LinearOpMode {
                 if (!shooter.isShootMode()) shooter.startShooting();
             }
             if (ramp != null) ramp.setTargetAngle(FAR_RAMP_ANGLE);
-            if (turretField != null) {
-                // Calculate angle to target based on current robot position
-                double targetAngle = calculateAngleToTarget();
-                turretField.setTargetFieldAngle(FAR_TURRET);
-                turretField.enable();
-                autoAimEnabled = true;
-            }
+
+            // Enable continuous auto-aim
+            if (turret != null) turret.enableAutoAim();
         }
         lastY2 = currentY2;
 
-        // === A: CLOSE PRESET (always activates) ===
+        // === A: CLOSE PRESET - DISTANCE-BASED RPM/RAMP ===
+        // Every press recalculates distance and updates RPM/ramp
         boolean currentA2 = gamepad2.a;
         if (currentA2 && !lastA2) {
-            // Activate CLOSE preset
             currentPresetMode = PresetMode.CLOSE;
-            currentTargetRPM = CLOSE_RPM;
+
+            // Calculate distance to goal and get shooting parameters
+            double distance = getDistanceToTarget();
+            double[] params = getShootingParamsForDistance(distance);
+            double autoRPM = params[0];
+            double autoRamp = params[1];
+
+            // Apply the calculated RPM and ramp
+            currentTargetRPM = autoRPM;
             if (shooter != null) {
-                shooter.setTargetRPM(CLOSE_RPM);
+                shooter.setTargetRPM(autoRPM);
                 if (!shooter.isShootMode()) shooter.startShooting();
             }
-            if (ramp != null) ramp.setTargetAngle(CLOSE_RAMP_ANGLE);
-            if (turretField != null) {
-                // Calculate angle to target based on current robot position
-                double targetAngle = calculateAngleToTarget();
-                turretField.setTargetFieldAngle(CLOSE_TURRET);
-                turretField.enable();
-                autoAimEnabled = true;
-            }
+            if (ramp != null) ramp.setTargetAngle(autoRamp);
+
+            // Enable continuous auto-aim
+            if (turret != null) turret.enableAutoAim();
         }
         lastA2 = currentA2;
 
@@ -610,31 +676,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     }
 
     /**
-     * Calculate the field angle from robot position to target (0,0)
-     * Returns the angle in degrees that the turret should face
-     *
-     * Uses atan2 to get angle from robot (x,y) to target (TARGET_X, TARGET_Y)
-     * Result is in field coordinates (0° = forward on field)
-     */
-    private double calculateAngleToTarget() {
-        double robotX = getCorrectedX();
-        double robotY = getCorrectedY();
-
-        // Vector from robot to target
-        double dx = TARGET_X - robotX;
-        double dy = TARGET_Y - robotY;
-
-        // Calculate angle using atan2 (returns radians, -PI to PI)
-        // atan2(dy, dx) gives angle where 0° = positive X axis
-        // Convert to field coordinates where 0° = positive Y axis (forward)
-        double angleRad = Math.atan2(dx, dy);  // Note: swapped dx,dy for field coords
-        double angleDeg = Math.toDegrees(angleRad);
-
-        return angleDeg;
-    }
-
-    /**
-     * Get distance from robot to target
+     * Get distance from robot to target (in inches)
      */
     private double getDistanceToTarget() {
         double robotX = getCorrectedX();
@@ -663,30 +705,21 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     }
 
     /**
-     * Update corrected position - now just calls drive.updateOdometry()
-     * Transformation is handled in SixWheelDriveController
-     */
-    private void updateCorrectedPosition() {
-        // Transformation now handled in SixWheelDriveController.updateOdometry()
-        // Nothing extra needed here
-    }
-
-    /**
      * Update all subsystem controllers
      */
     private void updateAllSystems() {
-        // Update odometry and corrected position first
+        // Update odometry first
         if (drive != null) {
             drive.updateOdometry();
-            updateCorrectedPosition();
         }
 
-        if (turret != null) turret.update();
-
-        // Update turret field controller for auto-aim
-        if (turretField != null && autoAimEnabled && drive != null) {
-            turretField.update(drive.getHeadingDegrees());
-            turretError = turretField.getFieldError();
+        // Turret: either auto-aim or manual stepping, never both
+        if (turret != null) {
+            if (turret.isAutoAimEnabled() && drive != null) {
+                turret.updateAutoAim(drive.getX(), drive.getY(), drive.getHeadingDegrees());
+            } else {
+                turret.update();
+            }
         }
 
         if (ramp != null) ramp.update();
@@ -694,38 +727,5 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         if (transfer != null) transfer.update();
         if (uptake != null) uptake.update();
         if (shooter != null) shooter.update();
-    }
-
-    /**
-     * Update telemetry
-     */
-    private void updateTelemetry() {
-        // Drive info - corrected field position
-        telemetry.addData("Position", "X:%.1f Y:%.1f", getCorrectedX(), getCorrectedY());
-        if (drive != null) {
-            telemetry.addData("Heading", "%.1f°", drive.getHeadingDegrees());
-        }
-
-        // Shooter info
-        if (shooter != null) {
-            telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
-        }
-
-        // Ramp info
-        if (ramp != null) {
-            telemetry.addData("Ramp", "%.3f → %.3f", ramp.getCurrentAngle(), ramp.getTargetAngle());
-        }
-
-        // Turret info
-        if (turretField != null) {
-            if (autoAimEnabled) {
-                telemetry.addData("Turret Target", "%.1f° (err: %.1f°)",
-                        turretField.getTargetFieldAngle(), turretField.getFieldError());
-
-            }
-        }
-
-
-        telemetry.update();
     }
 }

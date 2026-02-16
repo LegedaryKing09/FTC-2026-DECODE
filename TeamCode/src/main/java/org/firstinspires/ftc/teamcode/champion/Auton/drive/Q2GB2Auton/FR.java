@@ -18,7 +18,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -42,7 +41,6 @@ public class FR extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
-    TurretFieldController turretField;
     TurretController turret;
 
     // Uptake ball detection switch
@@ -84,9 +82,6 @@ public class FR extends LinearOpMode {
     private volatile boolean runShooter = false;
     public boolean intakeModeActive = false;
     public boolean uptakeStoppedBySwitch = false;
-
-    // turret angles
-    public static double AUTO_AIM_RIGHT = 23.0;
 
     @Override
     public void runOpMode() {
@@ -171,7 +166,6 @@ public class FR extends LinearOpMode {
         // initialize turret
         try {
             turret = new TurretController(this);
-            turretField = new TurretFieldController(turret);
         } catch (Exception e) {
             //
         }
@@ -208,7 +202,6 @@ public class FR extends LinearOpMode {
     private void executeAutonomousSequence() {
 
         // 1. shoot 3 balls
-        autoAimTurretRight();
         shootBalls();
 
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -229,7 +222,6 @@ public class FR extends LinearOpMode {
         // 4. Go forward while intake (first line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
-        turretField.disable();
 
         // 5. Go backward after intake (first line)
         Action moveBackward1 = tankDrive.actionBuilder(currentPose)
@@ -247,7 +239,6 @@ public class FR extends LinearOpMode {
 
         // 7. Go backward for shooting
         backwardTurret(INITIAL_FORWARD);
-        turretField.disable();
 
         // 8. Shoot balls
         shootBalls();
@@ -271,7 +262,6 @@ public class FR extends LinearOpMode {
         // 4. Go forward while intake (first line)
         intakeForwardRoadRunner();
         currentPose = tankDrive.pinpointLocalizer.getPose();
-        turretField.disable();
 
         // 5. Go backward after intake (first line)
         Action moveBackward3 = tankDrive.actionBuilder(currentPose)
@@ -289,7 +279,6 @@ public class FR extends LinearOpMode {
 
         // 7. Go backward for shooting
         backwardTurret(SECOND_BACKWARD);
-        turretField.disable();
 
         // 8. Shoot balls
         shootBalls();
@@ -609,10 +598,6 @@ public class FR extends LinearOpMode {
 
 
     private void backwardTurret(double distance){
-        if(turretField != null){
-            turretField.setTargetFieldAngle(AUTO_AIM_RIGHT);
-            turretField.enable();
-        }
 
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action moveForward = tankDrive.actionBuilder(currentPose)
@@ -624,12 +609,7 @@ public class FR extends LinearOpMode {
 
             @Override
             public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
-                if (turretField != null && turretField.isEnabled()){
-                    turret.update();
-                    turretField.update(
-                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                    );
-                }
+                turret.update();
                 return moveAction.run(packet);
             }
         };
@@ -637,16 +617,4 @@ public class FR extends LinearOpMode {
         // Run the combined action
         Actions.runBlocking(intakeAction);
     }
-
-    private void autoAimTurretRight () {
-        if (turretField == null) return;
-
-        turretField.autoAim(
-                AUTO_AIM_RIGHT,
-                () -> Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble()),
-                this::opModeIsActive
-        );
-    }
-
-
 }
