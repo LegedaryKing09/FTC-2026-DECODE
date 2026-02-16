@@ -22,13 +22,20 @@ public class NewShooterController {
     public static double MIN_RPM = 0.0;
     public static double MAX_RPM = 6000.0;
 
-    // PID gains (tunable via FTC Dashboard)
-    public static double kP = 0.95;   // Proportional gain (scaled for RPM error -> power)
-    public static double kI = 0.02;   // Integral gain
-    public static double kD = 0.0375;      // Derivative gain (start with 0)
+    // High RPM PID gains (target = 4600, tunable via FTC Dashboard)
+    public static double HIGH_kP = 0.95;
+    public static double HIGH_kI = 0.02;
+    public static double HIGH_kD = 0.0375;
+    public static double HIGH_kF = 0.025;
 
-    // Feedforward gain (helps reach target faster)
-    public static double kF = 0.025;  // Feedforward: power per RPM
+    // Low RPM PID gains (target = 3900, tunable via FTC Dashboard)
+    public static double LOW_kP = 0.95;
+    public static double LOW_kI = 0.02;
+    public static double LOW_kD = 0.0375;
+    public static double LOW_kF = 0.025;
+
+    // RPM threshold to switch between high/low PID sets
+    public static double RPM_THRESHOLD = 4250;
 
     // PID limits
     public static double MAX_INTEGRAL = 10000.0;  // Integral windup limit
@@ -224,6 +231,13 @@ public class NewShooterController {
 
             // Run PID at high frequency
             if (dt >= 0.005) {  // 200Hz max
+                // Select PID gains based on target RPM
+                boolean useHigh = currentTargetRPM >= RPM_THRESHOLD;
+                double kP = useHigh ? HIGH_kP : LOW_kP;
+                double kI = useHigh ? HIGH_kI : LOW_kI;
+                double kD = useHigh ? HIGH_kD : LOW_kD;
+                double kF = useHigh ? HIGH_kF : LOW_kF;
+
                 double error = currentTargetRPM - currentRPM;
 
                 // Feedforward (base power to reach target)
