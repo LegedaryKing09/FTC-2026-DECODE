@@ -90,14 +90,13 @@ public class SixWheelDriveController {
         public static boolean INVERT_LEFT_ENCODER = false;
         public static boolean INVERT_RIGHT_ENCODER = true;
     }
-
+    public double YAW_SCALAR = -1.0;      // Tune with OdometryTuner
     @Config
     public static class OdometryParams {
         public static boolean USE_4_BAR_PODS = true;
         public static double ENCODER_RESOLUTION_MM = 19.89;  // mm per tick for 4-bar pods
         public static double X_OFFSET_MM = -101.6;   // Forward pod offset
         public static double Y_OFFSET_MM = -158.75;  // Strafe pod offset
-        public static double YAW_SCALAR = -1.0;      // Tune with OdometryTuner
         public static boolean X_ENCODER_REVERSED = false;
         public static boolean Y_ENCODER_REVERSED = false;
 
@@ -191,7 +190,7 @@ public class SixWheelDriveController {
         pinpoint.setOffsets(OdometryParams.X_OFFSET_MM, OdometryParams.Y_OFFSET_MM, DistanceUnit.MM);
 
         // Set yaw scalar for heading accuracy
-        pinpoint.setYawScalar(OdometryParams.YAW_SCALAR);
+        pinpoint.setYawScalar(YAW_SCALAR);
     }
 
     private void initializeVelocityControl() {

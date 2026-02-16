@@ -75,6 +75,8 @@ public class CRNEW extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        driveController.YAW_SCALAR = 1;
+
         initializeRobot();
 
         // Define starting pose
