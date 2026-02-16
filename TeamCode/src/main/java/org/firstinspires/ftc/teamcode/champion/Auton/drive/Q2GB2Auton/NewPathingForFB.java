@@ -2,13 +2,12 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
+
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
@@ -51,10 +50,6 @@ public class NewPathingForFB extends LinearOpMode {
     // Shooter settings
     public static double CONSTANT_SHOOTER_RPM = 4100.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
-    // Distance parameters
-    public static double INTAKE_DISTANCE = 30.0;
-    public static double STARTING_POSITION_X = 0.0;
-    public static double STARTING_POSITION_Y = 0.0;
     public static double FIRST_SPLINE_X = 10.0;
     public static double FIRST_SPLINE_Y = 40.0;
     public static double SECOND_SPLINE_X = 20.0;
@@ -68,8 +63,6 @@ public class NewPathingForFB extends LinearOpMode {
     public static double THIRD_COMEBACK_X = 20.0;
     public static double THIRD_COMEBACK_Y = -78.0;
 
-    // turning angle parameters
-    public static double PICK_UP_ANGLE = -90.0;
     public static double FIRST_SPLINE_ANGLE = 120.0;
     public static double SECOND_SPLINE_ANGLE = 90.0;
     public static double THIRD_SPLINE_ANGLE = 90.0;
@@ -98,12 +91,9 @@ public class NewPathingForFB extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
-                    turretField,
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
@@ -198,7 +188,7 @@ public class NewPathingForFB extends LinearOpMode {
             //
         }
 
-        // Initialize autoncontroller
+        // Initialize auton_controller
         autonController = new NewAutonController(
                 this,
                 driveController,

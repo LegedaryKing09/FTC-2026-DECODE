@@ -1,33 +1,27 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import static android.os.SystemClock.sleep;
 
+import androidx.annotation.NonNull;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
-import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
-import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
-import org.firstinspires.ftc.teamcode.champion.controller.MovementPIDController;
-import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurnPIDController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.CRServo;
+
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
@@ -39,11 +33,8 @@ public class AutonMethods {
     private final NewShooterController shooterController;
     private final NewIntakeController intakeController;
     private final NewRampController rampController;
-    private final LimelightAlignmentController limelightController;
-    private final NewAutoShootController autoShootController;
     private final NewAutonController autonController;
     private final AutoTankDrive tankDrive;
-    private final TurretFieldController turretField;
     private final TurretController turret;
 
     public org.firstinspires.ftc.robotcore.external.Telemetry telemetry;
@@ -55,12 +46,9 @@ public class AutonMethods {
             UptakeController uptakeController,
             NewShooterController shooterController,
             NewIntakeController intakeController,
-            LimelightAlignmentController limelightController,
-            NewAutoShootController autoShootController,
             NewRampController rampController,
             NewAutonController autonController,
             AutoTankDrive tankDrive,
-            TurretFieldController turretField,
             TurretController turret) {
 
         this.opMode = opMode;
@@ -69,12 +57,9 @@ public class AutonMethods {
         this.uptakeController = uptakeController;
         this.shooterController = shooterController;
         this.intakeController = intakeController;
-        this.limelightController = limelightController;
-        this.autoShootController = autoShootController;
         this.rampController = rampController;
         this.autonController = autonController;
         this.tankDrive = tankDrive;
-        this.turretField = turretField;
         this.turret = turret;
     }
     public AnalogInput uptakeSwitch;
@@ -100,9 +85,6 @@ public class AutonMethods {
     private volatile boolean runShooter = false;
     public boolean intakeModeActive = false;
     public boolean uptakeStoppedBySwitch = false;
-
-    // turret angles
-    public static double AUTO_AIM_ANGLE = 180.0;
 
     public void shootBalls() {
         // Wait for RPM stabilization
@@ -186,10 +168,10 @@ public class AutonMethods {
 
         // Create a custom action that combines RoadRunner movement with intake control
         Action intakeAction = new Action() {
-            private Action moveAction = moveForward;
+            private final Action moveAction = moveForward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 checkUptakeSwitch();
                 intakeController.update();
                 transferController.update();
@@ -266,10 +248,10 @@ public class AutonMethods {
 
         // Create a custom action that combines RoadRunner movement with intake control
         Action intakeAction = new Action() {
-            private Action moveAction = moveForward;
+            private final Action moveAction = moveForward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 checkUptakeSwitch();
                 intakeController.update();
                 transferController.update();
@@ -346,10 +328,10 @@ public class AutonMethods {
 
         // Create a custom action that combines RoadRunner movement with intake control
         Action intakeAction = new Action() {
-            private Action moveAction = moveForward;
+            private final Action moveAction = moveForward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 checkUptakeSwitch();
                 intakeController.update();
                 transferController.update();
@@ -413,10 +395,10 @@ public class AutonMethods {
 
         // Create a custom action that combines RoadRunner movement with intake control
         Action intakeAction = new Action() {
-            private Action moveAction = moveBackward;
+            private final Action moveAction = moveBackward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 if (turret != null && turret.isAutoAimEnabled()) {
                     Pose2d aimPose = tankDrive.pinpointLocalizer.getPose();
                     double dX = aimPose.position.y;
@@ -446,11 +428,7 @@ public class AutonMethods {
                 if (rampController != null) {
                     rampController.update();
                 }
-                try {
-                    Thread.sleep(20);
-                } catch (InterruptedException e) {
-                    break;
-                }
+                sleep(20);
             }
         });
         shooterThread.setPriority(Thread.MAX_PRIORITY);
@@ -461,9 +439,9 @@ public class AutonMethods {
         double fieldX = AUTON_START_X;
         double fieldY = AUTON_START_Y;
         double fieldHeading = Math.toRadians(AUTON_START_HEADING);
-        double rawX = 0, rawY = 0;
-        double deltaX = 0, deltaY = 0;
-        double deltaHeading = 0;
+        double rawX, rawY;
+        double deltaX, deltaY;
+        double deltaHeading;
 
         try {
             // Try to get pose from RoadRunner's pinpoint localizer
@@ -644,14 +622,13 @@ public class AutonMethods {
             Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
             double rawX = rawPose.position.x;
             double rawY = rawPose.position.y;
-            double dX = rawY;
             double dY = -rawX;
-            double fX = AUTON_START_X + dX;
+            double fX = AUTON_START_X + rawY;
             double fY = AUTON_START_Y + dY;
             double fH = Math.toDegrees(rawPose.heading.toDouble()) + AUTON_START_HEADING;
 
             telemetry.addData("Raw Odo", "x=%.1f y=%.1f", rawX, rawY);
-            telemetry.addData("Delta", "dX=%.1f dY=%.1f", dX, dY);
+            telemetry.addData("Delta", "dX=%.1f dY=%.1f", rawY, dY);
             telemetry.addData("Field Pos", "X=%.1f Y=%.1f H=%.1f", fX, fY, fH);
             telemetry.addData("Target", "X=%.1f Y=%.1f", TARGET_X, TARGET_Y);
             telemetry.addData("Turret Servo", "%.3f", turret != null ? turret.getCommandedPosition() : 0);

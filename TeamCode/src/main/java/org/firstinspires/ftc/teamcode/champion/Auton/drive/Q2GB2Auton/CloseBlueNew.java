@@ -94,7 +94,6 @@ public class CloseBlueNew extends LinearOpMode {
                     rampController,
                     autonController,
                     tankDrive,
-                    turretField,
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;

@@ -2,13 +2,12 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
+
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
@@ -27,7 +26,7 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
 @Autonomous(name = "FR From MeepMeep - 12 BALLS", group = "Test")
-public class FRNEW extends LinearOpMode {
+public class FarRedNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -95,12 +94,9 @@ public class FRNEW extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
-                    turretField,
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
@@ -195,7 +191,7 @@ public class FRNEW extends LinearOpMode {
             //
         }
 
-        // Initialize autoncontroller
+        // Initialize auton_controller
         autonController = new NewAutonController(
                 this,
                 driveController,
@@ -273,10 +269,10 @@ public class FRNEW extends LinearOpMode {
 
         // GO BACK FOR SHOOTING
         currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action INTAKEBACKWARD = tankDrive.actionBuilder(currentPose)
+        Action INTAKE_BACKWARD = tankDrive.actionBuilder(currentPose)
                 .lineToY(COMEBACK_X)
                 .build();
-        Actions.runBlocking(INTAKEBACKWARD);
+        Actions.runBlocking(INTAKE_BACKWARD);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();

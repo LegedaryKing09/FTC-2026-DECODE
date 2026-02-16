@@ -1,4 +1,6 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
+import androidx.annotation.NonNull;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
@@ -10,8 +12,6 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
-import org.firstinspires.ftc.teamcode.champion.RobotState;
-import org.firstinspires.ftc.teamcode.champion.controller.AutonTurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
@@ -185,7 +185,7 @@ public class FR extends LinearOpMode {
         }
 
 
-        // Initialize autoncontroller
+        // Initialize auton_controller
         autonController = new NewAutonController(
                 this,
                 driveController,
@@ -224,7 +224,7 @@ public class FR extends LinearOpMode {
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
                 .build();
         Actions.runBlocking(turnLeft1);
-        HeadingCorrection(PICK_UP_ANGLE, 0.5);
+        HeadingCorrection(PICK_UP_ANGLE);
 
         // 4. Go forward while intake (first line)
         intakeForwardRoadRunner();
@@ -243,7 +243,7 @@ public class FR extends LinearOpMode {
                 .turnTo(Math.toRadians(DEGREE_ZERO))
                 .build();
         Actions.runBlocking(turnRight1);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
+        HeadingCorrection(DEGREE_ZERO);
 
         // 7. Go backward for shooting
         backwardTurret(INITIAL_FORWARD);
@@ -265,7 +265,7 @@ public class FR extends LinearOpMode {
                 .turnTo(Math.toRadians(PICK_UP_ANGLE))
                 .build();
         Actions.runBlocking(turnLeft3);
-        HeadingCorrection(PICK_UP_ANGLE, 0.5);
+        HeadingCorrection(PICK_UP_ANGLE);
 
 
         // 4. Go forward while intake (first line)
@@ -285,7 +285,7 @@ public class FR extends LinearOpMode {
                 .turnTo(Math.toRadians(DEGREE_ZERO))
                 .build();
         Actions.runBlocking(turnRight3);
-        HeadingCorrection(DEGREE_ZERO, 0.5);
+        HeadingCorrection(DEGREE_ZERO);
 
         // 7. Go backward for shooting
         backwardTurret(SECOND_BACKWARD);
@@ -382,10 +382,10 @@ public class FR extends LinearOpMode {
 
         // Create a custom action that combines RoadRunner movement with intake control
         Action intakeAction = new Action() {
-            private Action moveAction = moveForward;
+            private final Action moveAction = moveForward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 checkUptakeSwitch();
                 intakeController.update();
                 transferController.update();
@@ -434,11 +434,7 @@ public class FR extends LinearOpMode {
                 if (rampController != null) {
                     rampController.update();
                 }
-                try {
-                    Thread.sleep(20);
-                } catch (InterruptedException e) {
-                    break;
-                }
+                sleep(20);
             }
         });
         shooterThread.setPriority(Thread.MAX_PRIORITY);
@@ -565,7 +561,7 @@ public class FR extends LinearOpMode {
         }
     }
 
-    private void HeadingCorrection(double targetAngleDegrees, double toleranceDegrees) {
+    private void HeadingCorrection(double targetAngleDegrees) {
         final double kP = HEADING_CORRECTION_KP;
         final double maxAngularVel = HEADING_CORRECTION_MAX_VEL;
         final int stableSamplesRequired = HEADING_STABLE_SAMPLES;
@@ -591,7 +587,7 @@ public class FR extends LinearOpMode {
             while (headingError > 180) headingError -= 360;
             while (headingError <= -180) headingError += 360;
 
-            if (Math.abs(headingError) <= toleranceDegrees) {
+            if (Math.abs(headingError) <= 0.5) {
                 stableCount++;
                 if (stableCount >= stableSamplesRequired) break;
             } else {
@@ -624,10 +620,10 @@ public class FR extends LinearOpMode {
                 .build();
 
         Action intakeAction = new Action() {
-            private Action moveAction = moveForward;
+            private final Action moveAction = moveForward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 if (turretField != null && turretField.isEnabled()){
                     turret.update();
                     turretField.update(
@@ -648,7 +644,7 @@ public class FR extends LinearOpMode {
         turretField.autoAim(
                 AUTO_AIM_RIGHT,
                 () -> Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble()),
-                () -> opModeIsActive()
+                this::opModeIsActive
         );
     }
 
