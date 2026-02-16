@@ -368,11 +368,6 @@ public class ShooterPIDF extends OpMode {
         packet.put("Error", error);
         packet.put("Power", shooter.getCurrentPower());
 
-        // PID terms (read from controller gains for visibility)
-        packet.put("P_term", NewShooterController.kP * error);
-        packet.put("I_term", NewShooterController.kI * shooter.getIntegralSum());
-        packet.put("FF_term", NewShooterController.kF * targetRPM);
-
         // Timing & state
         packet.put("SpinUpTime", lastSpinUpTime);
         packet.put("Running", shooter.isShootMode() ? 1 : 0);
@@ -404,13 +399,6 @@ public class ShooterPIDF extends OpMode {
             telemetry.addData("Min RPM During Shot", "%.0f", minRPMDuringShot);
             telemetry.addData("RPM Drop", "%.0f", rpmBeforeShot - minRPMDuringShot);
         }
-
-        telemetry.addLine("");
-        telemetry.addLine("=== PIDF GAINS (edit in NewShooterController) ===");
-        telemetry.addData("kF", "%.6f", NewShooterController.kF);
-        telemetry.addData("kP", "%.6f", NewShooterController.kP);
-        telemetry.addData("kI", "%.6f", NewShooterController.kI);
-        telemetry.addData("kD", "%.6f", NewShooterController.kD);
 
         telemetry.addLine("");
         telemetry.addLine("=== TIMING STATS ===");

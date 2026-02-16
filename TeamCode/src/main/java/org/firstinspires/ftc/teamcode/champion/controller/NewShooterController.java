@@ -23,10 +23,10 @@ public class NewShooterController {
     public static double MAX_RPM = 6000.0;
 
     // High RPM PID gains (target = 4600, tunable via FTC Dashboard)
-    public static double HIGH_kP = 0.95;
-    public static double HIGH_kI = 0.02;
-    public static double HIGH_kD = 0.0375;
-    public static double HIGH_kF = 0.025;
+    public static double HIGH_kP = 3.0;
+    public static double HIGH_kI = 0.08;
+    public static double HIGH_kD = 0.03;
+    public static double HIGH_kF = 0.1;
 
     // Low RPM PID gains (target = 3900, tunable via FTC Dashboard)
     public static double LOW_kP = 0.95;

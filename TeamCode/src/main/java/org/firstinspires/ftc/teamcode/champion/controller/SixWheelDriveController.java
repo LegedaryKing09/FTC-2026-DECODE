@@ -159,7 +159,7 @@ public class SixWheelDriveController {
         lf.setDirection(DcMotorSimple.Direction.FORWARD);
         lb.setDirection(DcMotorSimple.Direction.REVERSE);
         rf.setDirection(DcMotorSimple.Direction.REVERSE);
-        rb.setDirection(DcMotorSimple.Direction.FORWARD);
+        rb.setDirection(DcMotorSimple.Direction.REVERSE);
 
         // Set brake mode
         lf.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
