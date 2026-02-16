@@ -23,7 +23,7 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 
 /**
  * 超级无敌高级Teleop
- * FIELD-CENTRIC AUTO-AIM (NO TurretFieldController):
+ * FIELD-CENTRIC AUTO-AIM:
  * - Inherits position from auton via PoseStorage
  * - Continuously tracks robot position on field
  * - Auto-calculates FIELD angle to target, subtracts robot heading to get
@@ -303,7 +303,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             // Drive init failed
         }
 
-        // Turret (no TurretFieldController needed)
+        // Turret
         try {
             turret = new TurretController(this);
         } catch (Exception e) {

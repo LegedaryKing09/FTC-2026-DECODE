@@ -14,7 +14,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -267,6 +266,7 @@ public class FarRedNew extends LinearOpMode {
 
         // GO BACK FOR SHOOTING
         currentPose = tankDrive.pinpointLocalizer.getPose();
+        //noinspection SuspiciousNameCombination
         Action INTAKE_BACKWARD = tankDrive.actionBuilder(currentPose)
                 .lineToY(COMEBACK_X)
                 .build();

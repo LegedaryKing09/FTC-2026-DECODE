@@ -17,7 +17,7 @@ public class AutonTurretController {
     public static double VOLTAGE_TO_DEGREES = 360.0 / VOLTAGE_MAX;  // Scale factor
     public static double CENTER_ANGLE = 180.0;  // What angle is "forward" on your turret
 
-    // ========== DIRECTION-DEPENDENT PID (from your TurretFieldController) ==========
+    // ========== DIRECTION-DEPENDENT PID ==========
     // Clockwise (positive error → positive power)
     public static double CW_kP = 0.05;
     public static double CW_kI = 0.0;
@@ -209,7 +209,7 @@ public class AutonTurretController {
     }
 
     /**
-     * Calculate PID output using direction-dependent gains (from your TurretFieldController)
+     * Calculate PID output using direction-dependent gains
      */
     private double calculatePID(double error) {
         long currentTime = System.currentTimeMillis();

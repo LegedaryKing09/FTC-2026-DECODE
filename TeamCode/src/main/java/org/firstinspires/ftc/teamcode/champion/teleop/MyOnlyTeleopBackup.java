@@ -23,20 +23,17 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 
 /**
  * 超级无敌高级Teleop
- *
- * FIELD-CENTRIC AUTO-AIM (NO TurretFieldController):
+ * FIELD-CENTRIC AUTO-AIM:
  * - Inherits position from auton via PoseStorage
  * - Continuously tracks robot position on field
  * - Auto-calculates FIELD angle to target, subtracts robot heading to get
  *   turret-relative angle, then converts directly to servo position:
  *     servoPos = 0.5 + (turretAngle / 315.0)
  * - Runs every loop for continuous aiming while driving
- *
  * TURRET SERVO MAPPING:
  * - Servo 0.0 to 1.0 = 315° total range
  * - Servo 0.5 = 0° (field forward)
  * - Servo 0.0 = -157.5°, Servo 1.0 = +157.5°
- *
  * === DRIVER 1 (gamepad1) - ARCADE DRIVE (FULL POWER) ===
  * Left Stick Y:   Forward/Backward (1.0 power)
  * Right Stick X:  Turn Left/Right (1.0 power)
@@ -44,22 +41,17 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  *                 Ball switch auto-stops uptake when ball detected,
  *                 auto-restarts when ball leaves
  * Left Bumper:    HOLD to VOMIT (reverse intake + transfer + uptake)
- *
  * === DRIVER 2 (gamepad2) ===
  * Right Trigger:  HOLD to SHOOT - runs intake + transfer + uptake,
  *                 BYPASSES ball detection (forces balls through shooter)
- *
  * Left Bumper:    RETRACT ramp (angle goes more negative)
  * Left Trigger:   EXTEND ramp (angle goes less negative, toward 0°)
- *
  * D-Pad Up:       RPM +100
  * D-Pad Down:     RPM -100
  * D-Pad Right:    Turret offset +1 degree
  * D-Pad Left:     Turret offset -1 degree
- *
  * Right Stick X:  Manual turret - DISABLES AUTO-AIM when moved!
  *                 Auto-aim stays off until next preset button is pressed
- *
  * Y Button:       FAR preset - enables auto-aim + sets RPM/ramp
  * A Button:       CLOSE preset - AUTO RPM/RAMP based on distance to goal
  * X Button:       Set RPM to IDLE (2000 RPM)
@@ -71,10 +63,6 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
     // === PRESETS ===
     public static double FAR_RPM = 5000.0;
     public static double FAR_RAMP_ANGLE = 0.42;
-    public static double FAR_TURRET = -23;
-
-    // CLOSE preset now uses distance-based lookup
-    public static double CLOSE_TURRET = -45;
 
     public static double IDLE_RPM = 2000.0;
 
@@ -265,13 +253,13 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
      */
     private double[] getShootingParamsForDistance(double distance) {
         double[] distances = {DIST_1, DIST_2, DIST_3, DIST_4, DIST_5};
-        double[] rpms = {RPM_1, RPM_2, RPM_3, RPM_4, RPM_5};
+        double[] rpm = {RPM_1, RPM_2, RPM_3, RPM_4, RPM_5};
         double[] ramps = {RAMP_1, RAMP_2, RAMP_3, RAMP_4, RAMP_5};
 
         // Check each calibration point with tolerance
         for (int i = 0; i < distances.length; i++) {
             if (Math.abs(distance - distances[i]) <= DISTANCE_TOLERANCE) {
-                return new double[]{rpms[i], ramps[i]};
+                return new double[]{rpm[i], ramps[i]};
             }
         }
 
@@ -285,7 +273,7 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
                 bestIdx = i;
             }
         }
-        return new double[]{rpms[bestIdx], ramps[bestIdx]};
+        return new double[]{rpm[bestIdx], ramps[bestIdx]};
     }
 
     /**
@@ -329,7 +317,7 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
             // Drive init failed
         }
 
-        // Turret (no TurretFieldController needed)
+        // Turret
         try {
             turret = new TurretController(this);
         } catch (Exception e) {
@@ -545,12 +533,8 @@ public class MyOnlyTeleopBackup extends LinearOpMode {
                 if (!intakeModeActive) {
                     if (intake != null && intake.isActive()) intake.toggle();
                     if (transfer != null && transfer.isActive()) transfer.toggle();
-                    if (uptake != null && uptake.isActive()) uptake.toggle();
-                } else {
-                    // Driver 1 intake is still on — keep intake+transfer running,
-                    // but stop uptake so ball switch can control it again
-                    if (uptake != null && uptake.isActive()) uptake.toggle();
                 }
+                if (uptake != null && uptake.isActive()) uptake.toggle();
                 allSystemsFromTrigger = false;
             }
         }

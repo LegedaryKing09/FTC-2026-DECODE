@@ -14,7 +14,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -51,21 +50,14 @@ public class ReleasePathingCB extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
     public static double INITIAL_BACKWARD = -30.0;
-    public static double FIRST_BACKWARD_Y = -22.0;
     public static double SPLINE_Y = -52.0;
     public static double SPLINE_X = -11.0;
-    public static double SECOND_SPLINE_X = 12.0;
-    public static double SECOND_SPLINE_Y = -52.0;
-    public static double THIRD_SPLINE_X = -5.0;
-    public static double THIRD_SPLINE_Y = -54.0;
     public static double RELEASE_X = -20.0;
     public static double RELEASE_Y = -35.0;
 
     // turning angle parameters
     public static double RELEASE_ANGLE = -180.0;
     public static double SPLINE_ANGLE = -90.0;
-    public static double SECOND_SPLINE_ANGLE = -180.0;
-    public static double THIRD_SPLINE_ANGLE = -90.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -184,7 +176,7 @@ public class ReleasePathingCB extends LinearOpMode {
             //
         }
 
-        // Initialize autoncontroller
+        // Initialize auton_controller
         autonController = new NewAutonController(
                 this,
                 driveController,
