@@ -2,39 +2,38 @@ package org.firstinspires.ftc.teamcode.champion.tests;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.LED;
 
 @TeleOp(name = "LED Digital Test", group = "Test")
 public class LEDDigitalTest extends OpMode {
 
-    private DigitalChannel digitalPort;
+    private LED led;
 
     @Override
     public void init() {
-        digitalPort = hardwareMap.get(DigitalChannel.class, "digital0");
-        digitalPort.setMode(DigitalChannel.Mode.OUTPUT);
-        digitalPort.setState(false);
+        led = hardwareMap.get(LED.class, "digital0");
+        led.enableLight(false);
 
-        telemetry.addData("Status", "Initialized - Digital Port 0 set to OUTPUT");
-        telemetry.addData("Controls", "A = HIGH | B = LOW");
+        telemetry.addData("Status", "Initialized - LED on Digital Port 0");
+        telemetry.addData("Controls", "A = ON | B = OFF");
         telemetry.update();
     }
 
     @Override
     public void loop() {
         if (gamepad1.a) {
-            digitalPort.setState(true);
+            led.enableLight(true);
         } else if (gamepad1.b) {
-            digitalPort.setState(false);
+            led.enableLight(false);
         }
 
-        telemetry.addData("Digital Port 0", digitalPort.getState() ? "HIGH" : "LOW");
-        telemetry.addData("Controls", "A = HIGH | B = LOW");
+        telemetry.addData("LED", led.isLightOn() ? "ON" : "OFF");
+        telemetry.addData("Controls", "A = ON | B = OFF");
         telemetry.update();
     }
 
     @Override
     public void stop() {
-        digitalPort.setState(false);
+        led.enableLight(false);
     }
 }
