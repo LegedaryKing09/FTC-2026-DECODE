@@ -44,7 +44,7 @@ public class TurretController {
     public static String SERVO2_NAME = "turret2";
 
     // Zero calibration – 0.5 = 0 degrees (field forward)
-    public static double ZERO_POSITION = 0.5;
+    public static double ZERO_POSITION = 0.51;
 
     // Servo range – full 0-to-1 sweep covers 315 degrees
     public static double SERVO_RANGE_DEG = 315.0;
@@ -54,6 +54,12 @@ public class TurretController {
 
     // Invert heading compensation (set true if yaw scalar is negative)
     public static boolean INVERT_HEADING = true;
+
+    // Turret pivot offset from robot center (inches, in robot-local frame)
+    // FORWARD_OFFSET = positive means turret is in front of robot center
+    // RIGHT_OFFSET = positive means turret is to the right of robot center
+    public static double TURRET_FORWARD_OFFSET = -4.0;
+    public static double TURRET_RIGHT_OFFSET = 0.0;
 
     // Power simulation – how fast setPower() moves the servo per update cycle
     public static double POWER_STEP_SCALE = 0.008;
@@ -164,16 +170,30 @@ public class TurretController {
      * Call every loop when using setTarget().
      * Also works for fixed field angle (ignores robotX/Y in that case).
      *
-     * @param robotX robot X position on field
-     * @param robotY robot Y position on field
+     * Compensates for turret pivot offset from robot center:
+     * Converts TURRET_FORWARD_OFFSET and TURRET_RIGHT_OFFSET from robot-local
+     * frame to field frame using robot heading, then calculates angle to target
+     * from the turret's actual field position (not robot center).
+     *
+     * @param robotX robot X position on field (odometry center)
+     * @param robotY robot Y position on field (odometry center)
      * @param robotHeadingDeg robot heading in degrees
      */
     public void updateAutoAim(double robotX, double robotY, double robotHeadingDeg) {
         if (!autoAimEnabled) return;
 
+        // Calculate turret's actual field position by rotating the offset by heading
+        double headingRad = Math.toRadians(robotHeadingDeg);
+        double turretFieldX = robotX
+                + TURRET_FORWARD_OFFSET * Math.sin(headingRad)
+                + TURRET_RIGHT_OFFSET * Math.cos(headingRad);
+        double turretFieldY = robotY
+                + TURRET_FORWARD_OFFSET * Math.cos(headingRad)
+                - TURRET_RIGHT_OFFSET * Math.sin(headingRad);
+
         double fieldAngle;
         if (useTargetTracking) {
-            fieldAngle = calculateFieldAngleToTarget(robotX, robotY) + aimOffset;
+            fieldAngle = calculateFieldAngleToTarget(turretFieldX, turretFieldY) + aimOffset;
         } else {
             fieldAngle = targetFieldAngle + aimOffset;
         }

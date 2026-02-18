@@ -195,13 +195,10 @@ public class AutonMethods {
                 transferController.update();
                 uptakeController.update();
                 if (turret != null && turret.isAutoAimEnabled()) {
-                    Pose2d aimPose = tankDrive.pinpointLocalizer.getPose();
-                    double dX = aimPose.position.y;
-                    double dY = -aimPose.position.x;
-                    double fX = AUTON_START_X + dX;
-                    double fY = AUTON_START_Y + dY;
-                    double fH = Math.toDegrees(aimPose.heading.toDouble()) + AUTON_START_HEADING;
-                    turret.updateAutoAim(fX, fY, fH);
+                    turret.updateAutoAim(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                                    + AUTON_START_HEADING
+                    );
                 }
                 return moveAction.run(packet);
             }
@@ -218,13 +215,10 @@ public class AutonMethods {
             transferController.update();
             uptakeController.update();
             if (turret != null && turret.isAutoAimEnabled()) {
-                Pose2d aimPose = tankDrive.pinpointLocalizer.getPose();
-                double dX = aimPose.position.y;
-                double dY = -aimPose.position.x;
-                double fX = AUTON_START_X + dX;
-                double fY = AUTON_START_Y + dY;
-                double fH = Math.toDegrees(aimPose.heading.toDouble()) + AUTON_START_HEADING;
-                turret.updateAutoAim(fX, fY, fH);
+                turret.updateAutoAim(
+                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                                + AUTON_START_HEADING
+                );
             }
             sleep(30);
         }
@@ -275,13 +269,10 @@ public class AutonMethods {
                 transferController.update();
                 uptakeController.update();
                 if (turret != null && turret.isAutoAimEnabled()) {
-                    Pose2d aimPose = tankDrive.pinpointLocalizer.getPose();
-                    double dX = aimPose.position.y;
-                    double dY = -aimPose.position.x;
-                    double fX = AUTON_START_X + dX;
-                    double fY = AUTON_START_Y + dY;
-                    double fH = Math.toDegrees(aimPose.heading.toDouble()) + AUTON_START_HEADING;
-                    turret.updateAutoAim(fX, fY, fH);
+                    turret.updateAutoAim(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                                    + AUTON_START_HEADING
+                    );
                 }
                 return moveAction.run(packet);
             }
@@ -298,13 +289,10 @@ public class AutonMethods {
             transferController.update();
             uptakeController.update();
             if (turret != null && turret.isAutoAimEnabled()) {
-                Pose2d aimPose = tankDrive.pinpointLocalizer.getPose();
-                double dX = aimPose.position.y;
-                double dY = -aimPose.position.x;
-                double fX = AUTON_START_X + dX;
-                double fY = AUTON_START_Y + dY;
-                double fH = Math.toDegrees(aimPose.heading.toDouble()) + AUTON_START_HEADING;
-                turret.updateAutoAim(fX, fY, fH);
+                turret.updateAutoAim(
+                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                                + AUTON_START_HEADING
+                );
             }
             sleep(30);
         }
@@ -355,13 +343,10 @@ public class AutonMethods {
                 transferController.update();
                 uptakeController.update();
                 if (turret != null && turret.isAutoAimEnabled()) {
-                    Pose2d aimPose = tankDrive.pinpointLocalizer.getPose();
-                    double dX = aimPose.position.y;
-                    double dY = -aimPose.position.x;
-                    double fX = AUTON_START_X + dX;
-                    double fY = AUTON_START_Y + dY;
-                    double fH = Math.toDegrees(aimPose.heading.toDouble()) + AUTON_START_HEADING;
-                    turret.updateAutoAim(fX, fY, fH);
+                    turret.updateAutoAim(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                                    + AUTON_START_HEADING
+                    );
                 }
                 return moveAction.run(packet);
             }
@@ -378,13 +363,10 @@ public class AutonMethods {
             transferController.update();
             uptakeController.update();
             if (turret != null && turret.isAutoAimEnabled()) {
-                Pose2d aimPose = tankDrive.pinpointLocalizer.getPose();
-                double dX = aimPose.position.y;
-                double dY = -aimPose.position.x;
-                double fX = AUTON_START_X + dX;
-                double fY = AUTON_START_Y + dY;
-                double fH = Math.toDegrees(aimPose.heading.toDouble()) + AUTON_START_HEADING;
-                turret.updateAutoAim(fX, fY, fH);
+                turret.updateAutoAim(
+                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                                + AUTON_START_HEADING
+                );
             }
             sleep(30);
         }
@@ -418,13 +400,10 @@ public class AutonMethods {
             @Override
             public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 if (turret != null && turret.isAutoAimEnabled()) {
-                    Pose2d aimPose = tankDrive.pinpointLocalizer.getPose();
-                    double dX = aimPose.position.y;
-                    double dY = -aimPose.position.x;
-                    double fX = AUTON_START_X + dX;
-                    double fY = AUTON_START_Y + dY;
-                    double fH = Math.toDegrees(aimPose.heading.toDouble()) + AUTON_START_HEADING;
-                    turret.updateAutoAim(fX, fY, fH);
+                    turret.updateAutoAim(
+                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                                    + AUTON_START_HEADING
+                    );
                 }
                 return moveAction.run(packet);
             }
@@ -621,45 +600,13 @@ public class AutonMethods {
     }
 
     /**
-     * Enable turret auto-aim with target tracking.
-     * Call once — turret updates happen in movement method loops via odometry.
+     * Enable turret auto-aim at AUTO_AIM_ANGLE.
+     * Call once — turret will compensate for heading in movement method loops.
      */
     public void autoAimTurretLeft() {
         if (turret == null) return;
-        turret.setTarget(TARGET_X, TARGET_Y);
+        turret.setFieldAngle(AUTO_AIM_ANGLE);
         turret.enableAutoAim();
-    }
-
-    // Target position for auto-aim (Dashboard tunable)
-    public static double TARGET_X = 10.0;
-    public static double TARGET_Y = 10.0;
-
-    /**
-     * Print current field position computed from odometry.
-     * Call this to verify the coordinate transform is correct.
-     */
-    public void printFieldPosition() {
-        if (telemetry == null) return;
-        try {
-            Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-            double rawX = rawPose.position.x;
-            double rawY = rawPose.position.y;
-            double dX = rawY;
-            double dY = -rawX;
-            double fX = AUTON_START_X + dX;
-            double fY = AUTON_START_Y + dY;
-            double fH = Math.toDegrees(rawPose.heading.toDouble()) + AUTON_START_HEADING;
-
-            telemetry.addData("Raw Odo", "x=%.1f y=%.1f", rawX, rawY);
-            telemetry.addData("Delta", "dX=%.1f dY=%.1f", dX, dY);
-            telemetry.addData("Field Pos", "X=%.1f Y=%.1f H=%.1f", fX, fY, fH);
-            telemetry.addData("Target", "X=%.1f Y=%.1f", TARGET_X, TARGET_Y);
-            telemetry.addData("Turret Servo", "%.3f", turret != null ? turret.getCommandedPosition() : 0);
-            telemetry.addData("AutoAim", turret != null && turret.isAutoAimEnabled() ? "ON" : "OFF");
-            telemetry.update();
-        } catch (Exception e) {
-            // localizer not ready
-        }
     }
 
 

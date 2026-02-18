@@ -50,6 +50,7 @@ public class CloseBlueNew extends LinearOpMode {
     // Shooter settings
     public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
+
     // Distance parameters
     public static double INITIAL_BACKWARD = -30.0;
     public static double SPLINE_Y = -52.0;
@@ -98,6 +99,11 @@ public class CloseBlueNew extends LinearOpMode {
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
+            autoMethod.telemetry = telemetry;
+            // In CloseBlueNew, after creating autoMethod:
+            AutonMethods.AUTON_START_X = 18.5;  // match your startPose
+            AutonMethods.AUTON_START_Y = 16;
+            AutonMethods.AUTON_START_HEADING = -135;
         } catch (Exception e){
             //
         }
