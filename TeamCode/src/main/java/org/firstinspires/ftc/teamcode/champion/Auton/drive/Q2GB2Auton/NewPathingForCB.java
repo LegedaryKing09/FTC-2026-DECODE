@@ -15,7 +15,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -24,7 +23,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
+
 @Config
 @Autonomous(name = "New Pathing for CB", group = "Test")
 public class NewPathingForCB extends LinearOpMode {
@@ -40,7 +39,6 @@ public class NewPathingForCB extends LinearOpMode {
     AutoTankDrive tankDrive;
     TurretController turret;
     AutonMethods autoMethod;
-    TurretFieldController turretField;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -98,7 +96,6 @@ public class NewPathingForCB extends LinearOpMode {
                     rampController,
                     autonController,
                     tankDrive,
-                    turretField,
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
