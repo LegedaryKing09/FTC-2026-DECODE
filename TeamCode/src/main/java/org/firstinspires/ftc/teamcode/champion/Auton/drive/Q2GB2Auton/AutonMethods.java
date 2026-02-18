@@ -20,7 +20,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurnPIDController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -42,7 +41,6 @@ public class AutonMethods {
     private final NewAutoShootController autoShootController;
     private final NewAutonController autonController;
     private final AutoTankDrive tankDrive;
-    private final TurretFieldController turretField;
     private final TurretController turret;
 
     public org.firstinspires.ftc.robotcore.external.Telemetry telemetry;
@@ -59,7 +57,6 @@ public class AutonMethods {
             NewRampController rampController,
             NewAutonController autonController,
             AutoTankDrive tankDrive,
-            TurretFieldController turretField,
             TurretController turret) {
 
         this.opMode = opMode;
@@ -73,7 +70,6 @@ public class AutonMethods {
         this.rampController = rampController;
         this.autonController = autonController;
         this.tankDrive = tankDrive;
-        this.turretField = turretField;
         this.turret = turret;
     }
     public AnalogInput uptakeSwitch;
