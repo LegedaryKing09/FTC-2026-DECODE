@@ -78,6 +78,8 @@ public class CB extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
+                    limelightController,
+                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
