@@ -2,20 +2,18 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
+
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -26,8 +24,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "FR From MeepMeep - 12 BALLS", group = "Test")
-public class FRNEW extends LinearOpMode {
+@Autonomous(name = "FB From MeepMeep - 12 BALLS", group = "Test")
+public class FarBlueNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -38,7 +36,6 @@ public class FRNEW extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
-    TurretFieldController turretField;
     TurretController turret;
     AutonMethods autoMethod;
 
@@ -51,24 +48,20 @@ public class FRNEW extends LinearOpMode {
     // Shooter settings
     public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
-    // Distance parameters
-    public static double COMEBACK_X = 0.0;
     public static double INITIAL_X = 5.0;
     public static double INITIAL_Y = 0.0;
-    public static double SPLINE_Y = -43.0;
-    public static double SPLINE_X = 28.0;
-    public static double SECOND_SPLINE_X = 48.0;
-    public static double SECOND_SPLINE_Y = -40.0;
-    public static double THIRD_SPLINE_X = 67.0;
-    public static double THIRD_SPLINE_Y = -40.0;
-    public static double PICK_UP_DISTANCE = 48.0;
+    public static double SPLINE_Y = 30.0;
+    public static double SPLINE_X = 15.0;
+    public static double SECOND_SPLINE_X = 38.0;
+    public static double SECOND_SPLINE_Y = 24.0;
+    public static double THIRD_SPLINE_X = 54.0;
+    public static double THIRD_SPLINE_Y = 25.0;
 
     // turning angle parameters
     public static double INITIAL_ANGLE = 180.0;
-    public static double SPLINE_ANGLE = -90.0;
-    public static double SECOND_SPLINE_ANGLE = -90.0;
-    public static double THIRD_SPLINE_ANGLE = -90.0;
-    public static double TURN_ANGLE = -90.0;
+    public static double SPLINE_ANGLE = 90.0;
+    public static double SECOND_SPLINE_ANGLE = 90.0;
+    public static double THIRD_SPLINE_ANGLE = 90.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -95,12 +88,9 @@ public class FRNEW extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
-                    turretField,
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
@@ -182,7 +172,6 @@ public class FRNEW extends LinearOpMode {
         // initialize turret
         try {
             turret = new TurretController(this);
-            turretField = new TurretFieldController(turret);
         } catch (Exception e) {
             //
         }
@@ -195,7 +184,7 @@ public class FRNEW extends LinearOpMode {
             //
         }
 
-        // Initialize autoncontroller
+        // Initialize auton_controller
         autonController = new NewAutonController(
                 this,
                 driveController,
@@ -256,27 +245,6 @@ public class FRNEW extends LinearOpMode {
                 .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 5), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward3);
-
-        // AUTO AIM AND SHOOT (SECOND LINE)
-//        autoMethod.autoAimTurretLeft();
-        autoMethod.shootBalls();
-
-        // TURN FOR SHOOTING
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action Turn1 = tankDrive.actionBuilder(currentPose)
-                .turnTo(Math.toRadians(TURN_ANGLE))
-                .build();
-        Actions.runBlocking(Turn1);
-
-        // GO FOR PICKUP
-        autoMethod.intakeYForward(PICK_UP_DISTANCE);
-
-        // GO BACK FOR SHOOTING
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action INTAKEBACKWARD = tankDrive.actionBuilder(currentPose)
-                .lineToY(COMEBACK_X)
-                .build();
-        Actions.runBlocking(INTAKEBACKWARD);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();

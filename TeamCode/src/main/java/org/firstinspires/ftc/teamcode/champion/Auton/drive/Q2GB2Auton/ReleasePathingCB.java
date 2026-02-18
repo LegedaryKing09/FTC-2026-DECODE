@@ -2,20 +2,18 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
+
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -38,7 +36,6 @@ public class ReleasePathingCB extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
-    TurretFieldController turretField;
     TurretController turret;
     AutonMethods autoMethod;
 
@@ -53,21 +50,14 @@ public class ReleasePathingCB extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
     public static double INITIAL_BACKWARD = -30.0;
-    public static double FIRST_BACKWARD_Y = -22.0;
     public static double SPLINE_Y = -52.0;
     public static double SPLINE_X = -11.0;
-    public static double SECOND_SPLINE_X = 12.0;
-    public static double SECOND_SPLINE_Y = -52.0;
-    public static double THIRD_SPLINE_X = -5.0;
-    public static double THIRD_SPLINE_Y = -54.0;
     public static double RELEASE_X = -20.0;
     public static double RELEASE_Y = -35.0;
 
     // turning angle parameters
     public static double RELEASE_ANGLE = -180.0;
     public static double SPLINE_ANGLE = -90.0;
-    public static double SECOND_SPLINE_ANGLE = -180.0;
-    public static double THIRD_SPLINE_ANGLE = -90.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -90,12 +80,9 @@ public class ReleasePathingCB extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
-                    turretField,
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
@@ -177,7 +164,6 @@ public class ReleasePathingCB extends LinearOpMode {
         // initialize turret
         try {
             turret = new TurretController(this);
-            turretField = new TurretFieldController(turret);
         } catch (Exception e) {
             //
         }
@@ -190,7 +176,7 @@ public class ReleasePathingCB extends LinearOpMode {
             //
         }
 
-        // Initialize autoncontroller
+        // Initialize auton_controller
         autonController = new NewAutonController(
                 this,
                 driveController,

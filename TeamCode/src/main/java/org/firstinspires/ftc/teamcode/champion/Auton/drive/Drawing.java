@@ -14,9 +14,9 @@ public final class Drawing {
         c.setStrokeWidth(1);
         c.strokeCircle(t.position.x, t.position.y, ROBOT_RADIUS);
 
-        Vector2d halfv = t.heading.vec().times(0.5 * ROBOT_RADIUS);
-        Vector2d p1 = t.position.plus(halfv);
-        Vector2d p2 = p1.plus(halfv);
+        Vector2d half_v = t.heading.vec().times(0.5 * ROBOT_RADIUS);
+        Vector2d p1 = t.position.plus(half_v);
+        Vector2d p2 = p1.plus(half_v);
         c.strokeLine(p1.x, p1.y, p2.x, p2.y);
     }
 }

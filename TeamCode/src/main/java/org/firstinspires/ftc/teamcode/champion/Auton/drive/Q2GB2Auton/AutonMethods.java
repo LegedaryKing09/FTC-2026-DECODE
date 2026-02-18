@@ -1,15 +1,15 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import static android.os.SystemClock.sleep;
 
+import androidx.annotation.NonNull;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
 import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
-import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
@@ -26,8 +26,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.CRServo;
+
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
@@ -186,7 +185,7 @@ public class AutonMethods {
 
         // Create a custom action that combines RoadRunner movement with intake control
         Action intakeAction = new Action() {
-            private Action moveAction = moveForward;
+            private final Action moveAction = moveForward;
 
             @Override
             public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
@@ -260,7 +259,7 @@ public class AutonMethods {
 
         // Create a custom action that combines RoadRunner movement with intake control
         Action intakeAction = new Action() {
-            private Action moveAction = moveForward;
+            private final Action moveAction = moveForward;
 
             @Override
             public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
@@ -334,7 +333,7 @@ public class AutonMethods {
 
         // Create a custom action that combines RoadRunner movement with intake control
         Action intakeAction = new Action() {
-            private Action moveAction = moveForward;
+            private final Action moveAction = moveForward;
 
             @Override
             public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
@@ -395,7 +394,7 @@ public class AutonMethods {
 
         // Create a custom action that combines RoadRunner movement with intake control
         Action intakeAction = new Action() {
-            private Action moveAction = moveBackward;
+            private final Action moveAction = moveBackward;
 
             @Override
             public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
@@ -440,9 +439,9 @@ public class AutonMethods {
         double fieldX = AUTON_START_X;
         double fieldY = AUTON_START_Y;
         double fieldHeading = Math.toRadians(AUTON_START_HEADING);
-        double rawX = 0, rawY = 0;
-        double deltaX = 0, deltaY = 0;
-        double deltaHeading = 0;
+        double rawX, rawY;
+        double deltaX, deltaY;
+        double deltaHeading;
 
         try {
             // Try to get pose from RoadRunner's pinpoint localizer

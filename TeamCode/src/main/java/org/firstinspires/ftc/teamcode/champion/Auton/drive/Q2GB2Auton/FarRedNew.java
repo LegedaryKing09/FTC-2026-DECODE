@@ -2,20 +2,18 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
+
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -26,8 +24,8 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "CR From MeepMeep - 12 BALLS", group = "Test")
-public class CRNEW extends LinearOpMode {
+@Autonomous(name = "FR From MeepMeep - 12 BALLS", group = "Test")
+public class FarRedNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
     UptakeController uptakeController;
@@ -38,7 +36,6 @@ public class CRNEW extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
-    TurretFieldController turretField;
     TurretController turret;
     AutonMethods autoMethod;
 
@@ -52,21 +49,23 @@ public class CRNEW extends LinearOpMode {
     public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
-    public static double INITIAL_BACKWARD = 24.0;
-    public static double SPLINE_Y = 18.0;
-    public static double SPLINE_X = 14.0;
-    public static double SECOND_SPLINE_X = 28.0;
-    public static double SECOND_SPLINE_Y = 30.0;
-    public static double THIRD_SPLINE_X = 30.0;
-    public static double THIRD_SPLINE_Y = 48.0;
-    public static double GOBACK_SPLINE_X = 30.0;
-    public static double GOBACK_SPLINE_Y = 0.0;
+    public static double COMEBACK_X = 0.0;
+    public static double INITIAL_X = 5.0;
+    public static double INITIAL_Y = 0.0;
+    public static double SPLINE_Y = -43.0;
+    public static double SPLINE_X = 28.0;
+    public static double SECOND_SPLINE_X = 48.0;
+    public static double SECOND_SPLINE_Y = -40.0;
+    public static double THIRD_SPLINE_X = 67.0;
+    public static double THIRD_SPLINE_Y = -40.0;
+    public static double PICK_UP_DISTANCE = 48.0;
 
     // turning angle parameters
-    public static double SPLINE_ANGLE = 135.0;
-    public static double SECOND_SPLINE_ANGLE = 135.0;
-    public static double THIRD_SPLINE_ANGLE = 135.0;
-    public static double GOBACK_ANGLE = 180.0;
+    public static double INITIAL_ANGLE = 180.0;
+    public static double SPLINE_ANGLE = -90.0;
+    public static double SECOND_SPLINE_ANGLE = -90.0;
+    public static double THIRD_SPLINE_ANGLE = -90.0;
+    public static double TURN_ANGLE = -90.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -93,12 +92,9 @@ public class CRNEW extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
-                    turretField,
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
@@ -180,7 +176,6 @@ public class CRNEW extends LinearOpMode {
         // initialize turret
         try {
             turret = new TurretController(this);
-            turretField = new TurretFieldController(turret);
         } catch (Exception e) {
             //
         }
@@ -193,7 +188,7 @@ public class CRNEW extends LinearOpMode {
             //
         }
 
-        // Initialize autoncontroller
+        // Initialize auton_controller
         autonController = new NewAutonController(
                 this,
                 driveController,
@@ -209,15 +204,8 @@ public class CRNEW extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
-        // GO BACK FOR SHOOTING
-        Action Initial_Forward = tankDrive.actionBuilder(currentPose)
-                .lineToX(INITIAL_BACKWARD)
-                .build();
-        Actions.runBlocking(Initial_Forward);
-
-//        // SHOOT
+        // SHOOT
 //        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
@@ -225,14 +213,14 @@ public class CRNEW extends LinearOpMode {
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
 
         // GO BACK FOR SHOOTING (FIRST LINE)
-        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 1), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
 
-//        // AUTO AIM AND SHOOT (FIRST LINE)
+        // AUTO AIM AND SHOOT (FIRST LINE)
 //        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
@@ -243,7 +231,7 @@ public class CRNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 3), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward2);
 
@@ -258,9 +246,31 @@ public class CRNEW extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward3 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 5), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward3);
+
+        // AUTO AIM AND SHOOT (SECOND LINE)
+//        autoMethod.autoAimTurretLeft();
+        autoMethod.shootBalls();
+
+        // TURN FOR SHOOTING
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Turn1 = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(TURN_ANGLE))
+                .build();
+        Actions.runBlocking(Turn1);
+
+        // GO FOR PICKUP
+        autoMethod.intakeYForward(PICK_UP_DISTANCE);
+
+        // GO BACK FOR SHOOTING
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        //noinspection SuspiciousNameCombination
+        Action INTAKE_BACKWARD = tankDrive.actionBuilder(currentPose)
+                .lineToY(COMEBACK_X)
+                .build();
+        Actions.runBlocking(INTAKE_BACKWARD);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();

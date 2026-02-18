@@ -2,20 +2,17 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
-import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.PoseStorage;
+
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
 import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -38,7 +35,6 @@ public class FB extends LinearOpMode {
     NewAutoShootController autoShootController;
     NewAutonController autonController;
     AutoTankDrive tankDrive;
-    TurretFieldController turretField;
     TurretController turret;
     AutonMethods autoMethod;
 
@@ -55,13 +51,10 @@ public class FB extends LinearOpMode {
     public static double FIRST_PICKUP_DISTANCE = 30.0;
     public static double FIRST_LINE_BACKWARD = 30.0;
     public static double INTAKE_DISTANCE = 25.0;
-    public static double INTAKE_BACKWARD = 25.0;
-    public static double SECOND_LINE_PICKUP_BACKWARD = 25.0;
 
     // turning angle
     public static double PICK_UP_ANGLE = 90.0;
     public static double ZERO_DEGREE = 0.0;
-    public static double SHOOTING_DEGREE = 0.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -84,12 +77,9 @@ public class FB extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
-                    turretField,
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
@@ -171,7 +161,6 @@ public class FB extends LinearOpMode {
         // initialize turret
         try {
             turret = new TurretController(this);
-            turretField = new TurretFieldController(turret);
         } catch (Exception e) {
             //
         }
@@ -184,7 +173,7 @@ public class FB extends LinearOpMode {
             //
         }
 
-        // Initialize autoncontroller
+        // Initialize auton_controller
         autonController = new NewAutonController(
                 this,
                 driveController,

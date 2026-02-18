@@ -15,7 +15,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 
 /**
@@ -33,8 +32,8 @@ import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
  *
  * AUTO-AIM:
  * - Calculates angle from robot to goal
- * - Sets that as TARGET_FIELD_ANGLE for TurretFieldController
- * - TurretFieldController handles the PID to maintain aim
+ * - Sets that as the field angle on TurretController
+ * - TurretController handles auto-aim to maintain aim
  *
  * Controls:
  *   Left Stick = Drive
@@ -77,7 +76,6 @@ public class OdometrySystemShoot extends LinearOpMode {
     private SixWheelDriveController drive;
     private SimpleLimelightVision vision;
     private TurretController turret;
-    private TurretFieldController turretField;  // Uses your existing PID controller!
     private NewShooterController shooter;
     private NewIntakeController intake;
     private NewTransferController transfer;
@@ -133,8 +131,9 @@ public class OdometrySystemShoot extends LinearOpMode {
         shooter.setTargetRPM(SHOOTER_RPM);
         shooter.startShooting();
 
-        // Enable turret field controller
-        turretField.enable();
+        // Enable turret auto-aim
+        turret.setFieldAngle(angleToGoal);
+        turret.enableAutoAim();
 
         loopTimer.reset();
         telemetryTimer.reset();
@@ -167,10 +166,10 @@ public class OdometrySystemShoot extends LinearOpMode {
                 robotHeading = odoHeading;
             }
 
-            // === AUTO-AIM: Set target for TurretFieldController ===
+            // === AUTO-AIM: Set target for TurretController ===
             if (autoAimEnabled) {
-                turretField.setTargetFieldAngle(angleToGoal);
-                turretField.update(robotHeading);
+                turret.setFieldAngle(angleToGoal);
+                turret.updateAutoAim(robotHeading);
             }
 
             // === DRIVETRAIN ===
@@ -202,9 +201,10 @@ public class OdometrySystemShoot extends LinearOpMode {
             if (gamepad1.y && !lastY) {
                 autoAimEnabled = !autoAimEnabled;
                 if (autoAimEnabled) {
-                    turretField.enable();
+                    turret.setFieldAngle(angleToGoal);
+                    turret.enableAutoAim();
                 } else {
-                    turretField.disable();
+                    turret.disableAutoAim();
                 }
             }
             lastY = gamepad1.y;
@@ -238,7 +238,7 @@ public class OdometrySystemShoot extends LinearOpMode {
 
         // Cleanup
         drive.stopDrive();
-        turretField.disable();
+        turret.disableAutoAim();
         shooter.stopShooting();
         intake.setState(false);
         intake.update();
@@ -262,7 +262,6 @@ public class OdometrySystemShoot extends LinearOpMode {
         }
 
         turret = new TurretController(this);
-        turretField = new TurretFieldController(turret);  // Your existing PID controller!
 
         DcMotor shooterMotor1 = null;
         DcMotor shooterMotor2 = null;
@@ -337,8 +336,7 @@ public class OdometrySystemShoot extends LinearOpMode {
 
     private void updateTelemetry() {
         String locSource = USE_VISION ? ">>> VISION <<<" : ">>> ODOMETRY <<<";
-        String aimStatus = autoAimEnabled ?
-                (turretField.isAligned() ? "LOCKED" : "AIMING") : "OFF";
+        String aimStatus = autoAimEnabled ? "LOCKED" : "OFF";
         String shooterStatus = shooter.isAtTargetRPM() ? "READY" : "SPIN";
 
         telemetry.addData("Source", locSource + (USE_VISION && !visionValid ? " (NO DATA)" : ""));
@@ -363,9 +361,8 @@ public class OdometrySystemShoot extends LinearOpMode {
         telemetry.addLine("--- TARGETING ---");
         telemetry.addData("Distance", "%.1f in", getDistanceToGoal());
         telemetry.addData("Angle to Goal", "%.1f", angleToGoal);
-        telemetry.addData("Turret Target", "%.1f", turretField.getTargetFieldAngle());
+        telemetry.addData("Turret Target", "%.1f", turret.getLastTargetFieldAngle());
         telemetry.addData("Turret Actual", "%.1f", turret.getTurretAngle());
-        telemetry.addData("Field Error", "%.1f", turretField.getFieldError());
         telemetry.addLine();
 
         telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), SHOOTER_RPM);
