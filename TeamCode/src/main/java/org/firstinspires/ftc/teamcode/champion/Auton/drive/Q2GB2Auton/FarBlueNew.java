@@ -88,12 +88,9 @@ public class FarBlueNew extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
-
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
