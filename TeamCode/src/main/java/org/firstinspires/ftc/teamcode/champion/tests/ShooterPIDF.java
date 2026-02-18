@@ -11,15 +11,19 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
+import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 
 /**
- * Shooter PIDF Tuning Test with Intake/Transfer/Uptake
+ * Shooter PIDF Tuning Test with Drivetrain + Intake/Transfer/Uptake
  * Uses NewShooterController (dual-motor with built-in PID)
  *
  * CONTROLS:
+ * - LEFT STICK Y: Drive forward/back
+ * - RIGHT STICK X: Turn
+ *
  * - A: Start/Stop shooter
- * - X: Switch to LOW preset (3800 RPM)
- * - Y: Switch to HIGH preset (4600 RPM)
+ * - X: Switch to LOW preset (3800 RPM) -> uses LOW PID gains
+ * - Y: Switch to HIGH preset (4600 RPM) -> uses HIGH PID gains
  * - DPAD UP/DOWN: Fine adjust target RPM (+/- 50)
  * - B: Reset timing stats
  *
@@ -30,13 +34,10 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
  * - Graphs RPM, Target, Error, Power over time
  * - Tune kP, kI, kD, kF in NewShooterController via Dashboard
  *
- * TUNING PROCESS:
- * 1. Set kI=0, kD=0, kF=0 in NewShooterController config
- * 2. Find kF: Set target RPM, manually find power that maintains it
- *    kF ≈ power / targetRPM (e.g., 0.8 / 4000 = 0.0002)
- * 3. Tune kP: Increase until oscillates, back off 30%
- * 4. Tune kD: Add to stop oscillation (usually kD = kP * 0.01 to 0.1)
- * 5. Tune kI: Only if steady-state error persists (usually 0)
+ * PID MODE:
+ * - X (LOW RPM) automatically selects CLOSE/LOW PID gains
+ * - Y (HIGH RPM) automatically selects FAR/HIGH PID gains
+ * - Fine adjustments (DPAD) keep the current PID mode
  */
 @Config
 @TeleOp(name = "Shooter PIDF Tuning", group = "Test")
@@ -49,6 +50,10 @@ public class ShooterPIDF extends OpMode {
 
     // Tolerance for "at target" timing
     public static double RPM_TOLERANCE = 100.0;
+
+    // ========== DRIVE SENSITIVITY ==========
+    public static double DRIVE_EXPONENT = 2.0;
+    public static double TURN_EXPONENT = 2.0;
 
     // ========== HARDWARE NAMES ==========
     public static String SHOOTER1_NAME = "shooter1";
@@ -65,6 +70,9 @@ public class ShooterPIDF extends OpMode {
 
     // ========== SHOOTER (uses NewShooterController) ==========
     private NewShooterController shooter;
+
+    // ========== DRIVETRAIN ==========
+    private SixWheelDriveController drive;
 
     // ========== INTAKE/TRANSFER/UPTAKE HARDWARE ==========
     private DcMotor intakeMotor;
@@ -93,6 +101,15 @@ public class ShooterPIDF extends OpMode {
     private double rpmBeforeShot = 0;
     private boolean trackingDrop = false;
 
+    // ========== RPM ACCELERATION TRACKING ==========
+    private double lastAccelRPM = 0;
+    private double lastAccelTime = 0;
+    private double currentAcceleration = 0;      // RPM per second (instantaneous)
+    private double peakAcceleration = 0;          // Max RPM/s during spin-up
+    private double spinUpStartRPM = 0;            // RPM when spin-up began
+    private double spinUpEndRPM = 0;              // RPM when target reached
+    private double lastAvgAcceleration = 0;       // Average RPM/s over entire spin-up
+
     // ========== DASHBOARD ==========
     private FtcDashboard dashboard;
 
@@ -107,6 +124,15 @@ public class ShooterPIDF extends OpMode {
 
     @Override
     public void init() {
+        // Initialize drivetrain
+        try {
+            drive = new SixWheelDriveController(this);
+            telemetry.addData("Drivetrain", "OK");
+        } catch (Exception e) {
+            telemetry.addData("Drivetrain", "FAILED: " + e.getMessage());
+            drive = null;
+        }
+
         // Initialize shooter via NewShooterController (dual motor)
         DcMotor shooterMotor1 = null;
         DcMotor shooterMotor2 = null;
@@ -118,6 +144,9 @@ public class ShooterPIDF extends OpMode {
             telemetry.addData("Shooter", "FAILED: " + e.getMessage());
         }
         shooter = new NewShooterController(shooterMotor1, shooterMotor2);
+
+        // Set initial shoot mode to FAR (HIGH PID) since default target is HIGH_RPM
+        shooter.setShootMode(NewShooterController.ShootMode.FAR);
 
         // Initialize intake motor
         try {
@@ -154,24 +183,28 @@ public class ShooterPIDF extends OpMode {
         dashboard = FtcDashboard.getInstance();
         telemetry = new MultipleTelemetry(telemetry, dashboard.getTelemetry());
 
-        telemetry.addLine("=== SHOOTER PIDF TUNING ===");
+        telemetry.addLine("LEFT STICK: Drive  RIGHT STICK: Turn");
         telemetry.addLine("A: Start/Stop");
-        telemetry.addLine("X: LOW preset  Y: HIGH preset");
+        telemetry.addLine("X: LOW preset (LOW PID)  Y: HIGH preset (HIGH PID)");
         telemetry.addLine("DPAD: Fine adjust  B: Reset stats");
         telemetry.addLine("RB: Toggle feed  LB: Hold to VOMIT");
-        telemetry.addLine("");
-        telemetry.addLine("Tune PID gains in NewShooterController config");
         telemetry.update();
     }
 
     @Override
     public void loop() {
+        // ========== DRIVE ==========
+        handleDriveControls();
+
         // ========== READ CONTROLS ==========
         handleControls();
         handleIntakeControls();
 
         // ========== UPDATE SHOOTER (runs PID internally) ==========
         shooter.update();
+
+        // ========== UPDATE ACCELERATION ==========
+        updateAcceleration();
 
         // ========== UPDATE TIMING ==========
         updateTiming();
@@ -186,6 +219,32 @@ public class ShooterPIDF extends OpMode {
         updateTelemetry();
     }
 
+    /**
+     * Apply sensitivity curve to joystick input
+     */
+    private double applyCurve(double input, double exponent) {
+        return Math.copySign(Math.pow(Math.abs(input), exponent), input);
+    }
+
+    private void handleDriveControls() {
+        if (drive == null) return;
+
+        // Get raw joystick inputs
+        double rawDrive = -gamepad1.left_stick_y;
+        double rawTurn = gamepad1.right_stick_x;
+
+        // Apply sensitivity curves
+        double drivePower = applyCurve(rawDrive, DRIVE_EXPONENT);
+        double turnPower = applyCurve(rawTurn, TURN_EXPONENT);
+
+        // Calculate left and right powers
+        double leftPower = drivePower + turnPower;
+        double rightPower = drivePower - turnPower;
+
+        // Use tank drive (power mode)
+        drive.tankDrive(leftPower, rightPower);
+    }
+
     private void handleControls() {
         // A - Start/Stop
         if (gamepad1.a && !lastA) {
@@ -195,6 +254,8 @@ public class ShooterPIDF extends OpMode {
                 // Begin timing
                 spinUpTimer.reset();
                 timing = true;
+                spinUpStartRPM = shooter.getRPM();
+                peakAcceleration = 0;
             } else {
                 shooter.stopShooting();
                 timing = false;
@@ -202,39 +263,45 @@ public class ShooterPIDF extends OpMode {
         }
         lastA = gamepad1.a;
 
-        // X - LOW preset
+        // X - LOW preset -> uses LOW/CLOSE PID gains
         if (gamepad1.x && !lastX) {
             double oldTarget = targetRPM;
             targetRPM = LOW_RPM;
             shooter.setTargetRPM(targetRPM);
+            shooter.setShootMode(NewShooterController.ShootMode.CLOSE);  // LOW PID
             if (shooter.isShootMode() && Math.abs(oldTarget - targetRPM) > 100) {
                 // Switching presets - time the transition
                 spinUpTimer.reset();
                 timing = true;
+                spinUpStartRPM = shooter.getRPM();
+                peakAcceleration = 0;
             }
         }
         lastX = gamepad1.x;
 
-        // Y - HIGH preset
+        // Y - HIGH preset -> uses HIGH/FAR PID gains
         if (gamepad1.y && !lastY) {
             double oldTarget = targetRPM;
             targetRPM = HIGH_RPM;
             shooter.setTargetRPM(targetRPM);
+            shooter.setShootMode(NewShooterController.ShootMode.FAR);  // HIGH PID
             if (shooter.isShootMode() && Math.abs(oldTarget - targetRPM) > 100) {
                 spinUpTimer.reset();
                 timing = true;
+                spinUpStartRPM = shooter.getRPM();
+                peakAcceleration = 0;
             }
         }
         lastY = gamepad1.y;
 
-        // DPAD UP - Increment
+        // DPAD UP - Increment (keeps current PID mode)
         if (gamepad1.dpad_up && !lastDpadUp) {
             targetRPM = Math.min(targetRPM + RPM_INCREMENT, 6000);
             shooter.setTargetRPM(targetRPM);
         }
         lastDpadUp = gamepad1.dpad_up;
 
-        // DPAD DOWN - Decrement
+        // DPAD DOWN - Decrement (keeps current PID mode)
         if (gamepad1.dpad_down && !lastDpadDown) {
             targetRPM = Math.max(targetRPM - RPM_INCREMENT, 0);
             shooter.setTargetRPM(targetRPM);
@@ -328,6 +395,25 @@ public class ShooterPIDF extends OpMode {
         }
     }
 
+    private void updateAcceleration() {
+        double now = getRuntime();
+        double currentRPM = shooter.getRPM();
+        double dt = now - lastAccelTime;
+
+        // Calculate instantaneous acceleration (RPM/s) at ~50Hz minimum
+        if (dt >= 0.02) {
+            currentAcceleration = (currentRPM - lastAccelRPM) / dt;
+
+            // Track peak acceleration during spin-up
+            if (timing && currentAcceleration > peakAcceleration) {
+                peakAcceleration = currentAcceleration;
+            }
+
+            lastAccelRPM = currentRPM;
+            lastAccelTime = now;
+        }
+    }
+
     private void updateTiming() {
         if (!timing) return;
 
@@ -336,6 +422,12 @@ public class ShooterPIDF extends OpMode {
         if (error <= RPM_TOLERANCE) {
             double timeToReach = spinUpTimer.seconds();
             timing = false;
+
+            // Calculate average acceleration over entire spin-up
+            spinUpEndRPM = shooter.getRPM();
+            if (timeToReach > 0) {
+                lastAvgAcceleration = (spinUpEndRPM - spinUpStartRPM) / timeToReach;
+            }
 
             lastSpinUpTime = timeToReach;
             spinUpCount++;
@@ -354,6 +446,9 @@ public class ShooterPIDF extends OpMode {
         lastSpinUpTime = 0;
         minRPMDuringShot = 9999;
         rpmBeforeShot = 0;
+        peakAcceleration = 0;
+        lastAvgAcceleration = 0;
+        currentAcceleration = 0;
     }
 
     private void sendDashboardData() {
@@ -362,11 +457,14 @@ public class ShooterPIDF extends OpMode {
         double currentRPM = shooter.getRPM();
         double error = targetRPM - currentRPM;
 
-        // Main graph values — these plot as time-series in FTC Dashboard
+        // Main graph values
         packet.put("RPM", currentRPM);
         packet.put("Target", targetRPM);
         packet.put("Error", error);
         packet.put("Power", shooter.getCurrentPower());
+
+        // PID mode indicator
+        packet.put("PID_Mode", shooter.getShootMode() == NewShooterController.ShootMode.FAR ? "HIGH" : "LOW");
 
         // Timing & state
         packet.put("SpinUpTime", lastSpinUpTime);
@@ -377,6 +475,11 @@ public class ShooterPIDF extends OpMode {
         packet.put("MinRPM", minRPMDuringShot < 9999 ? minRPMDuringShot : 0);
         packet.put("RPMDrop", rpmBeforeShot - (minRPMDuringShot < 9999 ? minRPMDuringShot : rpmBeforeShot));
 
+        // Acceleration (RPM per second)
+        packet.put("Accel_RPM_s", currentAcceleration);
+        packet.put("PeakAccel", peakAcceleration);
+        packet.put("AvgAccel", lastAvgAcceleration);
+
         dashboard.sendTelemetryPacket(packet);
     }
 
@@ -385,6 +488,7 @@ public class ShooterPIDF extends OpMode {
 
         telemetry.addLine("=== SHOOTER STATUS ===");
         telemetry.addData("Running", shooter.isShootMode() ? "YES" : "NO");
+        telemetry.addData("PID Mode", shooter.getShootMode() == NewShooterController.ShootMode.FAR ? "HIGH (FAR)" : "LOW (CLOSE)");
         telemetry.addData("Target RPM", "%.0f", targetRPM);
         telemetry.addData("Current RPM", "%.0f", currentRPM);
         telemetry.addData("Error", "%.0f", targetRPM - currentRPM);
@@ -401,6 +505,12 @@ public class ShooterPIDF extends OpMode {
         }
 
         telemetry.addLine("");
+        telemetry.addLine("=== ACCELERATION ===");
+        telemetry.addData("Current", "%.0f RPM/s", currentAcceleration);
+        telemetry.addData("Peak (spin-up)", "%.0f RPM/s", peakAcceleration);
+        telemetry.addData("Avg (spin-up)", "%.0f RPM/s", lastAvgAcceleration);
+
+        telemetry.addLine("");
         telemetry.addLine("=== TIMING STATS ===");
         telemetry.addData("Last Time", "%.3f sec", lastSpinUpTime);
         telemetry.addData("Best Time", "%.3f sec", bestSpinUpTime < 999 ? bestSpinUpTime : 0);
@@ -414,7 +524,8 @@ public class ShooterPIDF extends OpMode {
         }
 
         telemetry.addLine("");
-        telemetry.addLine("A=Start/Stop  X=LOW  Y=HIGH");
+        telemetry.addLine("STICKS=Drive  A=Start/Stop");
+        telemetry.addLine("X=LOW(LOW PID)  Y=HIGH(HIGH PID)");
         telemetry.addLine("RB=Feed  LB=Vomit  B=Reset");
 
         telemetry.update();
@@ -423,6 +534,7 @@ public class ShooterPIDF extends OpMode {
     @Override
     public void stop() {
         if (shooter != null) shooter.stopShooting();
+        if (drive != null) drive.stopDrive();
         setIntakePower(0);
         setTransferPower(0);
         setUptakePower(0);

@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -14,6 +15,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
+import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewIntakeController;
@@ -22,7 +24,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
-
+import org.firstinspires.ftc.teamcode.champion.controller.TurretFieldController;
 @Config
 @Autonomous(name = "New Pathing for CB", group = "Test")
 public class NewPathingForCB extends LinearOpMode {
@@ -38,6 +40,7 @@ public class NewPathingForCB extends LinearOpMode {
     AutoTankDrive tankDrive;
     TurretController turret;
     AutonMethods autoMethod;
+    TurretFieldController turretField;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -90,14 +93,17 @@ public class NewPathingForCB extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
+                    limelightController,
+                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
+                    turretField,
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
         } catch (Exception e){
-           //
+            //
         }
 
         waitForStart();
@@ -202,16 +208,17 @@ public class NewPathingForCB extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
+        // Enable auto-aim once — stays on for entire auton
+        autoMethod.autoAimTurretLeft();
+
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 
         // GO BACK FOR SHOOTING
-        Action Initial_Forward = tankDrive.actionBuilder(currentPose)
+        runWithTurretAim(tankDrive.actionBuilder(currentPose)
                 .lineToX(INITIAL_BACKWARD)
-                .build();
-        Actions.runBlocking(Initial_Forward);
+                .build());
 
         // SHOOT
-        autoMethod.autoAimTurretLeft();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
@@ -219,13 +226,11 @@ public class NewPathingForCB extends LinearOpMode {
 
         // GO BACK FOR SHOOTING (FIRST LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action Backward = tankDrive.actionBuilder(currentPose)
+        runWithTurretAim(tankDrive.actionBuilder(currentPose)
                 .lineToY(FIRST_BACKWARD_Y)
-                .build();
-        Actions.runBlocking(Backward);
+                .build());
 
-        // AUTO AIM AND SHOOT (FIRST LINE)
-        autoMethod.autoAimTurretLeft();
+        // SHOOT (FIRST LINE)
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -233,14 +238,12 @@ public class NewPathingForCB extends LinearOpMode {
 
         // GO BACK FOR SHOOTING (SECOND LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action splineBackward = tankDrive.actionBuilder(currentPose)
+        runWithTurretAim(tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
                 .splineTo(new Vector2d(THIRD_SPLINE_X, THIRD_SPLINE_Y), Math.toRadians(THIRD_SPLINE_ANGLE))
-                .build();
-        Actions.runBlocking(splineBackward);
+                .build());
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
+        // SHOOT (SECOND LINE)
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -248,15 +251,42 @@ public class NewPathingForCB extends LinearOpMode {
 
         // GO BACK FOR SHOOTING (THIRD LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action splineBackward2 = tankDrive.actionBuilder(currentPose)
+        runWithTurretAim(tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
                 .splineTo(new Vector2d(FIFTH_SPLINE_X, FIFTH_SPLINE_Y), Math.toRadians(FIFTH_SPLINE_ANGLE))
-                .build();
-        Actions.runBlocking(splineBackward2);
+                .build());
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.autoAimTurretLeft();
+        // SHOOT (THIRD LINE)
         autoMethod.shootBalls();
+    }
 
+    /**
+     * Run a RoadRunner action while continuously updating turret auto-aim.
+     */
+    private void runWithTurretAim(Action action) {
+        Actions.runBlocking(new Action() {
+            private final Action inner = action;
+            @Override
+            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+                if (turret != null && turret.isAutoAimEnabled()) {
+                    double[] pos = getFieldPosition();
+                    turret.updateAutoAim(pos[0], pos[1], pos[2]);
+                }
+                return inner.run(packet);
+            }
+        });
+    }
+
+    /**
+     * Get field position from odometry deltas + auton start (same as AutonMethods).
+     */
+    private double[] getFieldPosition() {
+        Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
+        double deltaX = rawPose.position.y;
+        double deltaY = -rawPose.position.x;
+        double fieldX = AutonMethods.AUTON_START_X + deltaX;
+        double fieldY = AutonMethods.AUTON_START_Y + deltaY;
+        double headingDeg = Math.toDegrees(rawPose.heading.toDouble()) + AutonMethods.AUTON_START_HEADING;
+        return new double[]{fieldX, fieldY, headingDeg};
     }
 }
