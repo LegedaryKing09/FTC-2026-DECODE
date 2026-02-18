@@ -2,8 +2,6 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
-import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -58,7 +56,6 @@ public class CR extends LinearOpMode {
     // turning angle
     public static double PICK_UP_ANGLE = -45.0;
     public static double ZERO_DEGREE = 45.0;
-    public static double SHOOTING_DEGREE = 0.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -81,8 +78,6 @@ public class CR extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,

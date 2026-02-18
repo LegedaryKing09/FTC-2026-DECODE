@@ -13,12 +13,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;
-import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
-import org.firstinspires.ftc.teamcode.champion.controller.MovementPIDController;
-import org.firstinspires.ftc.teamcode.champion.controller.NewAutoShootController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewAutonController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
-import org.firstinspires.ftc.teamcode.champion.controller.TurnPIDController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
 import org.firstinspires.ftc.teamcode.champion.controller.NewShooterController;
@@ -37,8 +33,6 @@ public class AutonMethods {
     private final NewShooterController shooterController;
     private final NewIntakeController intakeController;
     private final NewRampController rampController;
-    private final LimelightAlignmentController limelightController;
-    private final NewAutoShootController autoShootController;
     private final NewAutonController autonController;
     private final AutoTankDrive tankDrive;
     private final TurretController turret;
@@ -52,8 +46,6 @@ public class AutonMethods {
             UptakeController uptakeController,
             NewShooterController shooterController,
             NewIntakeController intakeController,
-            LimelightAlignmentController limelightController,
-            NewAutoShootController autoShootController,
             NewRampController rampController,
             NewAutonController autonController,
             AutoTankDrive tankDrive,
@@ -65,8 +57,6 @@ public class AutonMethods {
         this.uptakeController = uptakeController;
         this.shooterController = shooterController;
         this.intakeController = intakeController;
-        this.limelightController = limelightController;
-        this.autoShootController = autoShootController;
         this.rampController = rampController;
         this.autonController = autonController;
         this.tankDrive = tankDrive;
@@ -184,7 +174,7 @@ public class AutonMethods {
             private final Action moveAction = moveForward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 checkUptakeSwitch();
                 intakeController.update();
                 transferController.update();
@@ -258,7 +248,7 @@ public class AutonMethods {
             private final Action moveAction = moveForward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 checkUptakeSwitch();
                 intakeController.update();
                 transferController.update();
@@ -332,7 +322,7 @@ public class AutonMethods {
             private final Action moveAction = moveForward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 checkUptakeSwitch();
                 intakeController.update();
                 transferController.update();
@@ -393,7 +383,7 @@ public class AutonMethods {
             private final Action moveAction = moveBackward;
 
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 if (turret != null && turret.isAutoAimEnabled()) {
                     turret.updateAutoAim(
                             Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
@@ -420,11 +410,7 @@ public class AutonMethods {
                 if (rampController != null) {
                     rampController.update();
                 }
-                try {
-                    Thread.sleep(20);
-                } catch (InterruptedException e) {
-                    break;
-                }
+                sleep(20);
             }
         });
         shooterThread.setPriority(Thread.MAX_PRIORITY);

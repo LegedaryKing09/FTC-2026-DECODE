@@ -1,8 +1,9 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
+import androidx.annotation.NonNull;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -91,8 +92,6 @@ public class NewPathingForCB extends LinearOpMode {
                     uptakeController,
                     shooterController,
                     intakeController,
-                    limelightController,
-                    autoShootController,
                     rampController,
                     autonController,
                     tankDrive,
@@ -264,7 +263,7 @@ public class NewPathingForCB extends LinearOpMode {
         Actions.runBlocking(new Action() {
             private final Action inner = action;
             @Override
-            public boolean run(com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
+            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
                 if (turret != null && turret.isAutoAimEnabled()) {
                     double[] pos = getFieldPosition();
                     turret.updateAutoAim(pos[0], pos[1], pos[2]);
