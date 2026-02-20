@@ -511,9 +511,6 @@ public class AutonMethods {
         uptakeController.setState(false);
         uptakeController.update();
 
-        if (rampController != null) {
-            rampController.stop();
-        }
     }
 
     public void checkUptakeSwitch() {
