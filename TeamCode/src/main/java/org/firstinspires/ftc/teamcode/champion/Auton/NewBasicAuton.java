@@ -277,7 +277,7 @@ public class NewBasicAuton extends LinearOpMode {
         shooterController.stopShooting();
         intakeController.setState(false);
         intakeController.update();
-        transferController.stop();
+        transferController.setState(false);
         transferController.update();
         uptakeController.setState(false);
         uptakeController.update();
