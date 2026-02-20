@@ -77,7 +77,7 @@ public class SixWheelDriveController {
         public static boolean INVERT_LEFT_ENCODER = false;
         public static boolean INVERT_RIGHT_ENCODER = true;
     }
-    public double YAW_SCALAR = -1.0;      // Tune with OdometryTuner
+    public double YAW_SCALAR = -1.0;      // Tune
     @Config
     public static class OdometryParams {
         public static boolean USE_4_BAR_PODS = true;

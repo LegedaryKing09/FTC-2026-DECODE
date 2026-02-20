@@ -477,7 +477,7 @@ public class SixMotorDriveController {
         isFastSpeedMode = !isFastSpeedMode;
     }
 
-    // === GETTERS (Required by OdometryTestTeleop) ===
+    // === GETTERS ===
 
     public double getX() {
         return robotX;

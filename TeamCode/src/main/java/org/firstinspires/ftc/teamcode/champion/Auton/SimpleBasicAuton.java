@@ -526,10 +526,6 @@ public class SimpleBasicAuton extends LinearOpMode {
         uptakeController.update();
         driveController.stopDrive();
 
-        if (rampController != null) {
-            rampController.stop();
-        }
-
         telemetry.addLine("Cleanup complete");
         telemetry.addData("Total Time", "%.1f sec", globalTimer.seconds());
         telemetry.update();
