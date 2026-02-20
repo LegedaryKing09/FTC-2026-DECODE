@@ -28,10 +28,6 @@ public class NewIntakeController {
         isActive = !isActive;
     }
 
-    public void toggleDirection() {
-        reversed = !reversed;
-    }
-
     /**
      * Set intake state
      */
@@ -48,14 +44,6 @@ public class NewIntakeController {
             if (reversed) actualPower = -actualPower;
             intakeMotor.setPower(actualPower);
         }
-    }
-
-    /**
-     * Get current power being applied
-     */
-    public double getCurrentPower() {
-        if (intakeMotor == null) return 0.0;
-        return intakeMotor.getPower();
     }
 
     public boolean isActive() { return isActive; }

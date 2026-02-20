@@ -299,20 +299,6 @@ public class NewShooterController {
     }
 
     /**
-     * Get motor 1 RPM (same as getRPM)
-     */
-    public double getRPM1() {
-        return currentRPM;
-    }
-
-    /**
-     * Get motor 2 RPM - returns 0 since no encoder
-     */
-    public double getRPM2() {
-        return 0;  // Motor2 has no encoder
-    }
-
-    /**
      * Get RPM error (target - current)
      */
     public double getRPMError() {

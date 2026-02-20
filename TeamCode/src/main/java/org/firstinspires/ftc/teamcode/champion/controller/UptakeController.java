@@ -25,10 +25,6 @@ public class UptakeController {
         isActive = !isActive;
     }
 
-    public void toggleDirection() {
-        reversed = !reversed;
-    }
-
     /**
      * Set uptake state
      */
@@ -49,14 +45,6 @@ public class UptakeController {
         if (uptakeServo2 != null) {
             uptakeServo2.setPower(actualPower);
         }
-    }
-
-    /**
-     * Get current power being applied
-     */
-    public double getCurrentPower() {
-        if (!isActive) return 0.0;
-        return power;
     }
 
     public boolean isActive() { return isActive; }

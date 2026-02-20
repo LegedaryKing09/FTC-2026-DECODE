@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.champion.controller;
 
-import android.annotation.SuppressLint;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -9,13 +8,9 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.Range;
-import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
-
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-
-import java.util.Locale;
 
 @Config
 public class SixWheelDriveController {
@@ -40,18 +35,10 @@ public class SixWheelDriveController {
     private double robotY = 0.0;
     private double robotHeading = 0.0;
 
-    // Speed mode settings
-    public static double FAST_SPEED_MULTIPLIER = 1;
-    public static double FAST_TURN_MULTIPLIER = 0.7;
-    public static double SLOW_SPEED_MULTIPLIER = 0.5;
-    public static double SLOW_TURN_MULTIPLIER = 0.4;
-
     // Acceleration ramping
     public static double ACCELERATION_RATE = 0.15;
     private double currentDrivePower = 0.0;
     private double currentTurnPower = 0.0;
-
-    private boolean isFastSpeedMode = false;
 
     // Control mode
     public enum DriveMode {
@@ -108,13 +95,6 @@ public class SixWheelDriveController {
         public static boolean NEGATE_X = false;          // Negate the X value after swap
         public static boolean NEGATE_Y = true;         // Negate the Y value after swap
     }
-
-    // === DRIVE ENCODER CONFIGURATION ===
-    // Which motor encoder to use for velocity reading (front or back)
-    public static boolean USE_FRONT_ENCODERS = true;  // true = LF/RF, false = LB/RB
-    // Invert encoder readings if they're negated (change these if readings are wrong)
-    public static boolean INVERT_LEFT_ENCODER = false;
-    public static boolean INVERT_RIGHT_ENCODER = false;
 
     // Constructor for LinearOpMode
     public SixWheelDriveController(LinearOpMode opMode) {
@@ -342,15 +322,6 @@ public class SixWheelDriveController {
     }
 
     /**
-     * Set velocity in inches per second
-     */
-    public void tankDriveInchesPerSecond(double leftIPS, double rightIPS) {
-        double leftVel = leftIPS * VelocityParams.TICKS_PER_INCH;
-        double rightVel = rightIPS * VelocityParams.TICKS_PER_INCH;
-        tankDriveVelocity(leftVel, rightVel);
-    }
-
-    /**
      * Set angular velocity in degrees per second
      * Positive = counterclockwise
      */
@@ -460,24 +431,6 @@ public class SixWheelDriveController {
         robotHeading = headingRadians;
     }
 
-    // === SPEED MODE METHODS ===
-
-    public boolean isFastSpeedMode() {
-        return isFastSpeedMode;
-    }
-
-    public void setFastSpeed() {
-        isFastSpeedMode = true;
-    }
-
-    public void setSlowSpeed() {
-        isFastSpeedMode = false;
-    }
-
-    public void toggleSpeedMode() {
-        isFastSpeedMode = !isFastSpeedMode;
-    }
-
     // === GETTERS ===
 
     public double getX() {
@@ -496,108 +449,24 @@ public class SixWheelDriveController {
         return Math.toDegrees(robotHeading);
     }
 
-    public int getXOdoPosition() {
-        return pinpoint.getEncoderX();
-    }
-
-    public int getYOdoPosition() {
-        return pinpoint.getEncoderY();
-    }
-
     public double getVelocityX() {
-        double rawVelX = pinpoint.getVelX(DistanceUnit.INCH);
-        double rawVelY = pinpoint.getVelY(DistanceUnit.INCH);
-
-        // Apply same transformation as position
-        if (OdometryParams.SWAP_XY) {
-            double temp = rawVelX;
-            rawVelX = rawVelY;
-            rawVelY = temp;
-        }
-
-        if (OdometryParams.NEGATE_X) {
-            rawVelX = -rawVelX;
-        }
-
-        return rawVelX;
+        // With SWAP_XY, field-X comes from odometry Y
+        double v = OdometryParams.SWAP_XY
+                ? pinpoint.getVelY(DistanceUnit.INCH)
+                : pinpoint.getVelX(DistanceUnit.INCH);
+        return OdometryParams.NEGATE_X ? -v : v;
     }
 
     public double getVelocityY() {
-        double rawVelX = pinpoint.getVelX(DistanceUnit.INCH);
-        double rawVelY = pinpoint.getVelY(DistanceUnit.INCH);
-
-        // Apply same transformation as position
-        if (OdometryParams.SWAP_XY) {
-            double temp = rawVelX;
-            rawVelX = rawVelY;
-            rawVelY = temp;
-        }
-
-        if (OdometryParams.NEGATE_Y) {
-            rawVelY = -rawVelY;
-        }
-
-        return rawVelY;
-    }
-
-    public double getHeadingVelocity() {
-        return pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.RADIANS);
+        // With SWAP_XY, field-Y comes from odometry X
+        double v = OdometryParams.SWAP_XY
+                ? pinpoint.getVelX(DistanceUnit.INCH)
+                : pinpoint.getVelY(DistanceUnit.INCH);
+        return OdometryParams.NEGATE_Y ? -v : v;
     }
 
     public GoBildaPinpointDriver getPinpoint() {
         return pinpoint;
     }
 
-    public GoBildaPinpointDriver.DeviceStatus getPinpointStatus() {
-        return pinpoint.getDeviceStatus();
-    }
-
-    public int getPinpointLoopTime() {
-        return pinpoint.getLoopTime();
-    }
-
-    public double getPinpointFrequency() {
-        return pinpoint.getFrequency();
-    }
-
-    // === TELEMETRY ===
-
-    @SuppressLint("DefaultLocale")
-    public void addTelemetry(org.firstinspires.ftc.robotcore.external.Telemetry telemetry) {
-        telemetry.addLine("=== DRIVE STATUS ===");
-        telemetry.addData("Mode", currentDriveMode);
-        telemetry.addData("Speed", isFastSpeedMode ? "FAST" : "SLOW");
-        telemetry.addLine();
-
-        telemetry.addLine("=== POSITION ===");
-        telemetry.addData("X", "%.2f in", robotX);
-        telemetry.addData("Y", "%.2f in", robotY);
-        telemetry.addData("Heading", "%.1f°", Math.toDegrees(robotHeading));
-        telemetry.addLine();
-
-        telemetry.addLine("=== VELOCITY ===");
-        telemetry.addData("Left", "%.0f t/s", getLeftVelocity());
-        telemetry.addData("Right", "%.0f t/s", getRightVelocity());
-        telemetry.addData("Speed", "%.1f in/s", getSpeedInchesPerSec());
-    }
-
-    // Legacy method for compatibility
-    @SuppressLint("DefaultLocale")
-    public void getMotorStatus() {
-        if (linearOpMode != null) {
-            addTelemetry(linearOpMode.telemetry);
-        } else if (iterativeOpMode != null) {
-            addTelemetry(iterativeOpMode.telemetry);
-        }
-    }
-
-    public String getMotorPowers() {
-        return String.format(Locale.US, "FL:%.2f FR:%.2f BL:%.2f BR:%.2f",
-                lf.getPower(), rf.getPower(), lb.getPower(), rb.getPower());
-    }
-
-    public String getMotorVelocities() {
-        return String.format(Locale.US, "FL:%.0f FR:%.0f BL:%.0f BR:%.0f",
-                lf.getVelocity(), rf.getVelocity(), lb.getVelocity(), rb.getVelocity());
-    }
 }

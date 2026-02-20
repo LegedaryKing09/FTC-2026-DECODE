@@ -75,13 +75,6 @@ public class NewRampController {
     }
 
     /**
-     * Get current position (returns target since no feedback)
-     */
-    public double getCurrentAngle() {
-        return targetPosition;
-    }
-
-    /**
      * Increment position (toward extended/0.75)
      */
     public void incrementAngle(double amount) {
@@ -95,47 +88,4 @@ public class NewRampController {
         setTargetAngle(targetPosition - amount);
     }
 
-    /**
-     * Get error (always 0 since no feedback)
-     */
-    public double getAngleError() {
-        return 0;
-    }
-
-    /**
-     * Check if at target (always true for regular servo)
-     */
-    public boolean atTarget() {
-        return true;
-    }
-
-    /**
-     * Check if moving
-     */
-    public boolean isMoving() {
-        return false;
-    }
-
-    public void stop() {
-        // Regular servos hold position automatically
-    }
-
-    /**
-     * Direct servo position access
-     */
-    public void setServoPosition(double position) {
-        setTargetAngle(position);
-    }
-
-    public double getServoPosition() {
-        return rampServo.getPosition();
-    }
-
-    public double getVoltage() {
-        return 0;
-    }
-
-    public double getPower() {
-        return 0;
-    }
 }

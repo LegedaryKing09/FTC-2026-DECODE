@@ -31,29 +31,11 @@ public class NewTransferController {
         isActive = !isActive;
     }
 
-    public void toggleDirection() {
-        reversed = !reversed;
-    }
-
     /**
      * Set transfer state
      */
     public void setState(boolean active) {
         isActive = active;
-    }
-
-    /**
-     * Turn transfer on
-     */
-    public void start() {
-        isActive = true;
-    }
-
-    /**
-     * Turn transfer off
-     */
-    public void stop() {
-        isActive = false;
     }
 
     /**
@@ -65,14 +47,6 @@ public class NewTransferController {
             if (reversed) actualPower = -actualPower;
             transferMotor.setPower(actualPower);
         }
-    }
-
-    /**
-     * Get current power being applied
-     */
-    public double getCurrentPower() {
-        if (transferMotor == null) return 0.0;
-        return transferMotor.getPower();
     }
 
     /**

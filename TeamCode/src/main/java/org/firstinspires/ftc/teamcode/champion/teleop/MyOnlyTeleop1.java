@@ -90,9 +90,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     // === DISTANCE-BASED SHOOTING TABLE ===
     // Distance (inches) = straight-line odometry distance to target
-    // Each entry: {distance, ramp angle, RPM}
-    // Piecewise: if distance is within ±6 inches of a calibrated point, use that setting
-    public static double DISTANCE_TOLERANCE = 6.0;  // ±6 inches
+    // Each entry: {distance, ramp angle, RPM} — nearest point is used
 
     // Calibration points (straight-line odometry distance to target)
     public static double DIST_1 = 24.0;   public static double RAMP_1 = 0;  public static double RPM_1 = 3600;
@@ -152,7 +150,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
     // Timers
     private final ElapsedTime runtime = new ElapsedTime();
-    private final ElapsedTime loopTimer = new ElapsedTime();
     private final ElapsedTime closeUpdateTimer = new ElapsedTime();
 
     // === GAMEPAD 1 BUTTON STATES ===
@@ -242,8 +239,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             shooter.startShooting();
         }
 
-        loopTimer.reset();
-
         while (opModeIsActive()) {
 
             // === FAST UPDATES (every loop) ===
@@ -332,28 +327,17 @@ public class MyOnlyTeleop1 extends LinearOpMode {
      * Distance tolerance is ±6 inches from calibrated points
      */
     private double[] getShootingParamsForDistance(double distance) {
-        double[] distances = {DIST_1, DIST_2, DIST_3, DIST_4, DIST_5};
-        double[] rpm = {RPM_1, RPM_2, RPM_3, RPM_4, RPM_5};
+        double[] dists = {DIST_1, DIST_2, DIST_3, DIST_4, DIST_5};
+        double[] rpms  = {RPM_1,  RPM_2,  RPM_3,  RPM_4,  RPM_5};
         double[] ramps = {RAMP_1, RAMP_2, RAMP_3, RAMP_4, RAMP_5};
 
-        // Check each calibration point with tolerance
-        for (int i = 0; i < distances.length; i++) {
-            if (Math.abs(distance - distances[i]) <= DISTANCE_TOLERANCE) {
-                return new double[]{rpm[i], ramps[i]};
-            }
-        }
-
-        // No match - use closest point
         double minDiff = Double.MAX_VALUE;
-        int bestIdx = 2;
-        for (int i = 0; i < distances.length; i++) {
-            double diff = Math.abs(distance - distances[i]);
-            if (diff < minDiff) {
-                minDiff = diff;
-                bestIdx = i;
-            }
+        int bestIdx = 0;
+        for (int i = 0; i < 5; i++) {
+            double diff = Math.abs(distance - dists[i]);
+            if (diff < minDiff) { minDiff = diff; bestIdx = i; }
         }
-        return new double[]{rpm[bestIdx], ramps[bestIdx]};
+        return new double[]{rpms[bestIdx], ramps[bestIdx]};
     }
 
     /**
@@ -801,9 +785,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         boolean currentDpadDown2 = gamepad2.dpad_down;
         if (currentDpadDown2 && !lastDpadDown2) {
             currentTargetRPM -= RPM_INCREMENT;
-            if (currentTargetRPM < 0) currentTargetRPM = 0;
             if (shooter != null) {
                 shooter.setTargetRPM(currentTargetRPM);
+                currentTargetRPM = shooter.getTargetRPM();  // reflect clamped value
             }
         }
         lastDpadDown2 = currentDpadDown2;
