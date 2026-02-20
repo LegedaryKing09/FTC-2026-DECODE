@@ -44,7 +44,7 @@ public class TurretController {
     public static String SERVO2_NAME = "turret2";
 
     // Zero calibration – 0.5 = 0 degrees (field forward)
-    public static double ZERO_POSITION = 0.51;
+    public static double ZERO_POSITION = 0.5;
 
     // Servo range – full 0-to-1 sweep covers 315 degrees
     public static double SERVO_RANGE_DEG = 315.0;

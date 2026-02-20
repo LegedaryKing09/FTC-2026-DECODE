@@ -85,7 +85,8 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // === SHOOTING POWER REDUCTION ===
     // When Driver 2 holds RT to shoot, intake and transfer power is reduced
     // by this fraction to free up battery headroom for the shooter wheels.
-    public static double SHOOTING_POWER_REDUCTION = 0.50;  // 30% reduction
+    public static double INTAKE_POWER_REDUCTION=0.5;
+    public static double TRANSFER_POWER_REDUCTION=0;
 
     // === DISTANCE-BASED SHOOTING TABLE ===
     // Distance (inches) = straight-line odometry distance to target
@@ -97,7 +98,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     public static double DIST_1 = 24.0;   public static double RAMP_1 = 0;  public static double RPM_1 = 3600;
     public static double DIST_2 = 36.0;   public static double RAMP_2 = 0.2;  public static double RPM_2 = 3650;
     public static double DIST_3 = 48.0;   public static double RAMP_3 = 0.28;  public static double RPM_3 = 3800;
-    public static double DIST_4 = 60.0;   public static double RAMP_4 = 0.4;  public static double RPM_4 = 3900;
+    public static double DIST_4 = 60.0;   public static double RAMP_4 = 0.37;  public static double RPM_4 = 3900;
     public static double DIST_5 = 72.0;   public static double RAMP_5 = 0.37;  public static double RPM_5 = 3950;
 
     // === TARGET POSITION (where turret aims at) ===
@@ -114,7 +115,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // Defaults to auton start position. Tune via Dashboard if different.
     public static double RESET_X = 48;
     public static double RESET_Y = 137;
-    public static double RESET_HEADING = 0.0;  // degrees
+    public static double RESET_HEADING = 0;  // degrees
 
     // === ADJUSTMENTS ===
     public static double RAMP_INCREMENT_DEGREES = 0.02;  // Always positive, direction handled in code
@@ -126,11 +127,14 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // 500ms is a good balance: fast enough to track driving, slow enough to let PID settle.
     // Lower (250ms) = more responsive but PID may not fully settle between updates.
     // Higher (1000ms) = smoother PID but sluggish response when driving.
-    public static double CLOSE_UPDATE_INTERVAL_MS = 200.0;
+    public static double CLOSE_UPDATE_INTERVAL_MS = 500.0;
 
     // === BALL DETECTION ===
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
+
+    public static double RPM_LOW_THRESHOLD = -100.0;
+    public static double RPM_HIGH_THRESHOLD = 300.0;
 
     // === CONTROLLERS ===
     private SixWheelDriveController drive;
@@ -141,6 +145,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     private NewShooterController shooter;
     private NewRampController ramp;
     private LimelightAlignmentController limelightController;
+    private CRServo led;
 
     // Ball detection switch
     private AnalogInput uptakeSwitch;
@@ -450,6 +455,13 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         } catch (Exception e) {
             // Limelight init failed - limelightController stays null
         }
+
+        // LED indicator (Spark Mini on servo port, no motor attached)
+        try {
+            led = hardwareMap.get(CRServo.class, "led");
+        } catch (Exception e) {
+            // LED not configured - led stays null
+        }
     }
 
     // === DRIVE SENSITIVITY ===
@@ -666,10 +678,10 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             if (!allSystemsFromTrigger) {
                 // Reduce intake/transfer power while shooting
                 if (intake != null) {
-                    intake.power = intake.power * (1.0 - SHOOTING_POWER_REDUCTION);
+                    intake.power = intake.power * (1.0 - INTAKE_POWER_REDUCTION);
                 }
                 if (transfer != null) {
-                    NewTransferController.power = NewTransferController.power * (1.0 - SHOOTING_POWER_REDUCTION);
+                    NewTransferController.power = NewTransferController.power * (1.0 - TRANSFER_POWER_REDUCTION);
                 }
 
                 if (intake != null && !intake.isActive()) {
@@ -705,7 +717,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             }
         }
 
-        // Sticky limelight telemetry (persists until next B press)
         if (lastLLTelemetry != null) {
             telemetry.addLine(lastLLTelemetry);
         }
@@ -930,5 +941,39 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         if (transfer != null) transfer.update();
         if (uptake != null) uptake.update();
         if (shooter != null) shooter.update();
+
+        // === LED SHOOT-READY INDICATOR ===
+        // Global 4-phase clock: each phase is 250ms (1 second total cycle)
+        // Phase: 0=ON, 1=ON, 2=OFF, 3=OFF  → slow flash (500ms on, 500ms off) = phases 0,1
+        // Phase: 0=ON, 1=OFF, 2=ON, 3=OFF  → fast flash (250ms on/off)        = phases 0,2
+        // Solid: all phases on
+        // Off: all phases off
+        if (led != null) {
+            int phase = (int) ((runtime.milliseconds() / 250) % 4);
+
+            boolean ballLoaded = uptakeSwitch != null
+                    && uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
+
+            if (!ballLoaded) {
+                // No ball — off
+                led.setPower(0.0);
+            } else {
+                double rpmError = shooter != null
+                        ? shooter.getRPM() - shooter.getTargetRPM() : 0;
+
+                if (rpmError > RPM_HIGH_THRESHOLD ) {
+                    // Too high — fast flash green — phases 0,2
+                    boolean on = (phase == 0 || phase == 2);
+                    led.setPower(on ? 0.8 : 0.0);
+                } else if (rpmError < RPM_LOW_THRESHOLD ) {
+                    // Too low — slow flash green — phases 0,1
+                    boolean on = (phase == 0 || phase == 1);
+                    led.setPower(on ? 0.8 : 0.0);
+                } else {
+                    // Ready — solid green
+                    led.setPower(0.8);
+                }
+            }
+        }
     }
 }
