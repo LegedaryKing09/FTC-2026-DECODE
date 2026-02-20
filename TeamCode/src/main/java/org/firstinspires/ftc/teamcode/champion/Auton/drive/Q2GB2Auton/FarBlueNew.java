@@ -94,6 +94,10 @@ public class FarBlueNew extends LinearOpMode {
                     turret
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
+            autoMethod.telemetry = telemetry;
+            AutonMethods.AUTON_START_X = 0;
+            AutonMethods.AUTON_START_Y = 0;
+            AutonMethods.AUTON_START_HEADING = 0;
         } catch (Exception e){
             //
         }
@@ -107,6 +111,9 @@ public class FarBlueNew extends LinearOpMode {
         shooterController.setTargetRPM(CONSTANT_SHOOTER_RPM);
         shooterController.startShooting();
         autoMethod.startShooterThread();
+
+        // Enable turret auto-aim
+        autoMethod.autoAimTurretLeft();
 
         sleep(100);
 
