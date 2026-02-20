@@ -113,9 +113,6 @@ public class CloseBlueNew extends LinearOpMode {
         shooterController.startShooting();
         autoMethod.startShooterThread();
 
-        // Enable turret auto-aim
-        autoMethod.autoAimTurretLeft();
-
         sleep(100);
 
         // Execute autonomous sequence using RoadRunner

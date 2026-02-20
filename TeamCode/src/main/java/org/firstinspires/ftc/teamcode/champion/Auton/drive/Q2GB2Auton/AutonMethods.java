@@ -90,6 +90,15 @@ public class AutonMethods {
     public static double AUTO_AIM_ANGLE = 180.0;
 
     public void shootBalls() {
+        // Aim turret at shoot target using current heading
+        if (turret != null) {
+            double heading = Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                    + AUTON_START_HEADING;
+            turret.setFieldAngle(AUTO_AIM_ANGLE);
+            turret.enableAutoAim();
+            turret.updateAutoAim(heading);
+        }
+
         // Wait for RPM stabilization
         timer.reset();
         while (opMode.opModeIsActive() && timer.milliseconds() < 200) {
@@ -179,12 +188,6 @@ public class AutonMethods {
                 intakeController.update();
                 transferController.update();
                 uptakeController.update();
-                if (turret != null && turret.isAutoAimEnabled()) {
-                    turret.updateAutoAim(
-                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                                    + AUTON_START_HEADING
-                    );
-                }
                 return moveAction.run(packet);
             }
         };
@@ -199,12 +202,6 @@ public class AutonMethods {
             intakeController.update();
             transferController.update();
             uptakeController.update();
-            if (turret != null && turret.isAutoAimEnabled()) {
-                turret.updateAutoAim(
-                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                                + AUTON_START_HEADING
-                );
-            }
             sleep(30);
         }
 
@@ -253,12 +250,6 @@ public class AutonMethods {
                 intakeController.update();
                 transferController.update();
                 uptakeController.update();
-                if (turret != null && turret.isAutoAimEnabled()) {
-                    turret.updateAutoAim(
-                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                                    + AUTON_START_HEADING
-                    );
-                }
                 return moveAction.run(packet);
             }
         };
@@ -273,12 +264,6 @@ public class AutonMethods {
             intakeController.update();
             transferController.update();
             uptakeController.update();
-            if (turret != null && turret.isAutoAimEnabled()) {
-                turret.updateAutoAim(
-                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                                + AUTON_START_HEADING
-                );
-            }
             sleep(30);
         }
 
@@ -327,12 +312,6 @@ public class AutonMethods {
                 intakeController.update();
                 transferController.update();
                 uptakeController.update();
-                if (turret != null && turret.isAutoAimEnabled()) {
-                    turret.updateAutoAim(
-                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                                    + AUTON_START_HEADING
-                    );
-                }
                 return moveAction.run(packet);
             }
         };
@@ -347,12 +326,6 @@ public class AutonMethods {
             intakeController.update();
             transferController.update();
             uptakeController.update();
-            if (turret != null && turret.isAutoAimEnabled()) {
-                turret.updateAutoAim(
-                        Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                                + AUTON_START_HEADING
-                );
-            }
             sleep(30);
         }
 
@@ -371,30 +344,11 @@ public class AutonMethods {
     }
 
     public void BackwardTurret(double distance) {
-
-        // Get current pose and build trajectory
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action moveBackward = tankDrive.actionBuilder(currentPose)
                 .lineToY(distance)
                 .build();
-
-        // Create a custom action that combines RoadRunner movement with intake control
-        Action intakeAction = new Action() {
-            private final Action moveAction = moveBackward;
-
-            @Override
-            public boolean run(@NonNull com.acmerobotics.dashboard.telemetry.TelemetryPacket packet) {
-                if (turret != null && turret.isAutoAimEnabled()) {
-                    turret.updateAutoAim(
-                            Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                                    + AUTON_START_HEADING
-                    );
-                }
-                return moveAction.run(packet);
-            }
-        };
-        // Run the combined action
-        Actions.runBlocking(intakeAction);
+        Actions.runBlocking(moveBackward);
     }
 
     public boolean isBallAtUptake() {
