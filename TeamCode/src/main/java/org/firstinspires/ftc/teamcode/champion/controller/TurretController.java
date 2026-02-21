@@ -62,7 +62,7 @@ public class TurretController {
     public static double TURRET_RIGHT_OFFSET = 0.0;
 
     // Power simulation – how fast setPower() moves the servo per update cycle
-    public static double POWER_STEP_SCALE = 0.008;
+    public static double POWER_STEP_SCALE = 0.01;
 
     // Hardware
     private final Servo servo1;
