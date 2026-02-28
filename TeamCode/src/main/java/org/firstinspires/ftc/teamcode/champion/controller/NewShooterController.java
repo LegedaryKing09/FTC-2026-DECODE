@@ -23,10 +23,10 @@ public class NewShooterController {
     public static double MAX_RPM = 6000.0;
 
     // PID gains (tunable via FTC Dashboard)
-    public static double HIGH_kP = 5;
-    public static double HIGH_kI = 0.5;
+    public static double HIGH_kP = 1;
+    public static double HIGH_kI = 0;
     public static double HIGH_kD = 0.02;
-    public static double HIGH_kF = 1;
+    public static double HIGH_kF = 0;
 
     // PID limits
     public static double MAX_INTEGRAL = 10000.0;  // Integral windup limit
