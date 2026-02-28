@@ -239,15 +239,18 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             if (intakeModeActive && uptakeSwitch != null && !bypassBallDetection) {
                 double switchVoltage = uptakeSwitch.getVoltage();
                 if (switchVoltage < UPTAKE_SWITCH_THRESHOLD) {
-                    // Ball detected - stop uptake (intake + transfer keep running)
-                    if (uptake != null && uptake.isActive()) {
-                        uptake.toggle();
+                    // Ball detected - run uptake in reverse at 0.15 power
+                    if (uptake != null) {
+                        uptake.power = -0.15;
+                        uptake.reversed = true;
+                        uptake.setState(true);
                     }
                 } else {
-                    // No ball - restart uptake if it's not running
-                    if (uptake != null && !uptake.isActive()) {
+                    // No ball - run uptake forward at full power
+                    if (uptake != null) {
+                        uptake.power = -1.0;
                         uptake.reversed = false;
-                        uptake.toggle();
+                        uptake.setState(true);
                     }
                 }
             }
