@@ -75,17 +75,63 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // by this fraction to free up battery headroom for the shooter wheels.
     public static double SHOOTING_POWER_REDUCTION = 0.50;  // 30% reduction
 
-    // Calibration points (straight-line odometry distance to target)
-    public static double DIST_1 = 24.0;    public static double RPM_1 = 3250;   public static double RAMP_1 = 0;
-    public static double DIST_2 = 36.0;    public static double RPM_2 = 3600;   public static double RAMP_2 = 0.19;
-    public static double DIST_3 = 48.0;    public static double RPM_3 = 3800;   public static double RAMP_3 = 0.28;
-    public static double DIST_4 = 60.0;    public static double RPM_4 = 4000;   public static double RAMP_4 = 0.39;
-    public static double DIST_5 = 72.0;    public static double RPM_5 = 4050;   public static double RAMP_5 = 0.4;
-    public static double DIST_6 = 84.0;    public static double RPM_6 = 4200;   public static double RAMP_6 = 0.4;
-    public static double DIST_7 = 96.0;    public static double RPM_7 = 4200;   public static double RAMP_7 = 0.38;
-    public static double DIST_8 = 108.0;   public static double RPM_8 = 4400;   public static double RAMP_8 = 0.4;
-    public static double DIST_9 = 120.0;   public static double RPM_9 = 4250;   public static double RAMP_9 = 0.35;
-    public static double DIST_10 = 132.0;  public static double RPM_10 = 4400;  public static double RAMP_10 = 0.34;
+    // === CALIBRATION ZONES ===
+    // Each zone has THREE (RPM, Ramp) pairs:
+    //   A = low RPM,  B = nominal (target) RPM,  C = high RPM
+    // Ramp is linearly interpolated based on actual shooter RPM at runtime.
+    // This compensates for battery drain: if the motor spins slower than target,
+    // the ramp angle automatically adjusts to still make the shot.
+    // *** Only B values are field-verified. Tune A and C empirically. ***
+
+    public static double DIST_1 = 24.0;
+    public static double DIST_1_RPM_A = 2950;  public static double DIST_1_RAMP_A = 0.05;
+    public static double DIST_1_RPM_B = 3250;  public static double DIST_1_RAMP_B = 0.00;
+    public static double DIST_1_RPM_C = 3550;  public static double DIST_1_RAMP_C = -0.05;
+
+    public static double DIST_2 = 36.0;
+    public static double DIST_2_RPM_A = 3300;  public static double DIST_2_RAMP_A = 0.24;
+    public static double DIST_2_RPM_B = 3600;  public static double DIST_2_RAMP_B = 0.19;
+    public static double DIST_2_RPM_C = 3900;  public static double DIST_2_RAMP_C = 0.14;
+
+    public static double DIST_3 = 48.0;
+    public static double DIST_3_RPM_A = 3500;  public static double DIST_3_RAMP_A = 0.33;
+    public static double DIST_3_RPM_B = 3800;  public static double DIST_3_RAMP_B = 0.28;
+    public static double DIST_3_RPM_C = 4100;  public static double DIST_3_RAMP_C = 0.23;
+
+    public static double DIST_4 = 60.0;
+    public static double DIST_4_RPM_A = 3700;  public static double DIST_4_RAMP_A = 0.44;
+    public static double DIST_4_RPM_B = 4000;  public static double DIST_4_RAMP_B = 0.39;
+    public static double DIST_4_RPM_C = 4300;  public static double DIST_4_RAMP_C = 0.34;
+
+    public static double DIST_5 = 72.0;
+    public static double DIST_5_RPM_A = 3750;  public static double DIST_5_RAMP_A = 0.45;
+    public static double DIST_5_RPM_B = 4050;  public static double DIST_5_RAMP_B = 0.40;
+    public static double DIST_5_RPM_C = 4350;  public static double DIST_5_RAMP_C = 0.35;
+
+    public static double DIST_6 = 84.0;
+    public static double DIST_6_RPM_A = 3900;  public static double DIST_6_RAMP_A = 0.45;
+    public static double DIST_6_RPM_B = 4200;  public static double DIST_6_RAMP_B = 0.40;
+    public static double DIST_6_RPM_C = 4500;  public static double DIST_6_RAMP_C = 0.35;
+
+    public static double DIST_7 = 96.0;
+    public static double DIST_7_RPM_A = 3900;  public static double DIST_7_RAMP_A = 0.43;
+    public static double DIST_7_RPM_B = 4200;  public static double DIST_7_RAMP_B = 0.38;
+    public static double DIST_7_RPM_C = 4500;  public static double DIST_7_RAMP_C = 0.33;
+
+    public static double DIST_8 = 108.0;
+    public static double DIST_8_RPM_A = 4100;  public static double DIST_8_RAMP_A = 0.45;
+    public static double DIST_8_RPM_B = 4400;  public static double DIST_8_RAMP_B = 0.40;
+    public static double DIST_8_RPM_C = 4700;  public static double DIST_8_RAMP_C = 0.35;
+
+    public static double DIST_9 = 120.0;
+    public static double DIST_9_RPM_A = 3950;  public static double DIST_9_RAMP_A = 0.40;
+    public static double DIST_9_RPM_B = 4250;  public static double DIST_9_RAMP_B = 0.35;
+    public static double DIST_9_RPM_C = 4550;  public static double DIST_9_RAMP_C = 0.30;
+
+    public static double DIST_10 = 132.0;
+    public static double DIST_10_RPM_A = 4200; public static double DIST_10_RAMP_A = 0.35;
+    public static double DIST_10_RPM_B = 4200; public static double DIST_10_RAMP_B = 0.35;
+    public static double DIST_10_RPM_C = 4200; public static double DIST_10_RAMP_C = 0.35;
 
     // === TARGET POSITION (where turret aims at) ===
     public static double TARGET_X = 10.0;  // Field X coordinate to aim at
@@ -115,6 +161,11 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // Higher (1000ms) = smoother PID but sluggish response when driving.
     public static double CLOSE_UPDATE_INTERVAL_MS = 250.0;
 
+    // === RAMP FREEZE AFTER SHOT ===
+    // After a ball clears the uptake switch, ramp updates are paused for this long.
+    // Prevents the ramp from readjusting in response to the RPM dip during launch.
+    public static double RAMP_FREEZE_DURATION_MS = 250.0;
+
     // === BALL DETECTION ===
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
@@ -143,6 +194,11 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime loopTimer = new ElapsedTime();
     private final ElapsedTime closeUpdateTimer = new ElapsedTime();
+    private final ElapsedTime rampFreezeTimer = new ElapsedTime();
+
+    // Ramp freeze state (set when a ball passes through the uptake switch)
+    private boolean rampFrozen = false;
+    private boolean lastBallPresent = false;
 
     // === GAMEPAD 1 BUTTON STATES ===
     private boolean lastRB1 = false;
@@ -259,6 +315,21 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                 }
             }
 
+            // === BALL-PASSED DETECTION: freeze ramp briefly after each shot ===
+            // Detects the falling edge on the uptake switch (ball leaves the switch).
+            // Prevents the ramp from readjusting in response to the RPM dip during launch.
+            if (uptakeSwitch != null) {
+                boolean ballPresent = uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
+                if (lastBallPresent && !ballPresent) {
+                    rampFrozen = true;
+                    rampFreezeTimer.reset();
+                }
+                lastBallPresent = ballPresent;
+            }
+            if (rampFrozen && rampFreezeTimer.milliseconds() >= RAMP_FREEZE_DURATION_MS) {
+                rampFrozen = false;
+            }
+
             // === AUTO ZONE SWITCHING: Only recalculate when robot is nearly stopped ===
             // This lets the shooter PID settle before shooting and reduces battery drain.
             double driveSpeed = Math.abs(gamepad1.left_stick_y) + Math.abs(gamepad1.right_stick_x);
@@ -273,7 +344,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
                 currentTargetRPM = autoRPM;
                 if (shooter != null) shooter.setTargetRPM(autoRPM);
-                if (ramp != null) ramp.setTargetAngle(autoRamp);
+                if (ramp != null && !rampFrozen) ramp.setTargetAngle(autoRamp);
 
                 closeUpdateTimer.reset();
             }
@@ -290,16 +361,51 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     }
 
     /**
-     * Get RPM and Ramp angle based on distance using piecewise function
-     * Returns double[2] where [0] = RPM, [1] = ramp angle
-     * Distance tolerance is ±6 inches from calibrated points
+     * Returns the minimum viable RPM (RPM_A) for the nearest distance zone.
+     * Used to gate the uptake: balls only feed into the shooter once this is met.
+     */
+    private double getMinRPMForDistance(double distance) {
+        double[] distances = {DIST_1,    DIST_2,    DIST_3,    DIST_4,    DIST_5,
+                              DIST_6,    DIST_7,    DIST_8,    DIST_9,    DIST_10};
+        double[] rpmAs = {DIST_1_RPM_A, DIST_2_RPM_A, DIST_3_RPM_A, DIST_4_RPM_A, DIST_5_RPM_A,
+                          DIST_6_RPM_A, DIST_7_RPM_A, DIST_8_RPM_A, DIST_9_RPM_A, DIST_10_RPM_A};
+        double minDiff = Double.MAX_VALUE;
+        int bestIdx = 0;
+        for (int i = 0; i < distances.length; i++) {
+            double diff = Math.abs(distance - distances[i]);
+            if (diff < minDiff) { minDiff = diff; bestIdx = i; }
+        }
+        return rpmAs[bestIdx];
+    }
+
+    /**
+     * Get shooting parameters for a given distance.
+     * Returns double[2]: [0] = target RPM (zone nominal / B point), [1] = ramp angle.
+     *
+     * Ramp is interpolated from the zone's three (RPM, Ramp) calibration points
+     * (A = low, B = nominal, C = high) using the actual current shooter RPM.
+     * If the shooter is spinning below RPM_A or above RPM_C, ramp is clamped.
+     * This automatically compensates for battery drain mid-match.
      */
     private double[] getShootingParamsForDistance(double distance) {
-        double[] distances = {DIST_1, DIST_2, DIST_3, DIST_4, DIST_5, DIST_6, DIST_7, DIST_8, DIST_9, DIST_10};
-        double[] rpm =       {RPM_1,  RPM_2,  RPM_3,  RPM_4,  RPM_5,  RPM_6,  RPM_7,  RPM_8,  RPM_9,  RPM_10};
-        double[] ramps =     {RAMP_1, RAMP_2, RAMP_3, RAMP_4, RAMP_5, RAMP_6, RAMP_7, RAMP_8, RAMP_9, RAMP_10};
+        double actualRPM = shooter != null ? shooter.getRPM() : 0;
 
-        // Snap to nearest calibration point
+        double[] distances = {DIST_1,    DIST_2,    DIST_3,    DIST_4,    DIST_5,
+                              DIST_6,    DIST_7,    DIST_8,    DIST_9,    DIST_10};
+        double[] rpmAs  = {DIST_1_RPM_A,  DIST_2_RPM_A,  DIST_3_RPM_A,  DIST_4_RPM_A,  DIST_5_RPM_A,
+                           DIST_6_RPM_A,  DIST_7_RPM_A,  DIST_8_RPM_A,  DIST_9_RPM_A,  DIST_10_RPM_A};
+        double[] rampAs = {DIST_1_RAMP_A, DIST_2_RAMP_A, DIST_3_RAMP_A, DIST_4_RAMP_A, DIST_5_RAMP_A,
+                           DIST_6_RAMP_A, DIST_7_RAMP_A, DIST_8_RAMP_A, DIST_9_RAMP_A, DIST_10_RAMP_A};
+        double[] rpmBs  = {DIST_1_RPM_B,  DIST_2_RPM_B,  DIST_3_RPM_B,  DIST_4_RPM_B,  DIST_5_RPM_B,
+                           DIST_6_RPM_B,  DIST_7_RPM_B,  DIST_8_RPM_B,  DIST_9_RPM_B,  DIST_10_RPM_B};
+        double[] rampBs = {DIST_1_RAMP_B, DIST_2_RAMP_B, DIST_3_RAMP_B, DIST_4_RAMP_B, DIST_5_RAMP_B,
+                           DIST_6_RAMP_B, DIST_7_RAMP_B, DIST_8_RAMP_B, DIST_9_RAMP_B, DIST_10_RAMP_B};
+        double[] rpmCs  = {DIST_1_RPM_C,  DIST_2_RPM_C,  DIST_3_RPM_C,  DIST_4_RPM_C,  DIST_5_RPM_C,
+                           DIST_6_RPM_C,  DIST_7_RPM_C,  DIST_8_RPM_C,  DIST_9_RPM_C,  DIST_10_RPM_C};
+        double[] rampCs = {DIST_1_RAMP_C, DIST_2_RAMP_C, DIST_3_RAMP_C, DIST_4_RAMP_C, DIST_5_RAMP_C,
+                           DIST_6_RAMP_C, DIST_7_RAMP_C, DIST_8_RAMP_C, DIST_9_RAMP_C, DIST_10_RAMP_C};
+
+        // Snap to nearest distance zone
         double minDiff = Double.MAX_VALUE;
         int bestIdx = 0;
         for (int i = 0; i < distances.length; i++) {
@@ -309,7 +415,26 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                 bestIdx = i;
             }
         }
-        return new double[]{rpm[bestIdx], ramps[bestIdx]};
+
+        double rpmA = rpmAs[bestIdx],  rampA = rampAs[bestIdx];
+        double rpmB = rpmBs[bestIdx],  rampB = rampBs[bestIdx];
+        double rpmC = rpmCs[bestIdx],  rampC = rampCs[bestIdx];
+
+        // Interpolate ramp based on actual shooter RPM
+        double ramp;
+        if (actualRPM <= rpmA) {
+            ramp = rampA;
+        } else if (actualRPM >= rpmC) {
+            ramp = rampC;
+        } else if (actualRPM <= rpmB) {
+            double t = (actualRPM - rpmA) / (rpmB - rpmA);
+            ramp = rampA + t * (rampB - rampA);
+        } else {
+            double t = (actualRPM - rpmB) / (rpmC - rpmB);
+            ramp = rampB + t * (rampC - rampB);
+        }
+
+        return new double[]{rpmB, ramp};  // target RPM = nominal (B), ramp = interpolated
     }
 
     /**
@@ -621,17 +746,16 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     @SuppressLint("DefaultLocale")
     private void handleDriver2Controls() {
 
-        // === RT: HOLD TO SHOOT - Run ITU and bypass ball detection ===
-        // This forces balls through the shooter regardless of the uptake switch
-        // Also reduces intake/transfer power to give shooter more battery headroom
+        // === RT: HOLD TO SHOOT - Run intake/transfer; gate uptake on shooter RPM ===
+        // Intake and transfer start immediately so balls are staged.
+        // Uptake only runs once shooter RPM >= zone minimum (RPM_A), preventing
+        // balls from entering the shooter before it's up to speed.
         if (gamepad2.right_trigger > TRIGGER_THRESHOLD) {
-            // Start all three if not already running from trigger
+            // Start intake and transfer on first press
             if (!allSystemsFromTrigger) {
-                // Reduce intake/transfer power while shooting
                 if (intake != null) {
                     intake.power = intake.power * (1.0 - SHOOTING_POWER_REDUCTION);
                 }
-
                 if (intake != null && !intake.isActive()) {
                     intake.reversed = false;
                     intake.toggle();
@@ -640,11 +764,21 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                     transfer.reversed = false;
                     transfer.toggle();
                 }
+                allSystemsFromTrigger = true;
+            }
+
+            // Every loop: gate uptake on shooter RPM being above zone minimum
+            double minRPM = getMinRPMForDistance(getDistanceToTarget());
+            boolean rpmReady = shooter != null && shooter.getRPM() >= minRPM;
+            if (rpmReady) {
                 if (uptake != null && !uptake.isActive()) {
                     uptake.reversed = false;
                     uptake.toggle();
                 }
-                allSystemsFromTrigger = true;
+            } else {
+                if (uptake != null && uptake.isActive()) {
+                    uptake.toggle();
+                }
             }
         } else {
             // RT released - stop systems that were started by trigger
