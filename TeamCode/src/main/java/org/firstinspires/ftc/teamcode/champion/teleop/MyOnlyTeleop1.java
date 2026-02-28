@@ -76,63 +76,12 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     public static double INTAKE_POWER_REDUCTION = 0.50;  // 30% reduction
     public static double TRANSFER_POWER_REDUCTION = 0.25;
 
-    // === CALIBRATION ZONES ===
-    // Each zone has THREE (RPM, Ramp) pairs:
-    //   A = low RPM,  B = nominal (target) RPM,  C = high RPM
-    // Ramp is linearly interpolated based on actual shooter RPM at runtime.
-    // This compensates for battery drain: if the motor spins slower than target,
-    // the ramp angle automatically adjusts to still make the shot.
-    // *** Only B values are field-verified. Tune A and C empirically. ***
-
-    public static double DIST_1 = 24.0;
-    public static double DIST_1_RPM_A = 3250;  public static double DIST_1_RAMP_A = 0.00;
-    public static double DIST_1_RPM_B = 3250;  public static double DIST_1_RAMP_B = 0.00;
-    public static double DIST_1_RPM_C = 3250;  public static double DIST_1_RAMP_C = 0.00;
-
-    public static double DIST_2 = 36.0;
-    public static double DIST_2_RPM_A = 3600;  public static double DIST_2_RAMP_A = 0.19;
-    public static double DIST_2_RPM_B = 3600;  public static double DIST_2_RAMP_B = 0.19;
-    public static double DIST_2_RPM_C = 3600;  public static double DIST_2_RAMP_C = 0.19;
-
-    public static double DIST_3 = 48.0;
-    public static double DIST_3_RPM_A = 3800;  public static double DIST_3_RAMP_A = 0.28;
-    public static double DIST_3_RPM_B = 3800;  public static double DIST_3_RAMP_B = 0.28;
-    public static double DIST_3_RPM_C = 3800;  public static double DIST_3_RAMP_C = 0.28;
-
-    public static double DIST_4 = 60.0;
-    public static double DIST_4_RPM_A = 4000;  public static double DIST_4_RAMP_A = 0.39;
-    public static double DIST_4_RPM_B = 4000;  public static double DIST_4_RAMP_B = 0.39;
-    public static double DIST_4_RPM_C = 4000;  public static double DIST_4_RAMP_C = 0.39;
-
-    public static double DIST_5 = 72.0;
-    public static double DIST_5_RPM_A = 4050;  public static double DIST_5_RAMP_A = 0.40;
-    public static double DIST_5_RPM_B = 4050;  public static double DIST_5_RAMP_B = 0.40;
-    public static double DIST_5_RPM_C = 4050;  public static double DIST_5_RAMP_C = 0.40;
-
-    public static double DIST_6 = 84.0;
-    public static double DIST_6_RPM_A = 4200;  public static double DIST_6_RAMP_A = 0.40;
-    public static double DIST_6_RPM_B = 4200;  public static double DIST_6_RAMP_B = 0.40;
-    public static double DIST_6_RPM_C = 4200;  public static double DIST_6_RAMP_C = 0.40;
-
-    public static double DIST_7 = 96.0;
-    public static double DIST_7_RPM_A = 4200;  public static double DIST_7_RAMP_A = 0.38;
-    public static double DIST_7_RPM_B = 4200;  public static double DIST_7_RAMP_B = 0.38;
-    public static double DIST_7_RPM_C = 4200;  public static double DIST_7_RAMP_C = 0.38;
-
-    public static double DIST_8 = 108.0;
-    public static double DIST_8_RPM_A = 4400;  public static double DIST_8_RAMP_A = 0.40;
-    public static double DIST_8_RPM_B = 4400;  public static double DIST_8_RAMP_B = 0.40;
-    public static double DIST_8_RPM_C = 4400;  public static double DIST_8_RAMP_C = 0.40;
-
-    public static double DIST_9 = 120.0;
-    public static double DIST_9_RPM_A = 4250;  public static double DIST_9_RAMP_A = 0.35;
-    public static double DIST_9_RPM_B = 4250;  public static double DIST_9_RAMP_B = 0.35;
-    public static double DIST_9_RPM_C = 4250;  public static double DIST_9_RAMP_C = 0.35;
-
-    public static double DIST_10 = 132.0;
-    public static double DIST_10_RPM_A = 4200; public static double DIST_10_RAMP_A = 0.35;
-    public static double DIST_10_RPM_B = 4200; public static double DIST_10_RAMP_B = 0.35;
-    public static double DIST_10_RPM_C = 4200; public static double DIST_10_RAMP_C = 0.35;
+    // === SHOOTING CURVE (linear interpolation) ===
+    // 28in → rpm=3250, ramp=0.0
+    // 100in → rpm=3800, ramp=0.3
+    // >100in → rpm=4200, ramp=0.35
+    // Shooter target RPM = calculated RPM + RPM_READY (200)
+    // Uptake gate threshold  = calculated RPM (exact)
 
     // === TARGET POSITION (where turret aims at) ===
     public static double TARGET_X = 10.0;  // Field X coordinate to aim at
@@ -341,7 +290,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                     && closeUpdateTimer.milliseconds() >= CLOSE_UPDATE_INTERVAL_MS) {
                 double distance = getDistanceToTarget();
                 double[] params = getShootingParamsForDistance(distance);
-                double autoRPM = params[0] + rpmOffset;
+                double autoRPM = params[0] + RPM_READY + rpmOffset;
                 double autoRamp = params[1];
 
                 currentTargetRPM = autoRPM;
@@ -363,80 +312,38 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     }
 
     /**
-     * Returns the minimum viable RPM (RPM_A) for the nearest distance zone.
+     * Returns the exact calculated RPM for the given distance.
      * Used to gate the uptake: balls only feed into the shooter once this is met.
      */
     private double getMinRPMForDistance(double distance) {
-        double[] distances = {DIST_1,    DIST_2,    DIST_3,    DIST_4,    DIST_5,
-                              DIST_6,    DIST_7,    DIST_8,    DIST_9,    DIST_10};
-        double[] rpmAs = {DIST_1_RPM_A, DIST_2_RPM_A, DIST_3_RPM_A, DIST_4_RPM_A, DIST_5_RPM_A,
-                          DIST_6_RPM_A, DIST_7_RPM_A, DIST_8_RPM_A, DIST_9_RPM_A, DIST_10_RPM_A};
-        double minDiff = Double.MAX_VALUE;
-        int bestIdx = 0;
-        for (int i = 0; i < distances.length; i++) {
-            double diff = Math.abs(distance - distances[i]);
-            if (diff < minDiff) { minDiff = diff; bestIdx = i; }
-        }
-        return rpmAs[bestIdx];
+        return getShootingParamsForDistance(distance)[0];
     }
 
     /**
-     * Get shooting parameters for a given distance.
-     * Returns double[2]: [0] = target RPM (zone nominal / B point), [1] = ramp angle.
+     * Get shooting parameters for a given distance using a linear curve.
+     * Returns double[2]: [0] = calculated RPM (threshold), [1] = ramp angle.
      *
-     * Ramp is interpolated from the zone's three (RPM, Ramp) calibration points
-     * (A = low, B = nominal, C = high) using the actual current shooter RPM.
-     * If the shooter is spinning below RPM_A or above RPM_C, ramp is clamped.
-     * This automatically compensates for battery drain mid-match.
+     * 28in → 3250 RPM, ramp 0.0
+     * 100in → 3800 RPM, ramp 0.3  (linearly interpolated between these two)
+     * >100in → 4200 RPM, ramp 0.35
+     *
+     * Callers must add RPM_READY (200) to [0] when setting the shooter target RPM.
+     * The threshold for uptake gating is [0] exactly.
      */
     private double[] getShootingParamsForDistance(double distance) {
-        double actualRPM = shooter != null ? shooter.getRPM() : 0;
-
-        double[] distances = {DIST_1,    DIST_2,    DIST_3,    DIST_4,    DIST_5,
-                              DIST_6,    DIST_7,    DIST_8,    DIST_9,    DIST_10};
-        double[] rpmAs  = {DIST_1_RPM_A,  DIST_2_RPM_A,  DIST_3_RPM_A,  DIST_4_RPM_A,  DIST_5_RPM_A,
-                           DIST_6_RPM_A,  DIST_7_RPM_A,  DIST_8_RPM_A,  DIST_9_RPM_A,  DIST_10_RPM_A};
-        double[] rampAs = {DIST_1_RAMP_A, DIST_2_RAMP_A, DIST_3_RAMP_A, DIST_4_RAMP_A, DIST_5_RAMP_A,
-                           DIST_6_RAMP_A, DIST_7_RAMP_A, DIST_8_RAMP_A, DIST_9_RAMP_A, DIST_10_RAMP_A};
-        double[] rpmBs  = {DIST_1_RPM_B,  DIST_2_RPM_B,  DIST_3_RPM_B,  DIST_4_RPM_B,  DIST_5_RPM_B,
-                           DIST_6_RPM_B,  DIST_7_RPM_B,  DIST_8_RPM_B,  DIST_9_RPM_B,  DIST_10_RPM_B};
-        double[] rampBs = {DIST_1_RAMP_B, DIST_2_RAMP_B, DIST_3_RAMP_B, DIST_4_RAMP_B, DIST_5_RAMP_B,
-                           DIST_6_RAMP_B, DIST_7_RAMP_B, DIST_8_RAMP_B, DIST_9_RAMP_B, DIST_10_RAMP_B};
-        double[] rpmCs  = {DIST_1_RPM_C,  DIST_2_RPM_C,  DIST_3_RPM_C,  DIST_4_RPM_C,  DIST_5_RPM_C,
-                           DIST_6_RPM_C,  DIST_7_RPM_C,  DIST_8_RPM_C,  DIST_9_RPM_C,  DIST_10_RPM_C};
-        double[] rampCs = {DIST_1_RAMP_C, DIST_2_RAMP_C, DIST_3_RAMP_C, DIST_4_RAMP_C, DIST_5_RAMP_C,
-                           DIST_6_RAMP_C, DIST_7_RAMP_C, DIST_8_RAMP_C, DIST_9_RAMP_C, DIST_10_RAMP_C};
-
-        // Snap to nearest distance zone
-        double minDiff = Double.MAX_VALUE;
-        int bestIdx = 0;
-        for (int i = 0; i < distances.length; i++) {
-            double diff = Math.abs(distance - distances[i]);
-            if (diff < minDiff) {
-                minDiff = diff;
-                bestIdx = i;
-            }
-        }
-
-        double rpmA = rpmAs[bestIdx],  rampA = rampAs[bestIdx];
-        double rpmB = rpmBs[bestIdx],  rampB = rampBs[bestIdx];
-        double rpmC = rpmCs[bestIdx],  rampC = rampCs[bestIdx];
-
-        // Interpolate ramp based on actual shooter RPM
-        double ramp;
-        if (actualRPM <= rpmA) {
-            ramp = rampA;
-        } else if (actualRPM >= rpmC) {
-            ramp = rampC;
-        } else if (actualRPM <= rpmB) {
-            double t = (actualRPM - rpmA) / (rpmB - rpmA);
-            ramp = rampA + t * (rampB - rampA);
+        double rpm, rampAngle;
+        if (distance <= 28.0) {
+            rpm = 3250.0;
+            rampAngle = 0.0;
+        } else if (distance <= 100.0) {
+            double t = (distance - 28.0) / 72.0;
+            rpm = 3250.0 + t * 550.0;
+            rampAngle = t * 0.3;
         } else {
-            double t = (actualRPM - rpmB) / (rpmC - rpmB);
-            ramp = rampB + t * (rampC - rampB);
+            rpm = 4200.0;
+            rampAngle = 0.35;
         }
-
-        return new double[]{rpmA + RPM_READY, ramp};  // target RPM = threshold + 100, ramp = interpolated
+        return new double[]{rpm, rampAngle};
     }
 
     /**
@@ -888,7 +795,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             // Calculate distance to goal and get shooting parameters
             double distance = getDistanceToTarget();
             double[] params = getShootingParamsForDistance(distance);
-            double autoRPM = params[0] + rpmOffset;
+            double autoRPM = params[0] + RPM_READY + rpmOffset;
             double autoRamp = params[1];
 
             // Apply the calculated RPM and ramp
