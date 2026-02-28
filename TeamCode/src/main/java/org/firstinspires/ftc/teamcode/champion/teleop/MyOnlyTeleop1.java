@@ -18,7 +18,6 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewTransferController;
 import org.firstinspires.ftc.teamcode.champion.controller.SixWheelDriveController;
 import org.firstinspires.ftc.teamcode.champion.controller.TurretController;
 import org.firstinspires.ftc.teamcode.champion.controller.UptakeController;
-import org.firstinspires.ftc.teamcode.champion.controller.LimelightAlignmentController;
 import org.firstinspires.ftc.teamcode.champion.PoseStorage;
 
 /**
@@ -125,7 +124,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     private UptakeController uptake;
     private NewShooterController shooter;
     private NewRampController ramp;
-    private LimelightAlignmentController limelightController;
     private CRServo led;
 
     // RPM permanent offset (dpad up/down adjusts this, applied on top of auto RPM)
@@ -154,9 +152,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     private boolean lastDpadDown2 = false;
     private boolean lastLB2 = false;
     private boolean lastLT2Pressed = false;
-
-    private boolean lastGamepad2B = false;
-    private String lastLLTelemetry = null;
 
     // Trigger threshold
     private static final double TRIGGER_THRESHOLD = 0.2;
@@ -278,9 +273,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
             // Update all controllers
             updateAllSystems();
-
-            // === TELEMETRY ===
-            updateTelemetry();
         }
 
         // Cleanup
@@ -298,13 +290,11 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     /**
      * Get shooting parameters for a given distance using a parabolic curve.
      * Returns double[2]: [0] = calculated RPM (threshold), [1] = ramp angle.
-     *
      * Fitted through three data points:
      *   28in  → RPM 3250, ramp 0.0
      *   64in  → RPM 3450, ramp 0.16
      *   100in → RPM 3800, ramp 0.3
      * >100in  → RPM 4200, ramp 0.35
-     *
      * Callers must add RPM_READY (200) to [0] when setting the shooter target RPM.
      * The threshold for uptake gating is [0] exactly.
      */
@@ -314,35 +304,15 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             rpm = 3250.0;
             rampAngle = 0.0;
         } else if (distance <= 110.0) {
-            double x = distance;
             // Quadratic fit: RPM through (28,3250), (64,3450), (100,3800)
-            rpm = (25.0/432.0)*x*x + (25.0/108.0)*x + (86350.0/27.0);
+            rpm = (25.0/432.0)* distance * distance + (25.0/108.0)* distance + (86350.0/27.0);
             // Quadratic fit: ramp through (28,0.0), (64,0.16), (100,0.3)
-            rampAngle = (-1.0/129600.0)*x*x + (167.0/32400.0)*x + (-56.0/405.0);
+            rampAngle = (-1.0/129600.0)* distance * distance + (167.0/32400.0)* distance + (-56.0/405.0);
         } else {
             rpm = 4200.0;
             rampAngle = 0.35;
         }
         return new double[]{rpm, rampAngle};
-    }
-
-    /**
-     * Update telemetry with ramp, RPM, turret angle, and odometry
-     */
-    private void updateTelemetry() {
-        if (shooter != null) {
-            telemetry.addData("RPM", "%.0f / %.0f", shooter.getRPM(), currentTargetRPM);
-        }
-        if (ramp != null) {
-            telemetry.addData("Ramp Angle", "%.3f", ramp.getTargetAngle());
-        }
-        if (turret != null) {
-            telemetry.addData("Turret", turret.getCommandedPosition());
-        }
-        telemetry.addData("Robot X", "%.1f", getCorrectedX());
-        telemetry.addData("Robot Y", "%.1f", getCorrectedY());
-        telemetry.addData("Distance", "%.1f in", getDistanceToTarget());
-        telemetry.update();
     }
 
     /**
@@ -418,13 +388,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             // Shooter init failed
         }
         shooter = new NewShooterController(shooterMotor1, shooterMotor2);
-
-        // Limelight
-        try {
-            limelightController = new LimelightAlignmentController(this, drive);
-        } catch (Exception e) {
-            // Limelight init failed - limelightController stays null
-        }
 
         // LED indicator (Spark Mini on servo port, no motor attached)
         try {
@@ -646,7 +609,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                     intake.power = intake.power * (1.0 - INTAKE_POWER_REDUCTION);
                 }
                 if (transfer != null) {
-                    transfer.power = transfer.power * (1.0 - TRANSFER_POWER_REDUCTION);
+                    NewTransferController.power = NewTransferController.power * (1.0 - TRANSFER_POWER_REDUCTION);
                 }
                 if (intake != null && !intake.isActive()) {
                     intake.reversed = false;
@@ -690,11 +653,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                 allSystemsFromTrigger = false;
             }
         }
-
-        if (lastLLTelemetry != null) {
-            telemetry.addLine(lastLLTelemetry);
-        }
-
 
         // === LB: RETRACT RAMP (more negative angle, toward -245°) ===
 
