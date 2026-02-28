@@ -683,9 +683,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                 allSystemsFromTrigger = true;
             }
 
-            // Every loop: gate uptake on shooter RPM being above zone minimum
-            double minRPM = getMinRPMForDistance(getDistanceToTarget());
-            boolean rpmReady = shooter != null && shooter.getRPM() >= minRPM;
+            // Every loop: gate uptake on shooter RPM being within RPM_READY of target
+            // This is more flexible for different battery situations — shoots when close enough
+            boolean rpmReady = shooter != null && shooter.getRPM() >= (currentTargetRPM - RPM_READY);
             if (rpmReady) {
                 if (uptake != null && !uptake.isActive()) {
                     uptake.reversed = false;
@@ -775,6 +775,23 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             }
         }
 
+
+        // === RIGHT STICK X: MANUAL TURRET NUDGE (works with or without auto-aim) ===
+        // When auto-aim is on: adds to the aim offset so manual tweaks layer on top
+        // When auto-aim is off: directly steps the turret servo position
+        double turretStick = gamepad2.right_stick_x;
+        if (Math.abs(turretStick) > 0.1 && turret != null) {
+            if (turret.isAutoAimEnabled()) {
+                // Auto-aim on: nudge the aim offset (same as dpad but analog)
+                turret.addAimOffset(-turretStick * TURRET_OFFSET_SPEED);
+            } else {
+                // Auto-aim off: directly move the servo position
+                double currentPos = turret.getCommandedPosition();
+                double newPos = currentPos + (turretStick * 0.005);  // Scale for fine control
+                newPos = Math.max(0.0, Math.min(1.0, newPos));
+                turret.setServoPosition(newPos);
+            }
+        }
 
         // === Y: MANUAL FAR OVERRIDE (locks RPM/ramp, disables auto zone switching) ===
         // Use when auto calculation is wrong and you need to force a far shot
