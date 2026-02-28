@@ -73,7 +73,8 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // === SHOOTING POWER REDUCTION ===
     // When Driver 2 holds RT to shoot, intake and transfer power is reduced
     // by this fraction to free up battery headroom for the shooter wheels.
-    public static double SHOOTING_POWER_REDUCTION = 0.50;  // 30% reduction
+    public static double INTAKE_POWER_REDUCTION = 0.50;  // 30% reduction
+    public static double TRANSFER_POWER_REDUCTION = 0.25;
 
     // === CALIBRATION ZONES ===
     // Each zone has THREE (RPM, Ramp) pairs:
@@ -169,6 +170,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // === BALL DETECTION ===
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
+    public static double RPM_READY=200;
 
     // === CONTROLLERS ===
     private SixWheelDriveController drive;
@@ -434,7 +436,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             ramp = rampB + t * (rampC - rampB);
         }
 
-        return new double[]{rpmA + 200, ramp};  // target RPM = threshold + 100, ramp = interpolated
+        return new double[]{rpmA + RPM_READY, ramp};  // target RPM = threshold + 100, ramp = interpolated
     }
 
     /**
@@ -753,7 +755,10 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             // Start intake and transfer on first press
             if (!allSystemsFromTrigger) {
                 if (intake != null) {
-                    intake.power = intake.power * (1.0 - SHOOTING_POWER_REDUCTION);
+                    intake.power = intake.power * (1.0 - INTAKE_POWER_REDUCTION);
+                }
+                if (transfer != null) {
+                    transfer.power = transfer.power * (1.0 - TRANSFER_POWER_REDUCTION);
                 }
                 if (intake != null && !intake.isActive()) {
                     intake.reversed = false;
@@ -802,30 +807,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             telemetry.addLine(lastLLTelemetry);
         }
 
-        if (gamepad2.b && !lastGamepad2B) {
-            if (limelightController != null && turret != null && limelightController.canSeeTarget()) {
-                double tx = limelightController.getTx();
-                double currentServo = turret.getCommandedPosition();
-                double oldOffset = turret.getAimOffset();
-
-                // Where the turret SHOULD be based on limelight
-                double correctServo = 0.5 + (tx / TurretController.SERVO_RANGE_DEG);
-                correctServo = Math.max(0.0, Math.min(1.0, correctServo));
-
-                // Compute the new absolute offset
-                double servoError = correctServo - currentServo;
-                double newOffset = oldOffset + (servoError * TurretController.SERVO_RANGE_DEG);
-
-                turret.setAimOffset(newOffset);
-
-                lastLLTelemetry = String.format(
-                        "LL tx=%.1f err=%.3f offset=%.1f",
-                        tx, servoError, turret.getAimOffset());
-            } else {
-                lastLLTelemetry = "LL: No target visible";
-            }
-        }
-        lastGamepad2B = gamepad2.b;
 
         // === LB: RETRACT RAMP (more negative angle, toward -245°) ===
 
