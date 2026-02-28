@@ -76,8 +76,9 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     public static double INTAKE_POWER_REDUCTION = 0.50;  // 30% reduction
     public static double TRANSFER_POWER_REDUCTION = 0.25;
 
-    // === SHOOTING CURVE (linear interpolation) ===
-    // 28in → rpm=3250, ramp=0.0
+    // === SHOOTING CURVE (parabolic interpolation) ===
+    // 28in  → rpm=3250, ramp=0.0
+    // 64in  → rpm=3450, ramp=0.16
     // 100in → rpm=3800, ramp=0.3
     // >100in → rpm=4200, ramp=0.35
     // Shooter target RPM = calculated RPM + RPM_READY (200)
@@ -320,12 +321,14 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     }
 
     /**
-     * Get shooting parameters for a given distance using a linear curve.
+     * Get shooting parameters for a given distance using a parabolic curve.
      * Returns double[2]: [0] = calculated RPM (threshold), [1] = ramp angle.
      *
-     * 28in → 3250 RPM, ramp 0.0
-     * 100in → 3800 RPM, ramp 0.3  (linearly interpolated between these two)
-     * >100in → 4200 RPM, ramp 0.35
+     * Fitted through three data points:
+     *   28in  → RPM 3250, ramp 0.0
+     *   64in  → RPM 3450, ramp 0.16
+     *   100in → RPM 3800, ramp 0.3
+     * >100in  → RPM 4200, ramp 0.35
      *
      * Callers must add RPM_READY (200) to [0] when setting the shooter target RPM.
      * The threshold for uptake gating is [0] exactly.
@@ -336,9 +339,11 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             rpm = 3250.0;
             rampAngle = 0.0;
         } else if (distance <= 100.0) {
-            double t = (distance - 28.0) / 72.0;
-            rpm = 3250.0 + t * 550.0;
-            rampAngle = t * 0.3;
+            double x = distance;
+            // Quadratic fit: RPM through (28,3250), (64,3450), (100,3800)
+            rpm = (25.0/432.0)*x*x + (25.0/108.0)*x + (86350.0/27.0);
+            // Quadratic fit: ramp through (28,0.0), (64,0.16), (100,0.3)
+            rampAngle = (-1.0/129600.0)*x*x + (167.0/32400.0)*x + (-56.0/405.0);
         } else {
             rpm = 4200.0;
             rampAngle = 0.35;
