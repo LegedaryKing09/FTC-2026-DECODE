@@ -99,10 +99,13 @@ public class CloseBlueNew extends LinearOpMode {
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
             autoMethod.telemetry = telemetry;
-            // In CloseBlueNew, after creating autoMethod:
-            AutonMethods.AUTON_START_X = 18.5;  // match your startPose
+            // Robot starting position in field coordinate system
+            AutonMethods.AUTON_START_X = 18.5;
             AutonMethods.AUTON_START_Y = 16;
             AutonMethods.AUTON_START_HEADING = -135;
+            // Shooting target field coordinates — must match teleop TARGET_X/Y (same field coord system)
+            AutonMethods.SHOOT_TARGET_X = 10.0;
+            AutonMethods.SHOOT_TARGET_Y = 10.0;
         } catch (Exception e){
             //
         }
