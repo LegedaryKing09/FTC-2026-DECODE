@@ -64,6 +64,7 @@ public class CloseRedNew extends LinearOpMode {
     public static double SECOND_SPLINE_ANGLE = 135.0;
     public static double THIRD_SPLINE_ANGLE = 135.0;
     public static double GOBACK_ANGLE = 180.0;
+    public static double TURNING_ANGLE = 45.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -217,6 +218,13 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Initial_Forward);
 
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action turn = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(TURNING_ANGLE))
+                .build();
+        Actions.runBlocking(turn);
+
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
@@ -230,6 +238,7 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -245,6 +254,7 @@ public class CloseRedNew extends LinearOpMode {
 
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -260,6 +270,7 @@ public class CloseRedNew extends LinearOpMode {
 
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
     }

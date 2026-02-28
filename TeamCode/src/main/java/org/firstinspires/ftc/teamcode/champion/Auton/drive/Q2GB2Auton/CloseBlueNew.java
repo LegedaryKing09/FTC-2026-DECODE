@@ -50,18 +50,22 @@ public class CloseBlueNew extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = 0.0;
 
     // Distance parameters
-    public static double INITIAL_BACKWARD = -30.0;
-    public static double SPLINE_Y = -52.0;
-    public static double SPLINE_X = -11.0;
+    public static double INITIAL_BACKWARD = -25.0;
+    public static double SPLINE_X = -10.0;
+    public static double SPLINE_Y = 50.0;
     public static double SECOND_SPLINE_X = 12.0;
-    public static double SECOND_SPLINE_Y = -52.0;
-    public static double THIRD_SPLINE_X = 35.0;
-    public static double THIRD_SPLINE_Y = -52.0;
+    public static double SECOND_SPLINE_Y = 50.0;
+    public static double THIRD_SPLINE_X = 34.0;
+    public static double THIRD_SPLINE_Y = 50.0;
+    public static double RETURNING_SPLINE_X = -26.0;
+    public static double RETURNING_SPLINE_Y = 20.0;
 
     // turning angle parameters
+    public static double TURNING_ANGLE = 0.0;
     public static double SPLINE_ANGLE = -90.0;
     public static double SECOND_SPLINE_ANGLE = -90.0;
     public static double THIRD_SPLINE_ANGLE = -90.0;
+    public static double RETURNING_ANGLE = 45.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -77,7 +81,7 @@ public class CloseBlueNew extends LinearOpMode {
         driveController.getPinpoint().setYawScalar(driveController.YAW_SCALAR);
 
         // Define starting pose
-        Pose2d startPose = new Pose2d(-55, -55, Math.toRadians(45));
+        Pose2d startPose = new Pose2d(-55, -55, Math.toRadians(-135));
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
@@ -213,7 +217,14 @@ public class CloseBlueNew extends LinearOpMode {
         Actions.runBlocking(Initial_Forward);
 
         // SHOOT
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
+
+        // TURN FOR SHOOTING
+        Action turn = tankDrive.actionBuilder(currentPose)
+                .turnTo(TURNING_ANGLE)
+                .build();
+        Actions.runBlocking(turn);
 
         // SPLINE FOR INTAKE (FIRST LINE)
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
@@ -222,11 +233,12 @@ public class CloseBlueNew extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(RETURNING_SPLINE_X,RETURNING_SPLINE_Y), Math.toRadians(RETURNING_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
 
-        // SHOOT (FIRST LINE)
+        // SHOOT
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -236,11 +248,12 @@ public class CloseBlueNew extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(RETURNING_SPLINE_X,RETURNING_SPLINE_Y), Math.toRadians(RETURNING_ANGLE))
                 .build();
         Actions.runBlocking(Backward2);
 
-        // SHOOT (SECOND LINE)
+        // SHOOT
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -250,11 +263,12 @@ public class CloseBlueNew extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward3 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(-20,-35), Math.toRadians(-180))
+                .splineTo(new Vector2d(RETURNING_SPLINE_X,RETURNING_SPLINE_Y), Math.toRadians(RETURNING_ANGLE))
                 .build();
         Actions.runBlocking(Backward3);
 
-        // SHOOT (THIRD LINE)
+        // SHOOT
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
     }
 }
