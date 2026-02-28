@@ -715,7 +715,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         // Reset shooter to starting RPM
         if (shooter != null) {
             shooter.setTargetRPM(STARTING_RPM);
-            shooter.setShootMode(NewShooterController.ShootMode.CLOSE);
             if (!shooter.isShootMode()) shooter.startShooting();
         }
         currentTargetRPM = STARTING_RPM;
@@ -914,7 +913,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             // Apply the calculated RPM and ramp
             currentTargetRPM = autoRPM;
             if (shooter != null) {
-                shooter.setShootMode(NewShooterController.ShootMode.CLOSE);
                 shooter.setTargetRPM(autoRPM);
                 if (!shooter.isShootMode()) shooter.startShooting();
             }

@@ -22,24 +22,11 @@ public class NewShooterController {
     public static double MIN_RPM = 0.0;
     public static double MAX_RPM = 6000.0;
 
-    // High RPM PID gains (target = 4600, tunable via FTC Dashboard)
+    // PID gains (tunable via FTC Dashboard)
     public static double HIGH_kP = 5;
     public static double HIGH_kI = 0.5;
     public static double HIGH_kD = 0.02;
     public static double HIGH_kF = 1;
-
-    // Low RPM PID gains (target = 3900, tunable via FTC Dashboard)
-    public static double LOW_kP = 0.95;
-    public static double LOW_kI = 0.02;
-    public static double LOW_kD = 0.0375;
-    public static double LOW_kF = 0.025;
-
-    // RPM threshold to switch between high/low PID sets
-    // Now controlled by ShootMode set from teleop:
-    //   FAR mode  -> HIGH PID gains
-    //   CLOSE/IDLE mode -> LOW PID gains
-    public enum ShootMode { FAR, CLOSE }
-    private ShootMode currentShootMode = ShootMode.CLOSE;
 
     // PID limits
     public static double MAX_INTEGRAL = 10000.0;  // Integral windup limit
@@ -198,25 +185,6 @@ public class NewShooterController {
     }
 
     /**
-     * Set shoot mode - determines which PID gains are used
-     * FAR = HIGH PID gains, CLOSE = LOW PID gains
-     */
-    public void setShootMode(ShootMode mode) {
-        if (mode != currentShootMode) {
-            currentShootMode = mode;
-            // Reset integral when switching modes to prevent carryover
-            integralSum = 0;
-        }
-    }
-
-    /**
-     * Get current shoot mode
-     */
-    public ShootMode getShootMode() {
-        return currentShootMode;
-    }
-
-    /**
      * Get current target RPM
      */
     public double getTargetRPM() {
@@ -254,12 +222,10 @@ public class NewShooterController {
 
             // Run PID at high frequency
             if (dt >= 0.005) {  // 200Hz max
-                // Select PID gains based on shoot mode (FAR = HIGH, CLOSE = LOW)
-                boolean useHigh = (currentShootMode == ShootMode.FAR);
-                double kP = useHigh ? HIGH_kP : LOW_kP;
-                double kI = useHigh ? HIGH_kI : LOW_kI;
-                double kD = useHigh ? HIGH_kD : LOW_kD;
-                double kF = useHigh ? HIGH_kF : LOW_kF;
+                double kP = HIGH_kP;
+                double kI = HIGH_kI;
+                double kD = HIGH_kD;
+                double kF = HIGH_kF;
 
                 double error = currentTargetRPM - currentRPM;
 
