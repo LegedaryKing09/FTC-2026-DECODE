@@ -341,6 +341,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         }
         telemetry.addData("Robot X", "%.1f", getCorrectedX());
         telemetry.addData("Robot Y", "%.1f", getCorrectedY());
+        telemetry.addData("Distance", "%.1f in", getDistanceToTarget());
         telemetry.update();
     }
 
@@ -747,24 +748,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         if (gamepad2.dpad_left && !gamepad2.dpad_up && !gamepad2.dpad_down) {
             if (turret != null) {
                 turret.addAimOffset(TURRET_OFFSET_SPEED);
-            }
-        }
-
-
-        // === RIGHT STICK X: MANUAL TURRET NUDGE (works with or without auto-aim) ===
-        // When auto-aim is on: adds to the aim offset so manual tweaks layer on top
-        // When auto-aim is off: directly steps the turret servo position
-        double turretStick = gamepad2.right_stick_x;
-        if (Math.abs(turretStick) > 0.1 && turret != null) {
-            if (turret.isAutoAimEnabled()) {
-                // Auto-aim on: nudge the aim offset (same as dpad but analog)
-                turret.addAimOffset(-turretStick * TURRET_OFFSET_SPEED);
-            } else {
-                // Auto-aim off: directly move the servo position
-                double currentPos = turret.getCommandedPosition();
-                double newPos = currentPos + (turretStick * 0.005);  // Scale for fine control
-                newPos = Math.max(0.0, Math.min(1.0, newPos));
-                turret.setServoPosition(newPos);
             }
         }
 
