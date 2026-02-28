@@ -89,6 +89,12 @@ public class AutonMethods {
     // turret angles
     public static double AUTO_AIM_ANGLE = 180.0;
 
+    // shooting target field coordinates (for distance-based RPM/ramp)
+    public static double SHOOT_TARGET_X = 10.0;
+    public static double SHOOT_TARGET_Y = 10.0;
+    public static double RPM_READY = 200.0;
+    public static long RPM_WAIT_TIMEOUT_MS = 2000;
+
     public void shootBalls() {
         // Aim turret at shoot target using current heading
         if (turret != null) {
@@ -529,6 +535,83 @@ public class AutonMethods {
 
         tankDrive.setDrivePowers(new PoseVelocity2d(new Vector2d(0, 0), 0));
         sleep(50);
+    }
+
+    /**
+     * Aims the turret, sets distance-based RPM and ramp angle, then waits for shooter to
+     * reach speed. Call before shootBalls(). Assumes startShooterThread() is already running.
+     *
+     * Uses the same parabolic curve as Teleop:
+     *   28in  → RPM 3250, ramp 0.0
+     *   64in  → RPM 3450, ramp 0.16
+     *   100in → RPM 3800, ramp 0.3
+     *   >110in → RPM 4200+RPM_READY, ramp 0.35
+     */
+    public void aimAndPrepareShot() {
+        // Get field-corrected position (same transform as cleanup())
+        double fieldX = AUTON_START_X;
+        double fieldY = AUTON_START_Y;
+        try {
+            Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
+            fieldX = AUTON_START_X + rawPose.position.y;
+            fieldY = AUTON_START_Y - rawPose.position.x;
+        } catch (Exception e) { /* fall back to start position */ }
+
+        // Distance to shooting target
+        double dx = SHOOT_TARGET_X - fieldX;
+        double dy = SHOOT_TARGET_Y - fieldY;
+        double distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Distance-based RPM and ramp angle
+        double[] params = getShootingParamsForDistance(distance);
+        double targetRPM = params[0] + (distance >= 110.0 ? RPM_READY : 0);
+        double targetRamp = params[1];
+
+        // Apply RPM and ramp
+        shooterController.setTargetRPM(targetRPM);
+        if (rampController != null) rampController.setTargetAngle(targetRamp);
+
+        // Aim turret
+        if (turret != null) {
+            double heading;
+            try {
+                heading = Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
+                        + AUTON_START_HEADING;
+            } catch (Exception e) {
+                heading = AUTON_START_HEADING;
+            }
+            turret.setFieldAngle(AUTO_AIM_ANGLE);
+            turret.enableAutoAim();
+            turret.updateAutoAim(heading);
+        }
+
+        // Wait for RPM to come within RPM_READY of target (or timeout)
+        timer.reset();
+        while (opMode.opModeIsActive() && timer.milliseconds() < RPM_WAIT_TIMEOUT_MS) {
+            if (shooterController.getRPM() >= targetRPM - RPM_READY) break;
+            sleep(20);
+        }
+    }
+
+    /**
+     * Parabolic shooting curve fitted to:
+     *   (28in, 3250 RPM, 0.0 ramp), (64in, 3450 RPM, 0.16), (100in, 3800 RPM, 0.3)
+     * Returns double[]{rpm, rampAngle}. Callers add RPM_READY when setting shooter target.
+     */
+    private double[] getShootingParamsForDistance(double distance) {
+        double rpm, rampAngle;
+        if (distance <= 28.0) {
+            rpm = 3250.0;
+            rampAngle = 0.0;
+        } else if (distance <= 110.0) {
+            double x = distance;
+            rpm = (25.0 / 432.0) * x * x + (25.0 / 108.0) * x + (86350.0 / 27.0);
+            rampAngle = (-1.0 / 129600.0) * x * x + (167.0 / 32400.0) * x + (-56.0 / 405.0);
+        } else {
+            rpm = 4200.0;
+            rampAngle = 0.35;
+        }
+        return new double[]{rpm, rampAngle};
     }
 
     /**
