@@ -266,7 +266,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                     && closeUpdateTimer.milliseconds() >= CLOSE_UPDATE_INTERVAL_MS) {
                 double distance = getDistanceToTarget();
                 double[] params = getShootingParamsForDistance(distance);
-                double autoRPM = params[0] + (distance >= 100.0 ? RPM_READY : 0) + rpmOffset;
+                double autoRPM = params[0] + (distance >= 110.0 ? RPM_READY : 0) + rpmOffset;
                 double autoRamp = params[1];
 
                 currentTargetRPM = autoRPM;
@@ -313,7 +313,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
         if (distance <= 28.0) {
             rpm = 3250.0;
             rampAngle = 0.0;
-        } else if (distance <= 100.0) {
+        } else if (distance <= 110.0) {
             double x = distance;
             // Quadratic fit: RPM through (28,3250), (64,3450), (100,3800)
             rpm = (25.0/432.0)*x*x + (25.0/108.0)*x + (86350.0/27.0);
@@ -792,7 +792,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             // Calculate distance to goal and get shooting parameters
             double distance = getDistanceToTarget();
             double[] params = getShootingParamsForDistance(distance);
-            double autoRPM = params[0] + (distance >= 100.0 ? RPM_READY : 0) + rpmOffset;
+            double autoRPM = params[0] + (distance >= 110.0 ? RPM_READY : 0) + rpmOffset;
             double autoRamp = params[1];
 
             // Apply the calculated RPM and ramp
