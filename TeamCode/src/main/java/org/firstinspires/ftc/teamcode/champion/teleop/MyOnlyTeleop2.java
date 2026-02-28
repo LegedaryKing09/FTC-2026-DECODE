@@ -84,11 +84,11 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     // Uptake gate threshold  = calculated RPM (exact)
 
     // === TARGET POSITION (where turret aims at) ===
-    public static double TARGET_X = 10.0;  // Field X coordinate to aim at
-    public static double TARGET_Y = 134.0;  // Field Y coordinate to aim at
+    public static double TARGET_X = 134.0;  // Field X coordinate to aim at
+    public static double TARGET_Y = 10.0;  // Field Y coordinate to aim at
 
     // === AUTON STARTING POSITION ===
-    public static double AUTON_START_X = 48;
+    public static double AUTON_START_X = 96;
     public static double AUTON_START_Y = 137;
     public static double AUTON_START_HEADING = 0.0;  // degrees
 
