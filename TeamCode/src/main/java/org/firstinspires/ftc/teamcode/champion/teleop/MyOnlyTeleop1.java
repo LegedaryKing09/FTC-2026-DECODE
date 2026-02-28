@@ -85,49 +85,49 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // *** Only B values are field-verified. Tune A and C empirically. ***
 
     public static double DIST_1 = 24.0;
-    public static double DIST_1_RPM_A = 2950;  public static double DIST_1_RAMP_A = 0.05;
+    public static double DIST_1_RPM_A = 3250;  public static double DIST_1_RAMP_A = 0.00;
     public static double DIST_1_RPM_B = 3250;  public static double DIST_1_RAMP_B = 0.00;
-    public static double DIST_1_RPM_C = 3550;  public static double DIST_1_RAMP_C = -0.05;
+    public static double DIST_1_RPM_C = 3250;  public static double DIST_1_RAMP_C = 0.00;
 
     public static double DIST_2 = 36.0;
-    public static double DIST_2_RPM_A = 3300;  public static double DIST_2_RAMP_A = 0.24;
+    public static double DIST_2_RPM_A = 3600;  public static double DIST_2_RAMP_A = 0.19;
     public static double DIST_2_RPM_B = 3600;  public static double DIST_2_RAMP_B = 0.19;
-    public static double DIST_2_RPM_C = 3900;  public static double DIST_2_RAMP_C = 0.14;
+    public static double DIST_2_RPM_C = 3600;  public static double DIST_2_RAMP_C = 0.19;
 
     public static double DIST_3 = 48.0;
-    public static double DIST_3_RPM_A = 3500;  public static double DIST_3_RAMP_A = 0.33;
+    public static double DIST_3_RPM_A = 3800;  public static double DIST_3_RAMP_A = 0.28;
     public static double DIST_3_RPM_B = 3800;  public static double DIST_3_RAMP_B = 0.28;
-    public static double DIST_3_RPM_C = 4100;  public static double DIST_3_RAMP_C = 0.23;
+    public static double DIST_3_RPM_C = 3800;  public static double DIST_3_RAMP_C = 0.28;
 
     public static double DIST_4 = 60.0;
-    public static double DIST_4_RPM_A = 3700;  public static double DIST_4_RAMP_A = 0.44;
+    public static double DIST_4_RPM_A = 4000;  public static double DIST_4_RAMP_A = 0.39;
     public static double DIST_4_RPM_B = 4000;  public static double DIST_4_RAMP_B = 0.39;
-    public static double DIST_4_RPM_C = 4300;  public static double DIST_4_RAMP_C = 0.34;
+    public static double DIST_4_RPM_C = 4000;  public static double DIST_4_RAMP_C = 0.39;
 
     public static double DIST_5 = 72.0;
-    public static double DIST_5_RPM_A = 3750;  public static double DIST_5_RAMP_A = 0.45;
+    public static double DIST_5_RPM_A = 4050;  public static double DIST_5_RAMP_A = 0.40;
     public static double DIST_5_RPM_B = 4050;  public static double DIST_5_RAMP_B = 0.40;
-    public static double DIST_5_RPM_C = 4350;  public static double DIST_5_RAMP_C = 0.35;
+    public static double DIST_5_RPM_C = 4050;  public static double DIST_5_RAMP_C = 0.40;
 
     public static double DIST_6 = 84.0;
-    public static double DIST_6_RPM_A = 3900;  public static double DIST_6_RAMP_A = 0.45;
+    public static double DIST_6_RPM_A = 4200;  public static double DIST_6_RAMP_A = 0.40;
     public static double DIST_6_RPM_B = 4200;  public static double DIST_6_RAMP_B = 0.40;
-    public static double DIST_6_RPM_C = 4500;  public static double DIST_6_RAMP_C = 0.35;
+    public static double DIST_6_RPM_C = 4200;  public static double DIST_6_RAMP_C = 0.40;
 
     public static double DIST_7 = 96.0;
-    public static double DIST_7_RPM_A = 3900;  public static double DIST_7_RAMP_A = 0.43;
+    public static double DIST_7_RPM_A = 4200;  public static double DIST_7_RAMP_A = 0.38;
     public static double DIST_7_RPM_B = 4200;  public static double DIST_7_RAMP_B = 0.38;
-    public static double DIST_7_RPM_C = 4500;  public static double DIST_7_RAMP_C = 0.33;
+    public static double DIST_7_RPM_C = 4200;  public static double DIST_7_RAMP_C = 0.38;
 
     public static double DIST_8 = 108.0;
-    public static double DIST_8_RPM_A = 4100;  public static double DIST_8_RAMP_A = 0.45;
+    public static double DIST_8_RPM_A = 4400;  public static double DIST_8_RAMP_A = 0.40;
     public static double DIST_8_RPM_B = 4400;  public static double DIST_8_RAMP_B = 0.40;
-    public static double DIST_8_RPM_C = 4700;  public static double DIST_8_RAMP_C = 0.35;
+    public static double DIST_8_RPM_C = 4400;  public static double DIST_8_RAMP_C = 0.40;
 
     public static double DIST_9 = 120.0;
-    public static double DIST_9_RPM_A = 3950;  public static double DIST_9_RAMP_A = 0.40;
+    public static double DIST_9_RPM_A = 4250;  public static double DIST_9_RAMP_A = 0.35;
     public static double DIST_9_RPM_B = 4250;  public static double DIST_9_RAMP_B = 0.35;
-    public static double DIST_9_RPM_C = 4550;  public static double DIST_9_RAMP_C = 0.30;
+    public static double DIST_9_RPM_C = 4250;  public static double DIST_9_RAMP_C = 0.35;
 
     public static double DIST_10 = 132.0;
     public static double DIST_10_RPM_A = 4200; public static double DIST_10_RAMP_A = 0.35;
