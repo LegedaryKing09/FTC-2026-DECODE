@@ -60,6 +60,7 @@ public class FarRedNew extends LinearOpMode {
     public static double THIRD_SPLINE_Y = -40.0;
     public static double PICK_UP_DISTANCE_X = 0.0;
     public static double PICK_UP_DISTANCE_Y = -45.0;
+    public static double LAST_SHOOTING_DISTANCE = -3.0;
 
     // turning angle parameters
     public static double INITIAL_ANGLE = 160.0;
@@ -217,7 +218,6 @@ public class FarRedNew extends LinearOpMode {
         autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
-        // TURN FOR SHOOTING
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action forward = tankDrive.actionBuilder(currentPose)
                 .lineToX(5)
@@ -228,6 +228,9 @@ public class FarRedNew extends LinearOpMode {
         autoMethod.intakeSpline(PICK_UP_DISTANCE_X, PICK_UP_DISTANCE_Y, PICKUP_ANGLE);
 
         autoMethod.intakeYForward(COMEBACK_X);
+
+        autoMethod.aimAndPrepareShot();
+        autoMethod.shootBalls();
 
         // GO BACK FOR SHOOTING (FIRST LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -248,7 +251,7 @@ public class FarRedNew extends LinearOpMode {
         Actions.runBlocking(Backward);
 
         // AUTO AIM AND SHOOT (FIRST LINE)
-//        autoMethod.autoAimTurretLeft();
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -263,7 +266,7 @@ public class FarRedNew extends LinearOpMode {
         Actions.runBlocking(Backward2);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-//        autoMethod.autoAimTurretLeft();
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -272,14 +275,13 @@ public class FarRedNew extends LinearOpMode {
         // GO BACK FOR SHOOTING (THIRD LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward3 = tankDrive.actionBuilder(currentPose)
-                .setReversed(true)
-                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y ), Math.toRadians(INITIAL_ANGLE))
+                .lineToY(LAST_SHOOTING_DISTANCE)
                 .build();
         Actions.runBlocking(Backward3);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-//        autoMethod.autoAimTurretLeft();
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
-        
+
     }
 }

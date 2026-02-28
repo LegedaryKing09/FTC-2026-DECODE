@@ -311,7 +311,7 @@ public class AutonMethods {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         // 1. Spline
         Action moveForward = tankDrive.actionBuilder(currentPose)
-                .lineToY(currentPose.position.y + distance)
+                .lineToY(distance)
                 .build();
 
         // Create a custom action that combines RoadRunner movement with intake control
