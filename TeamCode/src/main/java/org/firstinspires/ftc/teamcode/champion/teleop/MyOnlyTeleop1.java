@@ -112,11 +112,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     // Higher (1000ms) = smoother PID but sluggish response when driving.
     public static double CLOSE_UPDATE_INTERVAL_MS = 250.0;
 
-    // === RAMP FREEZE AFTER SHOT ===
-    // After a ball clears the uptake switch, ramp updates are paused for this long.
-    // Prevents the ramp from readjusting in response to the RPM dip during launch.
-    public static double RAMP_FREEZE_DURATION_MS = 250.0;
-
     // === BALL DETECTION ===
     // Switch reads 3.3V when not pressed, 0V when pressed (ball detected)
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
@@ -146,11 +141,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime loopTimer = new ElapsedTime();
     private final ElapsedTime closeUpdateTimer = new ElapsedTime();
-    private final ElapsedTime rampFreezeTimer = new ElapsedTime();
-
-    // Ramp freeze state (set when a ball passes through the uptake switch)
-    private boolean rampFrozen = false;
-    private boolean lastBallPresent = false;
 
     // === GAMEPAD 1 BUTTON STATES ===
     private boolean lastRB1 = false;
@@ -267,21 +257,6 @@ public class MyOnlyTeleop1 extends LinearOpMode {
                 }
             }
 
-            // === BALL-PASSED DETECTION: freeze ramp briefly after each shot ===
-            // Detects the falling edge on the uptake switch (ball leaves the switch).
-            // Prevents the ramp from readjusting in response to the RPM dip during launch.
-            if (uptakeSwitch != null) {
-                boolean ballPresent = uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD;
-                if (lastBallPresent && !ballPresent) {
-                    rampFrozen = true;
-                    rampFreezeTimer.reset();
-                }
-                lastBallPresent = ballPresent;
-            }
-            if (rampFrozen && rampFreezeTimer.milliseconds() >= RAMP_FREEZE_DURATION_MS) {
-                rampFrozen = false;
-            }
-
             // === AUTO ZONE SWITCHING: Only recalculate when robot is nearly stopped ===
             // This lets the shooter PID settle before shooting and reduces battery drain.
             double driveSpeed = Math.abs(gamepad1.left_stick_y) + Math.abs(gamepad1.right_stick_x);
@@ -296,7 +271,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
 
                 currentTargetRPM = autoRPM;
                 if (shooter != null) shooter.setTargetRPM(autoRPM);
-                if (ramp != null && !rampFrozen) ramp.setTargetAngle(autoRamp);
+                if (ramp != null) ramp.setTargetAngle(autoRamp);
 
                 closeUpdateTimer.reset();
             }
