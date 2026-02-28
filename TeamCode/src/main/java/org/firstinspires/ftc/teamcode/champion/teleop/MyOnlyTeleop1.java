@@ -434,7 +434,7 @@ public class MyOnlyTeleop1 extends LinearOpMode {
             ramp = rampB + t * (rampC - rampB);
         }
 
-        return new double[]{rpmA + 100, ramp};  // target RPM = threshold + 100, ramp = interpolated
+        return new double[]{rpmA + 200, ramp};  // target RPM = threshold + 100, ramp = interpolated
     }
 
     /**
