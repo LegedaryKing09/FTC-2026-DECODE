@@ -96,13 +96,19 @@ public class AutonMethods {
     public static long RPM_WAIT_TIMEOUT_MS = 2000;
 
     public void shootBalls() {
-        // Aim turret at shoot target using current heading
+        // Aim turret at SHOOT_TARGET using field-corrected position + heading — same transform as cleanup()
         if (turret != null) {
-            double heading = Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                    + AUTON_START_HEADING;
-            turret.setFieldAngle(AUTO_AIM_ANGLE);
+            double fieldX = AUTON_START_X, fieldY = AUTON_START_Y;
+            double heading = AUTON_START_HEADING;  // fallback: no rotation from start
+            try {
+                Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
+                fieldX = AUTON_START_X + rawPose.position.y;   // SWAP_XY
+                fieldY = AUTON_START_Y - rawPose.position.x;   // SWAP_XY + NEGATE
+                heading = AUTON_START_HEADING + Math.toDegrees(rawPose.heading.toDouble());  // same as cleanup() fieldHeading
+            } catch (Exception e) { /* use defaults */ }
+            turret.setTarget(SHOOT_TARGET_X, SHOOT_TARGET_Y);
             turret.enableAutoAim();
-            turret.updateAutoAim(heading);
+            turret.updateAutoAim(fieldX, fieldY, heading);
         }
 
         // Wait for RPM stabilization
@@ -548,13 +554,15 @@ public class AutonMethods {
      *   >110in → RPM 4200+RPM_READY, ramp 0.35
      */
     public void aimAndPrepareShot() {
-        // Get field-corrected position (same transform as cleanup())
+        // Get field-corrected position + heading — identical transform to cleanup()
         double fieldX = AUTON_START_X;
         double fieldY = AUTON_START_Y;
+        double aimHeading = AUTON_START_HEADING;  // fallback: no rotation from start
         try {
             Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-            fieldX = AUTON_START_X + rawPose.position.y;
-            fieldY = AUTON_START_Y - rawPose.position.x;
+            fieldX = AUTON_START_X + rawPose.position.y;   // SWAP_XY
+            fieldY = AUTON_START_Y - rawPose.position.x;   // SWAP_XY + NEGATE
+            aimHeading = AUTON_START_HEADING + Math.toDegrees(rawPose.heading.toDouble());  // same as cleanup() fieldHeading
         } catch (Exception e) { /* fall back to start position */ }
 
         // Distance to shooting target
@@ -571,18 +579,11 @@ public class AutonMethods {
         shooterController.setTargetRPM(targetRPM);
         if (rampController != null) rampController.setTargetAngle(targetRamp);
 
-        // Aim turret
+        // Aim turret: target-tracking mode, matching teleop's updateAutoAim(x, y, heading) call
         if (turret != null) {
-            double heading;
-            try {
-                heading = Math.toDegrees(tankDrive.pinpointLocalizer.getPose().heading.toDouble())
-                        + AUTON_START_HEADING;
-            } catch (Exception e) {
-                heading = AUTON_START_HEADING;
-            }
-            turret.setFieldAngle(AUTO_AIM_ANGLE);
+            turret.setTarget(SHOOT_TARGET_X, SHOOT_TARGET_Y);
             turret.enableAutoAim();
-            turret.updateAutoAim(heading);
+            turret.updateAutoAim(fieldX, fieldY, aimHeading);
         }
 
         // Wait for RPM to come within RPM_READY of target (or timeout)
