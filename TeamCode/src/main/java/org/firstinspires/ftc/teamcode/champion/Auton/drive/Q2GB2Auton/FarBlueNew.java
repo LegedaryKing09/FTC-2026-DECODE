@@ -24,7 +24,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "FB From MeepMeep - 12 BALLS", group = "Test")
+@Autonomous(name = "FB - 12 BALLS", group = "Test")
 public class FarBlueNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
@@ -46,20 +46,20 @@ public class FarBlueNew extends LinearOpMode {
     // ==================================
 
     // Shooter settings
-    public static double CONSTANT_SHOOTER_RPM = 3400.0;
-    public static double CONSTANT_RAMP_ANGLE = 0.0;
+    public static double CONSTANT_SHOOTER_RPM = 4300.0;
+    public static double CONSTANT_RAMP_ANGLE = 0.34;
     // Distance parameters
-    public static double COMEBACK_X = 8.0;
+    public static double COMEBACK_X = -8.0;
     public static double INITIAL_X = 5.0;
     public static double INITIAL_Y = 0.0;
     public static double SPLINE_Y = 43.0;
-    public static double SPLINE_X = 28.0;
-    public static double SECOND_SPLINE_X = 48.0;
+    public static double SPLINE_X = 32.0;
+    public static double SECOND_SPLINE_X = 52.0;
     public static double SECOND_SPLINE_Y = 40.0;
-    public static double THIRD_SPLINE_X = 67.0;
+    public static double THIRD_SPLINE_X = 72.0;
     public static double THIRD_SPLINE_Y = 40.0;
     public static double PICK_UP_DISTANCE_X = 0.0;
-    public static double PICK_UP_DISTANCE_Y = 45.0;
+    public static double PICK_UP_DISTANCE_Y = -45.0;
     public static double LAST_SHOOTING_DISTANCE = 3.0;
 
     // turning angle parameters
@@ -102,9 +102,12 @@ public class FarBlueNew extends LinearOpMode {
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
             autoMethod.telemetry = telemetry;
-            AutonMethods.AUTON_START_X = 0;
-            AutonMethods.AUTON_START_Y = 0;
+            AutonMethods.AUTON_START_X = 96;
+            AutonMethods.AUTON_START_Y = 137;
             AutonMethods.AUTON_START_HEADING = 0;
+            AutonMethods.SHOOT_TARGET_X = 134;
+            AutonMethods.SHOOT_TARGET_Y = 10;
+            AutonMethods.useHeadingOnlyAim = true;
         } catch (Exception e){
             //
         }
@@ -118,9 +121,6 @@ public class FarBlueNew extends LinearOpMode {
         shooterController.setTargetRPM(CONSTANT_SHOOTER_RPM);
         shooterController.startShooting();
         autoMethod.startShooterThread();
-
-        // Enable turret auto-aim
-        autoMethod.autoAimTurretLeft();
 
         sleep(100);
 
@@ -231,7 +231,7 @@ public class FarBlueNew extends LinearOpMode {
 //
 //        autoMethod.aimAndPrepareShot();
 //        autoMethod.shootBalls();
-////
+//
 //        // GO BACK FOR SHOOTING (FIRST LINE)
 //        currentPose = tankDrive.pinpointLocalizer.getPose();
 //        Action RETURN = tankDrive.actionBuilder(currentPose)
@@ -246,7 +246,7 @@ public class FarBlueNew extends LinearOpMode {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y ), Math.toRadians(INITIAL_ANGLE))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
 
@@ -272,16 +272,20 @@ public class FarBlueNew extends LinearOpMode {
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
 
-        // GO BACK FOR SHOOTING (THIRD LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action Backward3 = tankDrive.actionBuilder(currentPose)
+        Action LASTSHOOT = tankDrive.actionBuilder(currentPose)
                 .lineToY(LAST_SHOOTING_DISTANCE)
                 .build();
-        Actions.runBlocking(Backward3);
+        Actions.runBlocking(LASTSHOOT);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
         autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action LEAVE = tankDrive.actionBuilder(currentPose)
+                .lineToY(LAST_SHOOTING_DISTANCE + 30)
+                .build();
+        Actions.runBlocking(LEAVE);
     }
 }

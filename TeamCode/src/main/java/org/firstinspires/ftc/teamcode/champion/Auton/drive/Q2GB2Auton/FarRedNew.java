@@ -24,7 +24,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "FR From MeepMeep - 12 BALLS", group = "Test")
+@Autonomous(name = "FR - 12 BALLS", group = "Test")
 public class FarRedNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
@@ -121,9 +121,6 @@ public class FarRedNew extends LinearOpMode {
         shooterController.setTargetRPM(CONSTANT_SHOOTER_RPM);
         shooterController.startShooting();
         autoMethod.startShooterThread();
-
-        // Enable turret auto-aim
-        autoMethod.autoAimTurretLeft();
 
         sleep(100);
 
@@ -249,7 +246,7 @@ public class FarRedNew extends LinearOpMode {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y ), Math.toRadians(INITIAL_ANGLE))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
 
@@ -272,9 +269,23 @@ public class FarRedNew extends LinearOpMode {
         autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
-        // SPLINE FOR INTAKE (SECOND LINE)
+        // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
 
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action LASTSHOOT = tankDrive.actionBuilder(currentPose)
+                .lineToY(LAST_SHOOTING_DISTANCE)
+                .build();
+        Actions.runBlocking(LASTSHOOT);
 
+        // AUTO AIM AND SHOOT (SECOND LINE)
+        autoMethod.aimAndPrepareShot();
+        autoMethod.shootBalls();
+
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action LEAVE = tankDrive.actionBuilder(currentPose)
+                .lineToY(LAST_SHOOTING_DISTANCE - 30)
+                .build();
+        Actions.runBlocking(LEAVE);
     }
 }

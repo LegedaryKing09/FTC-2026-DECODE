@@ -4,7 +4,6 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.tuning;
 //import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.CB.HEADING_CORRECTION_MAX_VEL;
 //import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.CB.HEADING_STABLE_SAMPLES;
 //import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.CB.HEADING_TIMEOUT_MS;
-import static org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.NewPathingForCB.SPLINE_Y;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
@@ -15,7 +14,7 @@ import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton.CB;
+
 import org.firstinspires.ftc.teamcode.champion.controller.AutoTankDrive;;
 
 @Config

@@ -52,10 +52,10 @@ public class CloseBlueNew extends LinearOpMode {
     public static double INITIAL_BACKWARD = 30.0;
     public static double SPLINE_X = 38.0;
     public static double SPLINE_Y = -40.0;
-    public static double SECOND_SPLINE_X = 48.0;
-    public static double SECOND_SPLINE_Y = -30.0;
-    public static double THIRD_SPLINE_X = 58.0;
-    public static double THIRD_SPLINE_Y = -48.0;
+    public static double SECOND_SPLINE_X = 58.0;
+    public static double SECOND_SPLINE_Y = -60.0;
+    public static double THIRD_SPLINE_X = 78.0;
+    public static double THIRD_SPLINE_Y = -80.0;
     public static double GOBACK_SPLINE_X = 38.0;
     public static double GOBACK_SPLINE_Y = 0.0;
 
