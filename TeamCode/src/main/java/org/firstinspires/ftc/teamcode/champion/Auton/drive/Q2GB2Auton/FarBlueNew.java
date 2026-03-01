@@ -75,6 +75,8 @@ public class FarBlueNew extends LinearOpMode {
     public boolean intakeModeActive = false;
     public boolean uptakeStoppedBySwitch = false;
 
+    public static double servoValue = 0.23;
+
     @Override
     public void runOpMode() {
         initializeRobot();
@@ -214,28 +216,7 @@ public class FarBlueNew extends LinearOpMode {
 
     private void executeAutonomousSequence() {
 
-
-//        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
-//        Action forward = tankDrive.actionBuilder(currentPose)
-//                .lineToX(5)
-//                .build();
-//        Actions.runBlocking(forward);
-//
-//        // GO FOR PICKUP
-//        autoMethod.intakeSpline(PICK_UP_DISTANCE_X, PICK_UP_DISTANCE_Y, PICKUP_ANGLE);
-//
-//        autoMethod.intakeYForward(COMEBACK_X);
-//
-//        autoMethod.aimAndPrepareShot();
-//        autoMethod.shootBalls();
-//
-//        // GO BACK FOR SHOOTING (FIRST LINE)
-//        currentPose = tankDrive.pinpointLocalizer.getPose();
-//        Action RETURN = tankDrive.actionBuilder(currentPose)
-//                .turnTo(Math.toRadians(RETURN_ANGLE))
-//                .build();
-//        Actions.runBlocking(RETURN);
-
+        turret.setServoPosition(servoValue);
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
@@ -249,6 +230,7 @@ public class FarBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
+        turret.setServoPosition(servoValue);
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -262,23 +244,12 @@ public class FarBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward2);
 
+        turret.setServoPosition(servoValue);
         autoMethod.shootBalls();
         
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
 
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action LASTSHOOT = tankDrive.actionBuilder(currentPose)
-                .lineToY(LAST_SHOOTING_DISTANCE)
-                .build();
-        Actions.runBlocking(LASTSHOOT);
 
-        // AUTO AIM AND SHOOT (THIRD LINE)
-
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action LEAVE = tankDrive.actionBuilder(currentPose)
-                .lineToY(LAST_SHOOTING_DISTANCE + 30)
-                .build();
-        Actions.runBlocking(LEAVE);
     }
 }
