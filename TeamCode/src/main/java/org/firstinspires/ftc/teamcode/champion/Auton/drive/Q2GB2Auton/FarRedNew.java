@@ -54,22 +54,23 @@ public class FarRedNew extends LinearOpMode {
     public static double INITIAL_Y = 0.0;
     public static double SPLINE_Y = -43.0;
     public static double SPLINE_X = 32.0;
-    public static double SECOND_SPLINE_X = 52.0;
-    public static double SECOND_SPLINE_Y = -40.0;
-    public static double THIRD_SPLINE_X = 72.0;
-    public static double THIRD_SPLINE_Y = -40.0;
+//    public static double SECOND_SPLINE_X = 52.0;
+//    public static double SECOND_SPLINE_Y = -40.0;
+//    public static double THIRD_SPLINE_X = 72.0;
+//    public static double THIRD_SPLINE_Y = -40.0;
     public static double PICK_UP_DISTANCE_X = 0.0;
     public static double PICK_UP_DISTANCE_Y = -45.0;
-    public static double LAST_SHOOTING_DISTANCE = -3.0;
+//    public static double LAST_SHOOTING_DISTANCE = -3.0;
 
     // turning angle parameters
     public static double INITIAL_ANGLE = 160.0;
     public static double SPLINE_ANGLE = -80.0;
-    public static double SECOND_SPLINE_ANGLE = -80.0;
-    public static double THIRD_SPLINE_ANGLE = -80.0;
+//    public static double SECOND_SPLINE_ANGLE = -80.0;
+//    public static double THIRD_SPLINE_ANGLE = -80.0;
     public static double PICKUP_ANGLE = -90.0;
     public static double RETURN_ANGLE = 0.0;
     public static double servoValue = 0.44;
+    public static double servoValue2 = 0.44;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -217,32 +218,33 @@ public class FarRedNew extends LinearOpMode {
 
         turret.setServoPosition(servoValue);
         autoMethod.shootBalls();
-//        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
-//        Action forward = tankDrive.actionBuilder(currentPose)
-//                .lineToX(5)
-//                .build();
-//        Actions.runBlocking(forward);
-//
-//        // GO FOR PICKUP
-//        autoMethod.intakeSpline(PICK_UP_DISTANCE_X, PICK_UP_DISTANCE_Y, PICKUP_ANGLE);
-//
-//        autoMethod.intakeYForward(COMEBACK_X);
-//
-//        autoMethod.aimAndPrepareShot();
-//        autoMethod.shootBalls();
-//
-//        // GO BACK FOR SHOOTING (FIRST LINE)
-//        currentPose = tankDrive.pinpointLocalizer.getPose();
-//        Action RETURN = tankDrive.actionBuilder(currentPose)
-//                .turnTo(Math.toRadians(RETURN_ANGLE))
-//                .build();
-//        Actions.runBlocking(RETURN);
+
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action forward = tankDrive.actionBuilder(currentPose)
+                .lineToX(5)
+                .build();
+        Actions.runBlocking(forward);
+
+        // GO FOR PICKUP
+        autoMethod.intakeSpline(PICK_UP_DISTANCE_X, PICK_UP_DISTANCE_Y, PICKUP_ANGLE);
+
+        autoMethod.intakeYForward(COMEBACK_X);
+
+        // GO BACK FOR SHOOTING (FIRST LINE)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action RETURN = tankDrive.actionBuilder(currentPose)
+                .turnTo(Math.toRadians(RETURN_ANGLE))
+                .build();
+        Actions.runBlocking(RETURN);
+
+        turret.setServoPosition(servoValue2);
+        autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
 
         // GO BACK FOR SHOOTING (FIRST LINE)
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
                 .splineTo(new Vector2d(INITIAL_X,INITIAL_Y), Math.toRadians(INITIAL_ANGLE))
