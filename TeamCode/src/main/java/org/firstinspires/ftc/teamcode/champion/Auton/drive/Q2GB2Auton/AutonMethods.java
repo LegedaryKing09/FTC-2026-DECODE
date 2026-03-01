@@ -155,39 +155,21 @@ public class AutonMethods {
         transferController.setState(true);
         transferController.update();
 
-        // Shooting loop:
-        // - Uptake only runs when RPM >= target and ball is present
-        // - Runs for SHOOT_DURATION_MS total, then exits
-        ElapsedTime shootTimer = new ElapsedTime();
-        shootTimer.reset();
+        // Uptake timed sequence: on 2s, off 1s, on 2s, off 1s, on 2s
+        uptakeController.reversed = false;
+        long[] uptakePattern = {2000, 1000, 2000, 1000, 2000};
+        boolean[] uptakeOn = {true, false, true, false, true};
 
-        while (opMode.opModeIsActive() && shootTimer.milliseconds() < SHOOT_DURATION_MS) {
-            boolean rpmReady = shooterController.getRPM() >= shooterController.getTargetRPM() - 100;
-            boolean ballsInBot = (uptakeSwitch != null && uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD);
-
-            // Gate uptake on RPM + ball presence
-            if (rpmReady && ballsInBot) {
-                if (!uptakeController.isActive()) {
-                    uptakeController.reversed = false;
-                    uptakeController.setState(true);
-                }
-            } else if (rpmReady) {
-                // RPM ready but no ball — stop uptake after gap
-                if (uptakeController.isActive()) {
-                    uptakeController.setState(false);
-                }
-            } else {
-                // RPM not ready — stop uptake
-                if (uptakeController.isActive()) {
-                    uptakeController.setState(false);
-                }
-            }
-
-            intakeController.update();
-            transferController.update();
+        for (int i = 0; i < uptakePattern.length && opMode.opModeIsActive(); i++) {
+            uptakeController.setState(uptakeOn[i]);
             uptakeController.update();
-
-            sleep(30);
+            long stepEnd = System.currentTimeMillis() + uptakePattern[i];
+            while (opMode.opModeIsActive() && System.currentTimeMillis() < stepEnd) {
+                intakeController.update();
+                transferController.update();
+                uptakeController.update();
+                sleep(30);
+            }
         }
 
         // Restore full power and stop
