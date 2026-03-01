@@ -77,7 +77,7 @@ public class AutonMethods {
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 280;
-    public static long BALL_GAP_MS = 500;  // Gap allowed between consecutive balls at uptake
+    public static long BALL_GAP_MS = 2000;  // Gap allowed between consecutive balls at uptake
     public static long NO_BALL_TIMEOUT_MS = 3000;  // Exit shooting if no ball for this long
     public static double FAR_RPM = 4100;
     public static double FAR_RAMP = 0.34;
@@ -104,7 +104,6 @@ public class AutonMethods {
     /**
      * Aims the turret, sets distance-based RPM/ramp, waits for shooter speed, then feeds
      * all balls through. Replaces the former aimAndPrepareShot() + shootBalls() pair.
-     *
      * Heading fix: PinpointLocalizer uses YAW_SCALAR=1 (raw heading, CCW positive) while
      * teleop's SixWheelDriveController uses YAW_SCALAR=-1 (negated, CW positive). Since
      * TurretController.INVERT_HEADING=true is calibrated to the teleop convention, the
@@ -115,12 +114,8 @@ public class AutonMethods {
         double fieldX = AUTON_START_X;
         double fieldY = AUTON_START_Y;
         double aimHeading = AUTON_START_HEADING;
-        double rawX = 0, rawY = 0, rawHeading = 0;
         try {
             Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-            rawX = rawPose.position.x;
-            rawY = rawPose.position.y;
-            rawHeading = Math.toDegrees(rawPose.heading.toDouble());
             fieldX = AUTON_START_X + rawPose.position.y;   // SWAP_XY
             fieldY = AUTON_START_Y - rawPose.position.x;   // SWAP_XY + NEGATE
             // Use + sign: INVERT_HEADING in TurretController already handles negation
@@ -138,27 +133,6 @@ public class AutonMethods {
         double targetRamp = params[1];
         shooterController.setTargetRPM(targetRPM);
         if (rampController != null) rampController.setTargetAngle(targetRamp);
-
-        // === DEBUG TELEMETRY ===
-        telemetry.addData("--- RAW PINPOINT ---", "");
-        telemetry.addData("Raw X", "%.2f", rawX);
-        telemetry.addData("Raw Y", "%.2f", rawY);
-        telemetry.addData("Raw Heading", "%.1f°", rawHeading);
-        telemetry.addData("--- FIELD POSITION ---", "");
-        telemetry.addData("Start", "(%.1f, %.1f) h=%.1f°", AUTON_START_X, AUTON_START_Y, AUTON_START_HEADING);
-        telemetry.addData("Field Pos", "(%.1f, %.1f)", fieldX, fieldY);
-        telemetry.addData("Aim Heading", "%.1f°", aimHeading);
-        telemetry.addData("--- TURRET CALC ---", "");
-        telemetry.addData("Target", "(%.1f, %.1f)", SHOOT_TARGET_X, SHOOT_TARGET_Y);
-        telemetry.addData("dx/dy", "(%.1f, %.1f)", dx, dy);
-        telemetry.addData("Distance", "%.1f in", distance);
-        telemetry.addData("Field Angle", "%.1f°", fieldAngle);
-        telemetry.addData("--- SHOOTING ---", "");
-        telemetry.addData("RPM Target", "%.0f", targetRPM);
-        telemetry.addData("Ramp Angle", "%.2f", targetRamp);
-        telemetry.addData("HeadingOnly", useHeadingOnlyAim);
-        telemetry.update();
-        sleep(2000);  // Pause to read — REMOVE after debugging
 
         // Aim turret
         if (turret != null) {
@@ -199,7 +173,7 @@ public class AutonMethods {
                     uptakeController.setState(true);
                 }
                 noBallTimer.reset();  // ball is present, reset no-ball timer
-            } else if (rpmReady && !ballsInBot) {
+            } else if (rpmReady) {
                 // RPM ready but no ball — allow 500ms gap for next ball
                 if (uptakeController.isActive() && noBallTimer.milliseconds() >= BALL_GAP_MS) {
                     uptakeController.setState(false);
@@ -628,9 +602,8 @@ public class AutonMethods {
             rpm = 3250.0;
             rampAngle = 0.0;
         } else if (distance <= 108.0) {
-            double x = distance;
-            rpm = (25.0 / 432.0) * x * x + (25.0 / 108.0) * x + (86350.0 / 27.0);
-            rampAngle = (-1.0 / 129600.0) * x * x + (167.0 / 32400.0) * x + (-56.0 / 405.0);
+            rpm = (25.0 / 432.0) * distance * distance + (25.0 / 108.0) * distance + (86350.0 / 27.0);
+            rampAngle = (-1.0 / 129600.0) * distance * distance + (167.0 / 32400.0) * distance + (-56.0 / 405.0);
         } else {
             rpm = FAR_RPM;
             rampAngle = FAR_RAMP;
