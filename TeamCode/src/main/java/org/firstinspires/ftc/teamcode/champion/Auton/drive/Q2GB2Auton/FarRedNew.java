@@ -23,7 +23,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "FR - 3 BALLS", group = "Test")
+@Autonomous(name = "FAR RED 3", group = "Test")
 public class FarRedNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;

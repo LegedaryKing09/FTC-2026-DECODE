@@ -59,8 +59,8 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  * X Button:       Toggle RPM BOOST (+150 RPM for low battery compensation)
  */
 @Config
-@TeleOp(name = "Undefeated Super Powerful Teleop Blue", group = "Competition")
-public class MyOnlyTeleop1 extends LinearOpMode {
+@TeleOp(name = "Final Teleop Blue", group = "Competition")
+public class FinalBlueTeleop extends LinearOpMode {
 
     // === PRESETS ===
     // Y button manual override (disables auto, locks to these values)

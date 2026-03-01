@@ -24,7 +24,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "FB - 12 BALLS", group = "Test")
+@Autonomous(name = "FAR BLUE 12", group = "Test")
 public class FarBlueNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
