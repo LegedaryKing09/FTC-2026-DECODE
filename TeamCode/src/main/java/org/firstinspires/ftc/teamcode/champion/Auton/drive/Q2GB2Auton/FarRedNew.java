@@ -37,7 +37,7 @@ public class FarRedNew extends LinearOpMode {
     NewAutonController autonController;
     AutoTankDrive tankDrive;
     TurretController turret;
-    AutonMethods autoMethod;
+    FarRedMethods autoMethod;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -88,7 +88,7 @@ public class FarRedNew extends LinearOpMode {
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
-            autoMethod = new AutonMethods(
+            autoMethod = new FarRedMethods(
                     this,
                     driveController,
                     transferController,
@@ -107,7 +107,6 @@ public class FarRedNew extends LinearOpMode {
             AutonMethods.AUTON_START_HEADING = 0;
             AutonMethods.SHOOT_TARGET_X = 134;
             AutonMethods.SHOOT_TARGET_Y = 10;
-            AutonMethods.useHeadingOnlyAim = false;
         } catch (Exception e){
             //
         }
@@ -215,8 +214,7 @@ public class FarRedNew extends LinearOpMode {
 
     private void executeAutonomousSequence() {
 
-        autoMethod.aimAndShoot();
-
+        autoMethod.shootBalls();
 //        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 //        Action forward = tankDrive.actionBuilder(currentPose)
 //                .lineToX(5)
@@ -249,8 +247,7 @@ public class FarRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
-        // AUTO AIM AND SHOOT (FIRST LINE)
-        autoMethod.aimAndShoot();
+        autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
         autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
@@ -263,24 +260,22 @@ public class FarRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward2);
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.aimAndShoot();
+        autoMethod.shootBalls();
 
-        // SPLINE FOR INTAKE (THIRD LINE)
-        autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
 
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action LASTSHOOT = tankDrive.actionBuilder(currentPose)
-                .lineToY(LAST_SHOOTING_DISTANCE)
-                .build();
-        Actions.runBlocking(LASTSHOOT);
+//        // SPLINE FOR INTAKE (THIRD LINE)
+//        autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
+//
+//        currentPose = tankDrive.pinpointLocalizer.getPose();
+//        Action LASTSHOOT = tankDrive.actionBuilder(currentPose)
+//                .lineToY(LAST_SHOOTING_DISTANCE)
+//                .build();
+//        Actions.runBlocking(LASTSHOOT);
 
-        // AUTO AIM AND SHOOT (THIRD LINE)
-        autoMethod.aimAndShoot();
 
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action LEAVE = tankDrive.actionBuilder(currentPose)
-                .lineToY(LAST_SHOOTING_DISTANCE - 30)
+                .lineToX( 40)
                 .build();
         Actions.runBlocking(LEAVE);
     }

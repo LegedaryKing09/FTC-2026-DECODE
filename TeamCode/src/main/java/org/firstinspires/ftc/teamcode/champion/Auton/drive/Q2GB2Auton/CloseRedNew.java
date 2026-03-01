@@ -37,7 +37,7 @@ public class CloseRedNew extends LinearOpMode {
     NewAutonController autonController;
     AutoTankDrive tankDrive;
     TurretController turret;
-    AutonMethods autoMethod;
+    CloseBlueMethods autoMethod;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -86,7 +86,7 @@ public class CloseRedNew extends LinearOpMode {
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
-            autoMethod = new AutonMethods(
+            autoMethod = new CloseBlueMethods(
                     this,
                     driveController,
                     transferController,
@@ -105,7 +105,6 @@ public class CloseRedNew extends LinearOpMode {
             AutonMethods.AUTON_START_HEADING = -135;
             AutonMethods.SHOOT_TARGET_X = 10;
             AutonMethods.SHOOT_TARGET_Y = 10;
-            AutonMethods.useHeadingOnlyAim = false;
         } catch (Exception e){
             //
         }
@@ -223,15 +222,13 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Initial_Forward);
 
-
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action turn = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(TURNING_ANGLE))
                 .build();
         Actions.runBlocking(turn);
-
-
-        autoMethod.aimAndShoot();
+        
+        autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(FIRST_SPLINE_X, FIRST_SPLINE_Y, THIRD_SPLINE_ANGLE);
@@ -244,9 +241,7 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward3);
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-
-        autoMethod.aimAndShoot();
+        autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
@@ -259,8 +254,8 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
-        autoMethod.aimAndShoot();
-
+        autoMethod.shootBalls();
+        
         // SPLINE FOR INTAKE (SECOND LINE)
         autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
 
@@ -272,9 +267,7 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward2);
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-//        autoMethod.autoAimTurretLeft();
-        autoMethod.aimAndShoot();
+        autoMethod.shootBalls();
 
         // GO BACK FOR SHOOTING (SECOND LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
