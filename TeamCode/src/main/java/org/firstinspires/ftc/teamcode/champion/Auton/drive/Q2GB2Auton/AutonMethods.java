@@ -78,7 +78,7 @@ public class AutonMethods {
     // Timing parameters
     public static long INTAKE_TIME_MS = 280;
     public static long BALL_GAP_MS = 2000;  // Gap allowed between consecutive balls at uptake
-    public static long NO_BALL_TIMEOUT_MS = 3000;  // Exit shooting if no ball for this long
+    public static long SHOOT_DURATION_MS = 5000;  // Total shooting duration
     public static double FAR_RPM = 4100;
     public static double FAR_RAMP = 0.34;
     private final ElapsedTime timer = new ElapsedTime();
@@ -156,14 +156,13 @@ public class AutonMethods {
         transferController.update();
 
         // Shooting loop:
-        // - Uptake only runs when RPM >= target
-        // - Ball switch detects balls; 500ms gap allowed between consecutive balls
-        // - If no ball detected for 3 seconds continuously, exit to next sequence
-        ElapsedTime noBallTimer = new ElapsedTime();
-        noBallTimer.reset();
+        // - Uptake only runs when RPM >= target and ball is present
+        // - Runs for SHOOT_DURATION_MS total, then exits
+        ElapsedTime shootTimer = new ElapsedTime();
+        shootTimer.reset();
 
-        while (opMode.opModeIsActive()) {
-            boolean rpmReady = shooterController.getRPM() >= shooterController.getTargetRPM();
+        while (opMode.opModeIsActive() && shootTimer.milliseconds() < SHOOT_DURATION_MS) {
+            boolean rpmReady = shooterController.getRPM() >= shooterController.getTargetRPM() - 100;
             boolean ballsInBot = (uptakeSwitch != null && uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD);
 
             // Gate uptake on RPM + ball presence
@@ -172,10 +171,9 @@ public class AutonMethods {
                     uptakeController.reversed = false;
                     uptakeController.setState(true);
                 }
-                noBallTimer.reset();  // ball is present, reset no-ball timer
             } else if (rpmReady) {
-                // RPM ready but no ball — allow 500ms gap for next ball
-                if (uptakeController.isActive() && noBallTimer.milliseconds() >= BALL_GAP_MS) {
+                // RPM ready but no ball — stop uptake after gap
+                if (uptakeController.isActive()) {
                     uptakeController.setState(false);
                 }
             } else {
@@ -183,14 +181,6 @@ public class AutonMethods {
                 if (uptakeController.isActive()) {
                     uptakeController.setState(false);
                 }
-            }
-
-            // Exit if no ball for 3 seconds
-            if (ballsInBot) {
-                noBallTimer.reset();
-            }
-            if (noBallTimer.milliseconds() >= NO_BALL_TIMEOUT_MS) {
-                break;
             }
 
             intakeController.update();
