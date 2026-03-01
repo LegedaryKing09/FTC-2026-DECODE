@@ -67,7 +67,7 @@ public class CloseRedNew extends LinearOpMode {
     public static double THIRD_SPLINE_ANGLE = 135.0;
     public static double GOBACK_ANGLE = -90.0;
     public static double TURNING_ANGLE = 90.0;
-    public static double TURRET_NUDGE = 0.05;
+    public static double TURRET_NUDGE = 0.005;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -104,9 +104,8 @@ public class CloseRedNew extends LinearOpMode {
             AutonMethods.AUTON_START_X = 18.5;
             AutonMethods.AUTON_START_Y = 16;
             AutonMethods.AUTON_START_HEADING = -135;
-            AutonMethods.SHOOT_TARGET_X = 10;
+            AutonMethods.SHOOT_TARGET_X = 134;
             AutonMethods.SHOOT_TARGET_Y = 10;
-            AutonMethods.useHeadingOnlyAim = false;
         } catch (Exception e){
             //
         }
@@ -121,8 +120,6 @@ public class CloseRedNew extends LinearOpMode {
         shooterController.startShooting();
         autoMethod.startShooterThread();
 
-        // Enable turret auto-aim
-        autoMethod.autoAimTurretLeft();
 
         sleep(100);
 
@@ -248,7 +245,7 @@ public class CloseRedNew extends LinearOpMode {
         // AUTO AIM AND SHOOT (SECOND LINE)
         if (turret != null) {
             double initialPos = turret.getCommandedPosition();
-            turret.setServoPosition(initialPos + TURRET_NUDGE);
+            turret.setServoPosition(initialPos - TURRET_NUDGE);
         }
         autoMethod.shootBalls();
 
@@ -264,7 +261,7 @@ public class CloseRedNew extends LinearOpMode {
         Actions.runBlocking(Backward);
         if (turret != null) {
             double initialPos = turret.getCommandedPosition();
-            turret.setServoPosition(initialPos + TURRET_NUDGE);
+            turret.setServoPosition(initialPos - TURRET_NUDGE);
         }
         autoMethod.shootBalls();
 
@@ -280,7 +277,7 @@ public class CloseRedNew extends LinearOpMode {
         Actions.runBlocking(Backward2);
         if (turret != null) {
             double initialPos = turret.getCommandedPosition();
-            turret.setServoPosition(initialPos + TURRET_NUDGE);
+            turret.setServoPosition(initialPos - TURRET_NUDGE);
         }
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();

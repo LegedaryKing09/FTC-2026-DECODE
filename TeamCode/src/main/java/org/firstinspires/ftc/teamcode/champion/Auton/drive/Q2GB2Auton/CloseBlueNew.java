@@ -65,7 +65,9 @@ public class CloseBlueNew extends LinearOpMode {
     public static double THIRD_SPLINE_ANGLE = -135.0;
     public static double GOBACK_ANGLE = 90.0;
     public static double TURNING_ANGLE = -90.0;
-    public static double TURRET_NUDGE = 0.02;
+    public static double FIRST_TURRET_NUDGE = 0.02;
+    public static double SEC_TURRET_NUDGE = 0.02;
+    public static double THIRD_TURRET_NUDGE = 0.02;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -240,7 +242,7 @@ public class CloseBlueNew extends LinearOpMode {
         Actions.runBlocking(Backward);
         if (turret != null) {
             double initialPos = turret.getCommandedPosition();
-            turret.setServoPosition(initialPos + TURRET_NUDGE);
+            turret.setServoPosition(initialPos + FIRST_TURRET_NUDGE);
         }
         autoMethod.shootBalls();
 
@@ -260,7 +262,7 @@ public class CloseBlueNew extends LinearOpMode {
         // Nudge turret CW for 3rd line
         if (turret != null) {
             double initialPos = turret.getCommandedPosition();
-            turret.setServoPosition(initialPos + TURRET_NUDGE);
+            turret.setServoPosition(initialPos + SEC_TURRET_NUDGE);
         }
         autoMethod.shootBalls();
 
@@ -280,7 +282,7 @@ public class CloseBlueNew extends LinearOpMode {
         // Nudge turret CW for 3rd line
         if (turret != null) {
             double initialPos = turret.getCommandedPosition();
-            turret.setServoPosition(initialPos + TURRET_NUDGE);
+            turret.setServoPosition(initialPos + THIRD_TURRET_NUDGE);
         }
         autoMethod.shootBalls();
 
