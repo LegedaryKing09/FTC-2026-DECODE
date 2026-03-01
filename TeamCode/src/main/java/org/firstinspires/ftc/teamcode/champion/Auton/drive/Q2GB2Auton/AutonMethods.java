@@ -77,10 +77,7 @@ public class AutonMethods {
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 280;
-    public static long BALL_GAP_MS = 2000;  // Gap allowed between consecutive balls at uptake
-    public static long SHOOT_DURATION_MS = 5000;  // Total shooting duration
-    public static double FAR_RPM = 4100;
-    public static double FAR_RAMP = 0.34;
+    public static long SHOOT_TIME_MS = 3000;
     private final ElapsedTime timer = new ElapsedTime();
 
     // Thread for continuous shooter PID
@@ -92,92 +89,77 @@ public class AutonMethods {
     // turret angles
     public static double AUTO_AIM_ANGLE = 180.0;
 
-    // shooting target field coordinates (used for both turret aim AND distance-based RPM/ramp)
+    // shooting target field coordinates (for distance-based RPM/ramp)
     public static double SHOOT_TARGET_X = 10.0;
     public static double SHOOT_TARGET_Y = 10.0;
+    public static double RPM_READY = 200.0;
+    public static long RPM_WAIT_TIMEOUT_MS = 2000;
 
-    // When true, turret calculates field angle to target once from position,
-    // then uses heading-only compensation (for far auton).
-    // When false, uses full position tracking every shot (for close auton).
-    public static boolean useHeadingOnlyAim = false;
-
-    /**
-     * Aims the turret, sets distance-based RPM/ramp, waits for shooter speed, then feeds
-     * all balls through. Replaces the former aimAndPrepareShot() + shootBalls() pair.
-     * Heading fix: PinpointLocalizer uses YAW_SCALAR=1 (raw heading, CCW positive) while
-     * teleop's SixWheelDriveController uses YAW_SCALAR=-1 (negated, CW positive). Since
-     * TurretController.INVERT_HEADING=true is calibrated to the teleop convention, the
-     * heading is negated here to match.
-     */
-    public void aimAndShoot() {
-        // Read pose once for consistent aim and distance calculation
-        double fieldX = AUTON_START_X;
-        double fieldY = AUTON_START_Y;
-        double aimHeading = AUTON_START_HEADING;
-        try {
-            Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-            fieldX = AUTON_START_X + rawPose.position.y;   // SWAP_XY
-            fieldY = AUTON_START_Y - rawPose.position.x;   // SWAP_XY + NEGATE
-            // Use + sign: INVERT_HEADING in TurretController already handles negation
-            aimHeading = AUTON_START_HEADING + Math.toDegrees(rawPose.heading.toDouble());
-        } catch (Exception e) { /* use start defaults */ }
-
-        // Distance-based RPM and ramp
-        double dx = SHOOT_TARGET_X - fieldX;
-        double dy = SHOOT_TARGET_Y - fieldY;
-        double distance = Math.sqrt(dx * dx + dy * dy);
-        double fieldAngle = Math.toDegrees(Math.atan2(-dx, -dy));
-
-        double[] params = getShootingParamsForDistance(distance);
-        double targetRPM = params[0];
-        double targetRamp = params[1];
-        shooterController.setTargetRPM(targetRPM);
-        if (rampController != null) rampController.setTargetAngle(targetRamp);
-
-        // Aim turret
+    public void shootBalls() {
+        // Aim turret at SHOOT_TARGET using field-corrected position + heading — same transform as cleanup()
         if (turret != null) {
-            if (useHeadingOnlyAim) {
-                turret.setFieldAngle(fieldAngle);
-                turret.enableAutoAim();
-                turret.updateAutoAim(aimHeading);
-            } else {
-                turret.setTarget(SHOOT_TARGET_X, SHOOT_TARGET_Y);
-                turret.enableAutoAim();
-                turret.updateAutoAim(fieldX, fieldY, aimHeading);
-            }
+            double fieldX = AUTON_START_X, fieldY = AUTON_START_Y;
+            double heading = AUTON_START_HEADING;  // fallback: no rotation from start
+            try {
+                Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
+                fieldX = AUTON_START_X + rawPose.position.y;   // SWAP_XY
+                fieldY = AUTON_START_Y - rawPose.position.x;   // SWAP_XY + NEGATE
+                heading = AUTON_START_HEADING + Math.toDegrees(rawPose.heading.toDouble());  // same as cleanup() fieldHeading
+            } catch (Exception e) { /* use defaults */ }
+            turret.setTarget(SHOOT_TARGET_X, SHOOT_TARGET_Y);
+            turret.enableAutoAim();
+            turret.updateAutoAim(fieldX, fieldY, heading);
         }
 
-        // Start intake at 50% and transfer at 75% — run throughout shooting
-        intakeController.power = -0.50;
+        // Wait for RPM stabilization
+        timer.reset();
+        while (opMode.opModeIsActive() && timer.milliseconds() < 200) {
+            if (Math.abs(shooterController.getRPM() - shooterController.getTargetRPM()) < 150) {
+                break;
+            }
+            sleep(20);
+        }
+
+        // Start ALL systems for shooting
         intakeController.setState(true);
         intakeController.update();
-        NewTransferController.power = -0.75;
+
         transferController.setState(true);
         transferController.update();
 
-        // Uptake timed sequence: on 2s, off 1s, on 2s, off 1s, on 2s
-        uptakeController.reversed = false;
-        long[] uptakePattern = {2000, 1000, 2000, 1000, 2000};
-        boolean[] uptakeOn = {true, false, true, false, true};
+        uptakeController.setState(true);
+        uptakeController.update();
 
-        for (int i = 0; i < uptakePattern.length && opMode.opModeIsActive(); i++) {
-            uptakeController.setState(uptakeOn[i]);
-            uptakeController.update();
-            long stepEnd = System.currentTimeMillis() + uptakePattern[i];
-            while (opMode.opModeIsActive() && System.currentTimeMillis() < stepEnd) {
-                intakeController.update();
-                transferController.update();
-                uptakeController.update();
-                sleep(30);
+        timer.reset();
+        int ballsShotCount = 0;
+        boolean lastBallState = false; // sensor reading from previous state - for counting exactly one for one ball
+
+        while (opMode.opModeIsActive() && timer.milliseconds() < SHOOT_TIME_MS) {
+            // Get current values
+            boolean ballDetected = isBallAtUptake();
+
+            // Count balls shot
+            if (ballDetected && !lastBallState) {
+                ballsShotCount++;
+                if (ballsShotCount >= 3) {
+                    sleep(200);  // Let last ball clear
+                    break;
+                }
+                sleep(3000);  // Wait for shooter to ramp back up before next shot
             }
+            lastBallState = ballDetected;
+
+            // Update all controllers to keep them running
+            intakeController.update();
+            transferController.update();
+            uptakeController.update();
+
+            sleep(30);
         }
 
-        // Restore full power and stop
-        intakeController.power = -1.0;
         intakeController.setState(false);
         intakeController.update();
 
-        NewTransferController.power = -1.0;
         transferController.setState(false);
         transferController.update();
 
@@ -562,6 +544,56 @@ public class AutonMethods {
         sleep(50);
     }
 
+    /**
+     * Aims the turret, sets distance-based RPM and ramp angle, then waits for shooter to
+     * reach speed. Call before shootBalls(). Assumes startShooterThread() is already running.
+     *
+     * Uses the same parabolic curve as Teleop:
+     *   28in  → RPM 3250, ramp 0.0
+     *   64in  → RPM 3450, ramp 0.16
+     *   100in → RPM 3800, ramp 0.3
+     *   >110in → RPM 4200+RPM_READY, ramp 0.35
+     */
+    public void aimAndPrepareShot() {
+        // Get field-corrected position + heading — identical transform to cleanup()
+        double fieldX = AUTON_START_X;
+        double fieldY = AUTON_START_Y;
+        double aimHeading = AUTON_START_HEADING;  // fallback: no rotation from start
+        try {
+            Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
+            fieldX = AUTON_START_X + rawPose.position.y;   // SWAP_XY
+            fieldY = AUTON_START_Y - rawPose.position.x;   // SWAP_XY + NEGATE
+            aimHeading = AUTON_START_HEADING + Math.toDegrees(rawPose.heading.toDouble());  // same as cleanup() fieldHeading
+        } catch (Exception e) { /* fall back to start position */ }
+
+        // Distance to shooting target
+        double dx = SHOOT_TARGET_X - fieldX;
+        double dy = SHOOT_TARGET_Y - fieldY;
+        double distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Distance-based RPM and ramp angle
+        double[] params = getShootingParamsForDistance(distance);
+        double targetRPM = params[0] + (distance >= 110.0 ? RPM_READY : 0);
+        double targetRamp = params[1];
+
+        // Apply RPM and ramp
+        shooterController.setTargetRPM(targetRPM);
+        if (rampController != null) rampController.setTargetAngle(targetRamp);
+
+        // Aim turret: target-tracking mode, matching teleop's updateAutoAim(x, y, heading) call
+        if (turret != null) {
+            turret.setTarget(SHOOT_TARGET_X, SHOOT_TARGET_Y);
+            turret.enableAutoAim();
+            turret.updateAutoAim(fieldX, fieldY, aimHeading);
+        }
+
+        // Wait for RPM to come within RPM_READY of target (or timeout)
+        timer.reset();
+        while (opMode.opModeIsActive() && timer.milliseconds() < RPM_WAIT_TIMEOUT_MS) {
+            if (shooterController.getRPM() >= targetRPM - RPM_READY) break;
+            sleep(20);
+        }
+    }
 
     /**
      * Parabolic shooting curve fitted to:
@@ -573,12 +605,13 @@ public class AutonMethods {
         if (distance <= 28.0) {
             rpm = 3250.0;
             rampAngle = 0.0;
-        } else if (distance <= 108.0) {
-            rpm = (25.0 / 432.0) * distance * distance + (25.0 / 108.0) * distance + (86350.0 / 27.0);
-            rampAngle = (-1.0 / 129600.0) * distance * distance + (167.0 / 32400.0) * distance + (-56.0 / 405.0);
+        } else if (distance <= 110.0) {
+            double x = distance;
+            rpm = (25.0 / 432.0) * x * x + (25.0 / 108.0) * x + (86350.0 / 27.0);
+            rampAngle = (-1.0 / 129600.0) * x * x + (167.0 / 32400.0) * x + (-56.0 / 405.0);
         } else {
-            rpm = FAR_RPM;
-            rampAngle = FAR_RAMP;
+            rpm = 4200.0;
+            rampAngle = 0.35;
         }
         return new double[]{rpm, rampAngle};
     }

@@ -192,9 +192,11 @@ public class FarRedNew extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
-        // Fire 3 balls over 10s with aiming
-        AutonMethods.SHOOT_DURATION_MS = 10000;
-        autoMethod.aimAndShoot();
+        // Set turret to fixed position manually
+        turret.setServoPosition(0.58);
+
+        // Fire 3 balls (3s ramp-up between each shot handled inside shootBalls)
+        autoMethod.shootBalls();
 
         // 10s pause
         sleep(10000);
