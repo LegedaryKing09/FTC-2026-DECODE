@@ -357,7 +357,7 @@ public class TurretController {
     // INTERNAL: Servo hardware
     // =========================================================================
 
-    private void setServos(double position) {
+    public void setServos(double position) {
         servo1.setPosition(position);
         servo2.setPosition(position);
     }
