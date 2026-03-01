@@ -24,7 +24,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "CB - 12 BALLS", group = "Test")
+@Autonomous(name = "BLUE CLOSE 12", group = "Test")
 public class CloseBlueNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
