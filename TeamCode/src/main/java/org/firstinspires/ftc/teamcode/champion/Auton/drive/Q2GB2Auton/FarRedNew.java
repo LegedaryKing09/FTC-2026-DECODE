@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -23,7 +24,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "FAR RED 3", group = "Test")
+@Autonomous(name = "FR - 12 BALLS", group = "Test")
 public class FarRedNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
@@ -47,7 +48,28 @@ public class FarRedNew extends LinearOpMode {
     // Shooter settings
     public static double CONSTANT_SHOOTER_RPM = 4300.0;
     public static double CONSTANT_RAMP_ANGLE = 0.34;
-    public static double farAngle = 0.44;
+    // Distance parameters
+    public static double COMEBACK_X = -8.0;
+    public static double INITIAL_X = 5.0;
+    public static double INITIAL_Y = 0.0;
+    public static double SPLINE_Y = -43.0;
+    public static double SPLINE_X = 32.0;
+    public static double SECOND_SPLINE_X = 52.0;
+    public static double SECOND_SPLINE_Y = -40.0;
+    public static double THIRD_SPLINE_X = 72.0;
+    public static double THIRD_SPLINE_Y = -40.0;
+    public static double PICK_UP_DISTANCE_X = 0.0;
+    public static double PICK_UP_DISTANCE_Y = -45.0;
+    public static double LAST_SHOOTING_DISTANCE = -3.0;
+
+    // turning angle parameters
+    public static double INITIAL_ANGLE = 160.0;
+    public static double SPLINE_ANGLE = -80.0;
+    public static double SECOND_SPLINE_ANGLE = -80.0;
+    public static double THIRD_SPLINE_ANGLE = -80.0;
+    public static double PICKUP_ANGLE = -90.0;
+    public static double RETURN_ANGLE = 0.0;
+    public static double servoValue = 0.44;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -100,7 +122,7 @@ public class FarRedNew extends LinearOpMode {
         shooterController.startShooting();
         autoMethod.startShooterThread();
 
-        sleep(3000); // Let shooter rev up before shootBalls starts
+        sleep(100);
 
         // Execute autonomous sequence using RoadRunner
         executeAutonomousSequence();
@@ -192,20 +214,48 @@ public class FarRedNew extends LinearOpMode {
     }
 
     private void executeAutonomousSequence() {
-        // Set turret to fixed position manually
-        turret.setServoPosition(farAngle);
 
-        // Fire 3 balls (3s ramp-up between each shot handled inside shootBalls)
+        turret.setServoPosition(servoValue);
+        autoMethod.shootBalls();
+//        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+//        Action forward = tankDrive.actionBuilder(currentPose)
+//                .lineToX(5)
+//                .build();
+//        Actions.runBlocking(forward);
+//
+//        // GO FOR PICKUP
+//        autoMethod.intakeSpline(PICK_UP_DISTANCE_X, PICK_UP_DISTANCE_Y, PICKUP_ANGLE);
+//
+//        autoMethod.intakeYForward(COMEBACK_X);
+//
+//        autoMethod.aimAndPrepareShot();
+//        autoMethod.shootBalls();
+//
+//        // GO BACK FOR SHOOTING (FIRST LINE)
+//        currentPose = tankDrive.pinpointLocalizer.getPose();
+//        Action RETURN = tankDrive.actionBuilder(currentPose)
+//                .turnTo(Math.toRadians(RETURN_ANGLE))
+//                .build();
+//        Actions.runBlocking(RETURN);
+
+        // SPLINE FOR INTAKE (FIRST LINE)
+        autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
+
+        // GO BACK FOR SHOOTING (FIRST LINE)
+        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action Backward = tankDrive.actionBuilder(currentPose)
+                .setReversed(true)
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y), Math.toRadians(INITIAL_ANGLE))
+                .build();
+        Actions.runBlocking(Backward);
+
+        turret.setServoPosition(servoValue);
         autoMethod.shootBalls();
 
-        // 10s pause
-        sleep(10000);
-
-        // Move forward 30in
-        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action forward = tankDrive.actionBuilder(currentPose)
-                .lineToX(currentPose.position.x + 30)
+        currentPose = tankDrive.pinpointLocalizer.getPose();
+        Action LEAVE = tankDrive.actionBuilder(currentPose)
+                .lineToX(30)
                 .build();
-        Actions.runBlocking(forward);
+        Actions.runBlocking(LEAVE);
     }
 }
