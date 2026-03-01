@@ -71,8 +71,6 @@ public class CloseRedNew extends LinearOpMode {
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
-    public boolean intakeModeActive = false;
-    public boolean uptakeStoppedBySwitch = false;
 
     @Override
     public void runOpMode() {
@@ -103,10 +101,8 @@ public class CloseRedNew extends LinearOpMode {
             autoMethod.telemetry = telemetry;
             AutonMethods.AUTON_START_X = 18.5;
             AutonMethods.AUTON_START_Y = 16;
-            AutonMethods.AUTON_START_HEADING = -135;
             AutonMethods.SHOOT_TARGET_X = 10;
             AutonMethods.SHOOT_TARGET_Y = 10;
-            AutonMethods.useHeadingOnlyAim = false;
         } catch (Exception e){
             //
         }
