@@ -24,7 +24,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "CB From MeepMeep - 12 BALLS", group = "Test")
+@Autonomous(name = "CB - 12 BALLS", group = "Test")
 public class CloseBlueNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
@@ -50,14 +50,14 @@ public class CloseBlueNew extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = 0.0;
     // Distance parameters
     public static double INITIAL_BACKWARD = 30.0;
-    public static double SPLINE_X = 38.0;
-    public static double SPLINE_Y = -40.0;
-    public static double SECOND_SPLINE_X = 58.0;
-    public static double SECOND_SPLINE_Y = -60.0;
-    public static double THIRD_SPLINE_X = 78.0;
-    public static double THIRD_SPLINE_Y = -80.0;
+    public static double SPLINE_X = 32.0;
+    public static double SPLINE_Y = -38.0;
+    public static double SECOND_SPLINE_X = 40.0;
+    public static double SECOND_SPLINE_Y = -53.0;
+    public static double THIRD_SPLINE_X = 48.0;
+    public static double THIRD_SPLINE_Y = -63.0;
     public static double GOBACK_SPLINE_X = 38.0;
-    public static double GOBACK_SPLINE_Y = 0.0;
+    public static double GOBACK_SPLINE_Y = -5.0;
 
     // turning angle parameters
     public static double SPLINE_ANGLE = -135.0;
@@ -98,9 +98,12 @@ public class CloseBlueNew extends LinearOpMode {
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
             autoMethod.telemetry = telemetry;
-            AutonMethods.AUTON_START_X = 0;
-            AutonMethods.AUTON_START_Y = 0;
-            AutonMethods.AUTON_START_HEADING = 0;
+            AutonMethods.AUTON_START_X = 18.5;
+            AutonMethods.AUTON_START_Y = 16;
+            AutonMethods.AUTON_START_HEADING = -135;
+            AutonMethods.SHOOT_TARGET_X = 10;
+            AutonMethods.SHOOT_TARGET_Y = 10;
+            AutonMethods.useHeadingOnlyAim = false;
         } catch (Exception e){
             //
         }
@@ -261,7 +264,7 @@ public class CloseBlueNew extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward3 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
+                .splineTo(new Vector2d(GOBACK_SPLINE_X+8,GOBACK_SPLINE_Y-5), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward3);
 

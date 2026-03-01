@@ -50,20 +50,20 @@ public class FarBlueNew extends LinearOpMode {
     public static double CONSTANT_RAMP_ANGLE = 0.34;
     // Distance parameters
     public static double COMEBACK_X = -8.0;
-    public static double INITIAL_X = 5.0;
-    public static double INITIAL_Y = 0.0;
-    public static double SPLINE_Y = 43.0;
-    public static double SPLINE_X = 32.0;
-    public static double SECOND_SPLINE_X = 52.0;
-    public static double SECOND_SPLINE_Y = 40.0;
-    public static double THIRD_SPLINE_X = 72.0;
-    public static double THIRD_SPLINE_Y = 40.0;
+    public static double INITIAL_X = 10.0;
+    public static double INITIAL_Y = -2.0;
+    public static double SPLINE_Y = 24.0;
+    public static double SPLINE_X = 16.0;
+    public static double SECOND_SPLINE_X = 33.0;
+    public static double SECOND_SPLINE_Y = 25.0;
+    public static double THIRD_SPLINE_X = 51.0;
+    public static double THIRD_SPLINE_Y = 30.0;
     public static double PICK_UP_DISTANCE_X = 0.0;
-    public static double PICK_UP_DISTANCE_Y = -45.0;
+    public static double PICK_UP_DISTANCE_Y = 45.0;
     public static double LAST_SHOOTING_DISTANCE = 3.0;
 
     // turning angle parameters
-    public static double INITIAL_ANGLE = 160.0;
+    public static double INITIAL_ANGLE = 180.0;
     public static double SPLINE_ANGLE = 80.0;
     public static double SECOND_SPLINE_ANGLE = 80.0;
     public static double THIRD_SPLINE_ANGLE = 80.0;
