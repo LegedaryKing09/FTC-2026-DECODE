@@ -145,6 +145,17 @@ public class FarBlueMethods {
                     sleep(200);  // Let last ball clear
                     break;
                 }
+                // Ball is at uptake — stop feeding until RPM recovers
+                uptakeController.setState(false);
+                uptakeController.update();
+                while (opMode.opModeIsActive() &&
+                        shooterController.getRPM() < shooterController.getTargetRPM() - RPM_READY) {
+                    intakeController.update();
+                    transferController.update();
+                    sleep(20);
+                }
+                uptakeController.setState(true);
+                uptakeController.update();
             }
             lastBallState = ballDetected;
 

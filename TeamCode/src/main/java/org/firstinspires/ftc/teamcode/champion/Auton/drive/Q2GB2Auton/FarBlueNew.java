@@ -69,6 +69,9 @@ public class FarBlueNew extends LinearOpMode {
     public static double THIRD_SPLINE_ANGLE = 80.0;
     public static double PICKUP_ANGLE = 90.0;
     public static double RETURN_ANGLE = 0.0;
+    public static double servoPos1 = 0.35;
+    public static double servoPos2 = 0.38;
+    public static double servoPos3 = 0.35;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -121,7 +124,7 @@ public class FarBlueNew extends LinearOpMode {
         shooterController.startShooting();
         autoMethod.startShooterThread();
 
-        sleep(100);
+        sleep(3000); // Let shooter rev up before shootBalls starts
 
         // Execute autonomous sequence using RoadRunner
         executeAutonomousSequence();
@@ -235,7 +238,7 @@ public class FarBlueNew extends LinearOpMode {
 //                .turnTo(Math.toRadians(RETURN_ANGLE))
 //                .build();
 //        Actions.runBlocking(RETURN);
-
+        turret.setServoPosition(servoPos1);
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
@@ -249,6 +252,7 @@ public class FarBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
+        turret.setServoPosition(servoPos2);
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -262,6 +266,7 @@ public class FarBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward2);
 
+        turret.setServoPosition(servoPos3);
         autoMethod.shootBalls();
         
         // SPLINE FOR INTAKE (THIRD LINE)
