@@ -85,7 +85,6 @@ public class FarRedNew extends LinearOpMode {
             AutonMethods.AUTON_START_HEADING = 0;
             AutonMethods.SHOOT_TARGET_X = 134;
             AutonMethods.SHOOT_TARGET_Y = 10;
-            AutonMethods.useHeadingOnlyAim = false;
         } catch (Exception e){
             //
         }

@@ -107,7 +107,6 @@ public class FarBlueNew extends LinearOpMode {
             AutonMethods.AUTON_START_HEADING = 0;
             AutonMethods.SHOOT_TARGET_X = 134;
             AutonMethods.SHOOT_TARGET_Y = 10;
-            AutonMethods.useHeadingOnlyAim = true;
         } catch (Exception e){
             //
         }
@@ -215,8 +214,6 @@ public class FarBlueNew extends LinearOpMode {
 
     private void executeAutonomousSequence() {
 
-        autoMethod.aimAndShoot();
-
 //        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 //        Action forward = tankDrive.actionBuilder(currentPose)
 //                .lineToX(5)
@@ -249,9 +246,6 @@ public class FarBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
-        // AUTO AIM AND SHOOT (FIRST LINE)
-        autoMethod.aimAndShoot();
-
         // SPLINE FOR INTAKE (SECOND LINE)
         autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
 
@@ -263,8 +257,6 @@ public class FarBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward2);
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.aimAndShoot();
 
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
@@ -274,9 +266,6 @@ public class FarBlueNew extends LinearOpMode {
                 .lineToY(LAST_SHOOTING_DISTANCE)
                 .build();
         Actions.runBlocking(LASTSHOOT);
-
-        // AUTO AIM AND SHOOT (THIRD LINE)
-        autoMethod.aimAndShoot();
 
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action LEAVE = tankDrive.actionBuilder(currentPose)

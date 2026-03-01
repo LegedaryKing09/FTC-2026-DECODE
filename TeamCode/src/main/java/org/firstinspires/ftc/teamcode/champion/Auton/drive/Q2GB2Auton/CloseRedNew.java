@@ -100,12 +100,12 @@ public class CloseRedNew extends LinearOpMode {
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
             autoMethod.telemetry = telemetry;
-            AutonMethods.AUTON_START_X = 18.5;
-            AutonMethods.AUTON_START_Y = 16;
-            AutonMethods.AUTON_START_HEADING = -135;
-            AutonMethods.SHOOT_TARGET_X = 10;
-            AutonMethods.SHOOT_TARGET_Y = 10;
-            AutonMethods.useHeadingOnlyAim = false;
+            AutonMethodsClose.AUTON_START_X = 18.5;
+            AutonMethodsClose.AUTON_START_Y = 16;
+            AutonMethodsClose.AUTON_START_HEADING = -135;
+            AutonMethodsClose.SHOOT_TARGET_X = 10;
+            AutonMethodsClose.SHOOT_TARGET_Y = 10;
+            AutonMethodsClose.useHeadingOnlyAim = false;
         } catch (Exception e){
             //
         }
@@ -230,9 +230,6 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(turn);
 
-
-        autoMethod.aimAndShoot();
-
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(FIRST_SPLINE_X, FIRST_SPLINE_Y, THIRD_SPLINE_ANGLE);
 
@@ -243,10 +240,6 @@ public class CloseRedNew extends LinearOpMode {
                 .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y-10), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward3);
-
-        // AUTO AIM AND SHOOT (SECOND LINE)
-
-        autoMethod.aimAndShoot();
 
         // SPLINE FOR INTAKE (FIRST LINE)
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
@@ -259,8 +252,6 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
-        autoMethod.aimAndShoot();
-
         // SPLINE FOR INTAKE (SECOND LINE)
         autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
 
@@ -271,10 +262,6 @@ public class CloseRedNew extends LinearOpMode {
                 .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward2);
-
-        // AUTO AIM AND SHOOT (SECOND LINE)
-//        autoMethod.autoAimTurretLeft();
-        autoMethod.aimAndShoot();
 
         // GO BACK FOR SHOOTING (SECOND LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
