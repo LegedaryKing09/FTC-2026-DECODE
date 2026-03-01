@@ -215,8 +215,7 @@ public class FarRedNew extends LinearOpMode {
 
     private void executeAutonomousSequence() {
 
-        autoMethod.aimAndPrepareShot();
-        autoMethod.shootBalls();
+        autoMethod.aimAndShoot();
 
 //        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 //        Action forward = tankDrive.actionBuilder(currentPose)
@@ -251,8 +250,7 @@ public class FarRedNew extends LinearOpMode {
         Actions.runBlocking(Backward);
 
         // AUTO AIM AND SHOOT (FIRST LINE)
-        autoMethod.aimAndPrepareShot();
-        autoMethod.shootBalls();
+        autoMethod.aimAndShoot();
 
         // SPLINE FOR INTAKE (SECOND LINE)
         autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
@@ -266,8 +264,7 @@ public class FarRedNew extends LinearOpMode {
         Actions.runBlocking(Backward2);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.aimAndPrepareShot();
-        autoMethod.shootBalls();
+        autoMethod.aimAndShoot();
 
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
@@ -278,9 +275,8 @@ public class FarRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(LASTSHOOT);
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-        autoMethod.aimAndPrepareShot();
-        autoMethod.shootBalls();
+        // AUTO AIM AND SHOOT (THIRD LINE)
+        autoMethod.aimAndShoot();
 
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action LEAVE = tankDrive.actionBuilder(currentPose)

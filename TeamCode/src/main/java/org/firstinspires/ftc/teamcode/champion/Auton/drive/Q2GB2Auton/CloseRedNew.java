@@ -224,8 +224,7 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(turn);
 
-        autoMethod.aimAndPrepareShot();
-        autoMethod.shootBalls();
+        autoMethod.aimAndShoot();
 
         // SPLINE FOR INTAKE (FIRST LINE)
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
@@ -238,8 +237,7 @@ public class CloseRedNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward);
 
-        autoMethod.aimAndPrepareShot();
-        autoMethod.shootBalls();
+        autoMethod.aimAndShoot();
 
         // SPLINE FOR INTAKE (SECOND LINE)
         autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
@@ -254,8 +252,7 @@ public class CloseRedNew extends LinearOpMode {
 
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();
-        autoMethod.aimAndPrepareShot();
-        autoMethod.shootBalls();
+        autoMethod.aimAndShoot();
 
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
@@ -270,8 +267,7 @@ public class CloseRedNew extends LinearOpMode {
 
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();
-        autoMethod.aimAndPrepareShot();
-        autoMethod.shootBalls();
+        autoMethod.aimAndShoot();
 
     }
 }
