@@ -95,7 +95,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     // === MANUAL ODOMETRY RESET POSITION (Driver 1 X button) ===
     // Set this to the known position where you place the robot if auton crashes.
     // Defaults to auton start position. Tune via Dashboard if different.
-    public static double RESET_X = 48;
+    public static double RESET_X = 96;
     public static double RESET_Y = 137;
     public static double RESET_HEADING = 0;  // degrees
 

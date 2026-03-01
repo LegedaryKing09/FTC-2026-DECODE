@@ -99,7 +99,6 @@ public class AutonMethodsClose {
     // When true, turret calculates field angle to target once from position,
     // then uses heading-only compensation (for far auton).
     // When false, uses full position tracking every shot (for close auton).
-    public static boolean useHeadingOnlyAim = false;
 
     /**
      * Sets distance-based RPM/ramp, then runs ALL systems at full power
