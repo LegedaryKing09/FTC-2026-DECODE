@@ -755,7 +755,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
         lastA2 = currentA2;
     }
     public static double DISTANCE_X = 134.0;  // Field X coordinate to aim at
-    public static double DISTANCE_Y = 134.0;  // Field Y coordinate to aim at
+    public static double DISTANCE_Y = 10.0;  // Field Y coordinate to aim at
     /**
      * Get distance from robot to target (in inches)
      */
