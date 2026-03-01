@@ -630,6 +630,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
             boolean rpmReady = shooter != null && shooter.getRPM() >= (currentTargetRPM - RPM_READY);
             if (rpmReady) {
                 if (uptake != null && !uptake.isActive()) {
+                    uptake.power = -1.0;  // Reset power in case ball detection left it at 0.15
                     uptake.reversed = false;
                     uptake.toggle();
                 }
