@@ -65,9 +65,9 @@ public class CloseBlueNew extends LinearOpMode {
     public static double THIRD_SPLINE_ANGLE = -135.0;
     public static double GOBACK_ANGLE = 90.0;
     public static double TURNING_ANGLE = -90.0;
-    public static double FIRST_TURRET_NUDGE = 0.02;
-    public static double SEC_TURRET_NUDGE = 0.02;
-    public static double THIRD_TURRET_NUDGE = 0.02;
+    public static double FIRST_TURRET = 0.6;
+    public static double SEC_TURRET = 0.61;
+    public static double THIRD_TURRET = 0.6;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -227,7 +227,7 @@ public class CloseBlueNew extends LinearOpMode {
                 .turnTo(Math.toRadians(TURNING_ANGLE))
                 .build();
         Actions.runBlocking(turn);
-
+        turret.setServoPosition(FIRST_TURRET);
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
@@ -240,10 +240,7 @@ public class CloseBlueNew extends LinearOpMode {
                 .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
-        if (turret != null) {
-            double initialPos = turret.getCommandedPosition();
-            turret.setServoPosition(initialPos + FIRST_TURRET_NUDGE);
-        }
+        turret.setServoPosition(SEC_TURRET);
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -260,31 +257,11 @@ public class CloseBlueNew extends LinearOpMode {
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();
         // Nudge turret CW for 3rd line
-        if (turret != null) {
-            double initialPos = turret.getCommandedPosition();
-            turret.setServoPosition(initialPos + SEC_TURRET_NUDGE);
-        }
+        turret.setServoPosition(THIRD_TURRET);
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
-
-        // GO BACK FOR SHOOTING (THIRD LINE)
-        currentPose = tankDrive.pinpointLocalizer.getPose();
-        Action Backward3 = tankDrive.actionBuilder(currentPose)
-                .setReversed(true)
-                .splineTo(new Vector2d(GOBACK_SPLINE_X+8,GOBACK_SPLINE_Y-5), Math.toRadians(GOBACK_ANGLE))
-                .build();
-        Actions.runBlocking(Backward3);
-
-        // AUTO AIM AND SHOOT (SECOND LINE)
-//        autoMethod.autoAimTurretLeft();
-        // Nudge turret CW for 3rd line
-        if (turret != null) {
-            double initialPos = turret.getCommandedPosition();
-            turret.setServoPosition(initialPos + THIRD_TURRET_NUDGE);
-        }
-        autoMethod.shootBalls();
 
     }
 }
