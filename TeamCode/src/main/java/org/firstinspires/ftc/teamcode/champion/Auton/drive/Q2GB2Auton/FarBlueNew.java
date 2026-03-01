@@ -24,7 +24,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "FAR BLUE 12", group = "Test")
+@Autonomous(name = "FB - 12 BALLS", group = "Test")
 public class FarBlueNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
@@ -37,7 +37,7 @@ public class FarBlueNew extends LinearOpMode {
     NewAutonController autonController;
     AutoTankDrive tankDrive;
     TurretController turret;
-    AutonMethods autoMethod;
+    FarBlueMethods autoMethod;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -88,7 +88,7 @@ public class FarBlueNew extends LinearOpMode {
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
-            autoMethod = new AutonMethods(
+            autoMethod = new FarBlueMethods(
                     this,
                     driveController,
                     transferController,
@@ -214,6 +214,7 @@ public class FarBlueNew extends LinearOpMode {
 
     private void executeAutonomousSequence() {
 
+
 //        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
 //        Action forward = tankDrive.actionBuilder(currentPose)
 //                .lineToX(5)
@@ -235,6 +236,8 @@ public class FarBlueNew extends LinearOpMode {
 //                .build();
 //        Actions.runBlocking(RETURN);
 
+        autoMethod.shootBalls();
+
         // SPLINE FOR INTAKE (FIRST LINE)
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
 
@@ -245,6 +248,8 @@ public class FarBlueNew extends LinearOpMode {
                 .splineTo(new Vector2d(INITIAL_X,INITIAL_Y), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
+
+        autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
         autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
@@ -257,7 +262,8 @@ public class FarBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward2);
 
-
+        autoMethod.shootBalls();
+        
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
 
@@ -266,6 +272,8 @@ public class FarBlueNew extends LinearOpMode {
                 .lineToY(LAST_SHOOTING_DISTANCE)
                 .build();
         Actions.runBlocking(LASTSHOOT);
+
+        // AUTO AIM AND SHOOT (THIRD LINE)
 
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action LEAVE = tankDrive.actionBuilder(currentPose)

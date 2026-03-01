@@ -25,7 +25,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-public class AutonMethods {
+public class FarRedMethods {
     private final LinearOpMode opMode;
     private final SixWheelDriveController driveController;
     private final NewTransferController transferController;
@@ -39,7 +39,7 @@ public class AutonMethods {
 
     public org.firstinspires.ftc.robotcore.external.Telemetry telemetry;
 
-    public AutonMethods(
+    public FarRedMethods(
             LinearOpMode opMode,
             SixWheelDriveController driveController,
             NewTransferController transferController,
@@ -65,9 +65,9 @@ public class AutonMethods {
     public AnalogInput uptakeSwitch;
 
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
-    public static double AUTON_START_X = 18.5;
-    public static double AUTON_START_Y = 16;
-    public static double AUTON_START_HEADING = -135;
+    public static double AUTON_START_X = 96;
+    public static double AUTON_START_Y = 137;
+    public static double AUTON_START_HEADING = 0;
 
     // turning perfection
     public static double HEADING_CORRECTION_KP = 0.005;
@@ -87,10 +87,10 @@ public class AutonMethods {
     public boolean uptakeStoppedBySwitch = false;
 
     // turret angles
-    public static double AUTO_AIM_ANGLE = 180.0;
+    public static double AUTO_AIM_ANGLE = 23.0;
 
     // shooting target field coordinates (for distance-based RPM/ramp)
-    public static double SHOOT_TARGET_X = 10.0;
+    public static double SHOOT_TARGET_X = 134.0;
     public static double SHOOT_TARGET_Y = 10.0;
     public static double RPM_READY = 200.0;
     public static long RPM_WAIT_TIMEOUT_MS = 2000;
@@ -145,7 +145,6 @@ public class AutonMethods {
                     sleep(200);  // Let last ball clear
                     break;
                 }
-                sleep(3000);  // Wait for shooter to ramp back up before next shot
             }
             lastBallState = ballDetected;
 

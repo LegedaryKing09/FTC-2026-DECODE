@@ -25,7 +25,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-public class AutonMethods {
+public class CloseBlueMethods {
     private final LinearOpMode opMode;
     private final SixWheelDriveController driveController;
     private final NewTransferController transferController;
@@ -39,7 +39,7 @@ public class AutonMethods {
 
     public org.firstinspires.ftc.robotcore.external.Telemetry telemetry;
 
-    public AutonMethods(
+    public CloseBlueMethods(
             LinearOpMode opMode,
             SixWheelDriveController driveController,
             NewTransferController transferController,
@@ -145,7 +145,6 @@ public class AutonMethods {
                     sleep(200);  // Let last ball clear
                     break;
                 }
-                sleep(3000);  // Wait for shooter to ramp back up before next shot
             }
             lastBallState = ballDetected;
 
