@@ -47,6 +47,7 @@ public class FarRedNew extends LinearOpMode {
     // Shooter settings
     public static double CONSTANT_SHOOTER_RPM = 4300.0;
     public static double CONSTANT_RAMP_ANGLE = 0.34;
+    public static double farAngle = 0.44;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -99,7 +100,7 @@ public class FarRedNew extends LinearOpMode {
         shooterController.startShooting();
         autoMethod.startShooterThread();
 
-        sleep(100);
+        sleep(3000); // Let shooter rev up before shootBalls starts
 
         // Execute autonomous sequence using RoadRunner
         executeAutonomousSequence();
@@ -192,7 +193,7 @@ public class FarRedNew extends LinearOpMode {
 
     private void executeAutonomousSequence() {
         // Set turret to fixed position manually
-        turret.setServoPosition(0.58);
+        turret.setServoPosition(farAngle);
 
         // Fire 3 balls (3s ramp-up between each shot handled inside shootBalls)
         autoMethod.shootBalls();
