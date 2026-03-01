@@ -65,6 +65,7 @@ public class CloseBlueNew extends LinearOpMode {
     public static double THIRD_SPLINE_ANGLE = -135.0;
     public static double GOBACK_ANGLE = 90.0;
     public static double TURNING_ANGLE = -90.0;
+    public static double TURRET_NUDGE = 0.02;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -100,10 +101,8 @@ public class CloseBlueNew extends LinearOpMode {
             autoMethod.telemetry = telemetry;
             AutonMethods.AUTON_START_X = 18.5;
             AutonMethods.AUTON_START_Y = 16;
-            AutonMethods.AUTON_START_HEADING = 135;
             AutonMethods.SHOOT_TARGET_X = 10;
             AutonMethods.SHOOT_TARGET_Y = 10;
-            AutonMethods.useHeadingOnlyAim = false;
         } catch (Exception e){
             //
         }
@@ -239,7 +238,10 @@ public class CloseBlueNew extends LinearOpMode {
                 .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
-
+        if (turret != null) {
+            double initialPos = turret.getCommandedPosition();
+            turret.setServoPosition(initialPos + TURRET_NUDGE);
+        }
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -255,6 +257,11 @@ public class CloseBlueNew extends LinearOpMode {
 
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();
+        // Nudge turret CW for 3rd line
+        if (turret != null) {
+            double initialPos = turret.getCommandedPosition();
+            turret.setServoPosition(initialPos + TURRET_NUDGE);
+        }
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -270,6 +277,11 @@ public class CloseBlueNew extends LinearOpMode {
 
         // AUTO AIM AND SHOOT (SECOND LINE)
 //        autoMethod.autoAimTurretLeft();
+        // Nudge turret CW for 3rd line
+        if (turret != null) {
+            double initialPos = turret.getCommandedPosition();
+            turret.setServoPosition(initialPos + TURRET_NUDGE);
+        }
         autoMethod.shootBalls();
 
     }
