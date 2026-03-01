@@ -48,24 +48,23 @@ public class CloseBlueNew extends LinearOpMode {
     // Shooter settings
     public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
-
     // Distance parameters
-    public static double INITIAL_BACKWARD = -25.0;
-    public static double SPLINE_X = -10.0;
-    public static double SPLINE_Y = 50.0;
-    public static double SECOND_SPLINE_X = 12.0;
-    public static double SECOND_SPLINE_Y = 50.0;
-    public static double THIRD_SPLINE_X = 34.0;
-    public static double THIRD_SPLINE_Y = 50.0;
-    public static double RETURNING_SPLINE_X = -26.0;
-    public static double RETURNING_SPLINE_Y = 20.0;
+    public static double INITIAL_BACKWARD = 30.0;
+    public static double SPLINE_X = 38.0;
+    public static double SPLINE_Y = -40.0;
+    public static double SECOND_SPLINE_X = 48.0;
+    public static double SECOND_SPLINE_Y = -30.0;
+    public static double THIRD_SPLINE_X = 58.0;
+    public static double THIRD_SPLINE_Y = -48.0;
+    public static double GOBACK_SPLINE_X = 38.0;
+    public static double GOBACK_SPLINE_Y = 0.0;
 
     // turning angle parameters
-    public static double TURNING_ANGLE = 0.0;
-    public static double SPLINE_ANGLE = -90.0;
-    public static double SECOND_SPLINE_ANGLE = -90.0;
-    public static double THIRD_SPLINE_ANGLE = -90.0;
-    public static double RETURNING_ANGLE = 45.0;
+    public static double SPLINE_ANGLE = -135.0;
+    public static double SECOND_SPLINE_ANGLE = -135.0;
+    public static double THIRD_SPLINE_ANGLE = -135.0;
+    public static double GOBACK_ANGLE = 90.0;
+    public static double TURNING_ANGLE = -90.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -81,7 +80,7 @@ public class CloseBlueNew extends LinearOpMode {
         driveController.getPinpoint().setYawScalar(driveController.YAW_SCALAR);
 
         // Define starting pose
-        Pose2d startPose = new Pose2d(-55, -55, Math.toRadians(-135));
+        Pose2d startPose = new Pose2d(0, 0, Math.toRadians(0));
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
@@ -99,13 +98,9 @@ public class CloseBlueNew extends LinearOpMode {
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
             autoMethod.telemetry = telemetry;
-            // Robot starting position in field coordinate system
-            AutonMethods.AUTON_START_X = 18.5;
-            AutonMethods.AUTON_START_Y = 16;
-            AutonMethods.AUTON_START_HEADING = -135;
-            // Shooting target field coordinates — must match teleop TARGET_X/Y (same field coord system)
-            AutonMethods.SHOOT_TARGET_X = 10.0;
-            AutonMethods.SHOOT_TARGET_Y = 10.0;
+            AutonMethods.AUTON_START_X = 0;
+            AutonMethods.AUTON_START_Y = 0;
+            AutonMethods.AUTON_START_HEADING = 0;
         } catch (Exception e){
             //
         }
@@ -119,6 +114,9 @@ public class CloseBlueNew extends LinearOpMode {
         shooterController.setTargetRPM(CONSTANT_SHOOTER_RPM);
         shooterController.startShooting();
         autoMethod.startShooterThread();
+
+        // Enable turret auto-aim
+        autoMethod.autoAimTurretLeft();
 
         sleep(100);
 
@@ -208,6 +206,7 @@ public class CloseBlueNew extends LinearOpMode {
                 autoShootController,
                 rampController
         );
+
     }
 
     private void executeAutonomousSequence() {
@@ -219,15 +218,14 @@ public class CloseBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Initial_Forward);
 
-        // SHOOT
-        autoMethod.aimAndPrepareShot();
-        autoMethod.shootBalls();
-
-        // TURN FOR SHOOTING
+        currentPose = tankDrive.pinpointLocalizer.getPose();
         Action turn = tankDrive.actionBuilder(currentPose)
-                .turnTo(TURNING_ANGLE)
+                .turnTo(Math.toRadians(TURNING_ANGLE))
                 .build();
         Actions.runBlocking(turn);
+
+        autoMethod.aimAndPrepareShot();
+        autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
@@ -236,11 +234,10 @@ public class CloseBlueNew extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(RETURNING_SPLINE_X,RETURNING_SPLINE_Y), Math.toRadians(RETURNING_ANGLE))
+                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
 
-        // SHOOT
         autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
@@ -251,11 +248,12 @@ public class CloseBlueNew extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(RETURNING_SPLINE_X,RETURNING_SPLINE_Y), Math.toRadians(RETURNING_ANGLE))
+                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward2);
 
-        // SHOOT
+        // AUTO AIM AND SHOOT (SECOND LINE)
+//        autoMethod.autoAimTurretLeft();
         autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
@@ -266,12 +264,14 @@ public class CloseBlueNew extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward3 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(RETURNING_SPLINE_X,RETURNING_SPLINE_Y), Math.toRadians(RETURNING_ANGLE))
+                .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward3);
 
-        // SHOOT
+        // AUTO AIM AND SHOOT (SECOND LINE)
+//        autoMethod.autoAimTurretLeft();
         autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
+
     }
 }

@@ -48,20 +48,27 @@ public class FarBlueNew extends LinearOpMode {
     // Shooter settings
     public static double CONSTANT_SHOOTER_RPM = 3400.0;
     public static double CONSTANT_RAMP_ANGLE = 0.0;
+    // Distance parameters
+    public static double COMEBACK_X = 8.0;
     public static double INITIAL_X = 5.0;
     public static double INITIAL_Y = 0.0;
-    public static double SPLINE_Y = 30.0;
-    public static double SPLINE_X = 15.0;
-    public static double SECOND_SPLINE_X = 38.0;
-    public static double SECOND_SPLINE_Y = 24.0;
-    public static double THIRD_SPLINE_X = 54.0;
-    public static double THIRD_SPLINE_Y = 25.0;
+    public static double SPLINE_Y = 43.0;
+    public static double SPLINE_X = 28.0;
+    public static double SECOND_SPLINE_X = 48.0;
+    public static double SECOND_SPLINE_Y = 40.0;
+    public static double THIRD_SPLINE_X = 67.0;
+    public static double THIRD_SPLINE_Y = 40.0;
+    public static double PICK_UP_DISTANCE_X = 0.0;
+    public static double PICK_UP_DISTANCE_Y = 45.0;
+    public static double LAST_SHOOTING_DISTANCE = 3.0;
 
     // turning angle parameters
-    public static double INITIAL_ANGLE = 180.0;
-    public static double SPLINE_ANGLE = 90.0;
-    public static double SECOND_SPLINE_ANGLE = 90.0;
-    public static double THIRD_SPLINE_ANGLE = 90.0;
+    public static double INITIAL_ANGLE = 160.0;
+    public static double SPLINE_ANGLE = 80.0;
+    public static double SECOND_SPLINE_ANGLE = 80.0;
+    public static double THIRD_SPLINE_ANGLE = 80.0;
+    public static double PICKUP_ANGLE = 90.0;
+    public static double RETURN_ANGLE = 0.0;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -208,9 +215,29 @@ public class FarBlueNew extends LinearOpMode {
 
     private void executeAutonomousSequence() {
 
-        // SHOOT
-//        autoMethod.autoAimTurretLeft();
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
+
+//        Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
+//        Action forward = tankDrive.actionBuilder(currentPose)
+//                .lineToX(5)
+//                .build();
+//        Actions.runBlocking(forward);
+//
+//        // GO FOR PICKUP
+//        autoMethod.intakeSpline(PICK_UP_DISTANCE_X, PICK_UP_DISTANCE_Y, PICKUP_ANGLE);
+//
+//        autoMethod.intakeYForward(COMEBACK_X);
+//
+//        autoMethod.aimAndPrepareShot();
+//        autoMethod.shootBalls();
+////
+//        // GO BACK FOR SHOOTING (FIRST LINE)
+//        currentPose = tankDrive.pinpointLocalizer.getPose();
+//        Action RETURN = tankDrive.actionBuilder(currentPose)
+//                .turnTo(Math.toRadians(RETURN_ANGLE))
+//                .build();
+//        Actions.runBlocking(RETURN);
 
         // SPLINE FOR INTAKE (FIRST LINE)
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
@@ -219,12 +246,12 @@ public class FarBlueNew extends LinearOpMode {
         Pose2d currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 1), Math.toRadians(INITIAL_ANGLE))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y ), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
 
         // AUTO AIM AND SHOOT (FIRST LINE)
-//        autoMethod.autoAimTurretLeft();
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -234,12 +261,12 @@ public class FarBlueNew extends LinearOpMode {
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward2 = tankDrive.actionBuilder(currentPose)
                 .setReversed(true)
-                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 3), Math.toRadians(INITIAL_ANGLE))
+                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y), Math.toRadians(INITIAL_ANGLE))
                 .build();
         Actions.runBlocking(Backward2);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-//        autoMethod.autoAimTurretLeft();
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -248,13 +275,12 @@ public class FarBlueNew extends LinearOpMode {
         // GO BACK FOR SHOOTING (THIRD LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action Backward3 = tankDrive.actionBuilder(currentPose)
-                .setReversed(true)
-                .splineTo(new Vector2d(INITIAL_X,INITIAL_Y + 5), Math.toRadians(INITIAL_ANGLE))
+                .lineToY(LAST_SHOOTING_DISTANCE)
                 .build();
         Actions.runBlocking(Backward3);
 
         // AUTO AIM AND SHOOT (SECOND LINE)
-//        autoMethod.autoAimTurretLeft();
+        autoMethod.aimAndPrepareShot();
         autoMethod.shootBalls();
 
     }
