@@ -239,9 +239,9 @@ public class FinalRedTeleop extends LinearOpMode {
             if (intakeModeActive && uptakeSwitch != null && !bypassBallDetection) {
                 double switchVoltage = uptakeSwitch.getVoltage();
                 if (switchVoltage < UPTAKE_SWITCH_THRESHOLD) {
-                    // Ball detected - run uptake in reverse at 0.15 power
+                    // Ball detected - run uptake in reverse at 0.3 power
                     if (uptake != null) {
-                        uptake.power = -0.15;
+                        uptake.power = -0.3;
                         uptake.reversed = true;
                         uptake.setState(true);
                     }
@@ -630,7 +630,7 @@ public class FinalRedTeleop extends LinearOpMode {
             boolean rpmReady = shooter != null && shooter.getRPM() >= (currentTargetRPM - RPM_READY);
             if (rpmReady) {
                 if (uptake != null && !uptake.isActive()) {
-                    uptake.power = -1.0;  // Reset power in case ball detection left it at 0.15
+                    uptake.power = -1.0;  // Reset power in case ball detection left it at 0.3
                     uptake.reversed = false;
                     uptake.toggle();
                 }
