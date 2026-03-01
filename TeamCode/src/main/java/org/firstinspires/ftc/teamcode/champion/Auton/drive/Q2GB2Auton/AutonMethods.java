@@ -96,22 +96,6 @@ public class AutonMethods {
     public static long RPM_WAIT_TIMEOUT_MS = 2000;
 
     public void shootBalls() {
-        // Aim turret at SHOOT_TARGET using field-corrected position + heading — same transform as cleanup()
-        if (turret != null) {
-            double fieldX = AUTON_START_X, fieldY = AUTON_START_Y;
-            double heading = AUTON_START_HEADING;  // fallback: no rotation from start
-            try {
-                Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-                fieldX = AUTON_START_X + rawPose.position.y;   // SWAP_XY
-                fieldY = AUTON_START_Y - rawPose.position.x;   // SWAP_XY + NEGATE
-                heading = AUTON_START_HEADING + Math.toDegrees(rawPose.heading.toDouble());  // same as cleanup() fieldHeading
-            } catch (Exception e) { /* use defaults */ }
-            turret.setTarget(SHOOT_TARGET_X, SHOOT_TARGET_Y);
-            turret.enableAutoAim();
-            turret.updateAutoAim(fieldX, fieldY, heading);
-        }
-
-        // Wait for RPM stabilization
         timer.reset();
         while (opMode.opModeIsActive() && timer.milliseconds() < 200) {
             if (Math.abs(shooterController.getRPM() - shooterController.getTargetRPM()) < 150) {
@@ -145,7 +129,17 @@ public class AutonMethods {
                     sleep(200);  // Let last ball clear
                     break;
                 }
-                sleep(3000);  // Wait for shooter to ramp back up before next shot
+                // Ball is at uptake — stop feeding until RPM recovers
+                uptakeController.setState(false);
+                uptakeController.update();
+                while (opMode.opModeIsActive() &&
+                        shooterController.getRPM() < shooterController.getTargetRPM() - RPM_READY) {
+                    intakeController.update();
+                    transferController.update();
+                    sleep(20);
+                }
+                uptakeController.setState(true);
+                uptakeController.update();
             }
             lastBallState = ballDetected;
 
