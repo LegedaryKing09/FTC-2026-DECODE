@@ -24,7 +24,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-@Autonomous(name = "CB - 12 BALLS", group = "Test")
+@Autonomous(name = "BLUE CLOSE 12", group = "Test")
 public class CloseBlueNew extends LinearOpMode {
     SixWheelDriveController driveController;
     NewTransferController transferController;
@@ -37,7 +37,7 @@ public class CloseBlueNew extends LinearOpMode {
     NewAutonController autonController;
     AutoTankDrive tankDrive;
     TurretController turret;
-    AutonMethods autoMethod;
+    AutonMethodsClose autoMethod;
 
     // Uptake ball detection switch
     private AnalogInput uptakeSwitch;
@@ -65,6 +65,9 @@ public class CloseBlueNew extends LinearOpMode {
     public static double THIRD_SPLINE_ANGLE = -135.0;
     public static double GOBACK_ANGLE = 90.0;
     public static double TURNING_ANGLE = -90.0;
+    public static double FIRST_TURRET_NUDGE = 0.02;
+    public static double SEC_TURRET_NUDGE = 0.02;
+    public static double THIRD_TURRET_NUDGE = 0.02;
 
     // ===========================
     private final ElapsedTime globalTimer = new ElapsedTime();
@@ -84,7 +87,7 @@ public class CloseBlueNew extends LinearOpMode {
         tankDrive = new AutoTankDrive(hardwareMap, startPose);
 
         try {
-            autoMethod = new AutonMethods(
+            autoMethod = new AutonMethodsClose(
                     this,
                     driveController,
                     transferController,
@@ -100,7 +103,6 @@ public class CloseBlueNew extends LinearOpMode {
             autoMethod.telemetry = telemetry;
             AutonMethods.AUTON_START_X = 18.5;
             AutonMethods.AUTON_START_Y = 16;
-            AutonMethods.AUTON_START_HEADING = -135;
             AutonMethods.SHOOT_TARGET_X = 10;
             AutonMethods.SHOOT_TARGET_Y = 10;
         } catch (Exception e){
@@ -118,7 +120,7 @@ public class CloseBlueNew extends LinearOpMode {
         autoMethod.startShooterThread();
 
         // Enable turret auto-aim
-        autoMethod.autoAimTurretLeft();
+
 
         sleep(100);
 
@@ -238,7 +240,10 @@ public class CloseBlueNew extends LinearOpMode {
                 .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
-
+        if (turret != null) {
+            double initialPos = turret.getCommandedPosition();
+            turret.setServoPosition(initialPos + FIRST_TURRET_NUDGE);
+        }
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
@@ -252,6 +257,13 @@ public class CloseBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward2);
 
+        // AUTO AIM AND SHOOT (SECOND LINE)
+//        autoMethod.autoAimTurretLeft();
+        // Nudge turret CW for 3rd line
+        if (turret != null) {
+            double initialPos = turret.getCommandedPosition();
+            turret.setServoPosition(initialPos + SEC_TURRET_NUDGE);
+        }
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
@@ -265,6 +277,14 @@ public class CloseBlueNew extends LinearOpMode {
                 .build();
         Actions.runBlocking(Backward3);
 
+        // AUTO AIM AND SHOOT (SECOND LINE)
+//        autoMethod.autoAimTurretLeft();
+        // Nudge turret CW for 3rd line
+        if (turret != null) {
+            double initialPos = turret.getCommandedPosition();
+            turret.setServoPosition(initialPos + THIRD_TURRET_NUDGE);
+        }
         autoMethod.shootBalls();
+
     }
 }

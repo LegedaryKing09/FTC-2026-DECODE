@@ -59,8 +59,8 @@ import org.firstinspires.ftc.teamcode.champion.PoseStorage;
  * X Button:       Toggle RPM BOOST (+150 RPM for low battery compensation)
  */
 @Config
-@TeleOp(name = "Undefeated Super Powerful Teleop Red", group = "Competition")
-public class MyOnlyTeleop2 extends LinearOpMode {
+@TeleOp(name = "Final Teleop Red", group = "Competition")
+public class FinalRedTeleop extends LinearOpMode {
 
     // === PRESETS ===
     // Y button manual override (disables auto, locks to these values)
@@ -95,7 +95,7 @@ public class MyOnlyTeleop2 extends LinearOpMode {
     // === MANUAL ODOMETRY RESET POSITION (Driver 1 X button) ===
     // Set this to the known position where you place the robot if auton crashes.
     // Defaults to auton start position. Tune via Dashboard if different.
-    public static double RESET_X = 48;
+    public static double RESET_X = 96;
     public static double RESET_Y = 137;
     public static double RESET_HEADING = 0;  // degrees
 

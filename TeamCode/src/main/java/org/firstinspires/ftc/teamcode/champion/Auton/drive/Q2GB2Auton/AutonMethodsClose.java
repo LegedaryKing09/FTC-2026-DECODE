@@ -25,7 +25,7 @@ import org.firstinspires.ftc.teamcode.champion.controller.NewRampController;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 @Config
-public class AutonMethods {
+public class AutonMethodsClose {
     private final LinearOpMode opMode;
     private final SixWheelDriveController driveController;
     private final NewTransferController transferController;
@@ -39,7 +39,7 @@ public class AutonMethods {
 
     public org.firstinspires.ftc.robotcore.external.Telemetry telemetry;
 
-    public AutonMethods(
+    public AutonMethodsClose(
             LinearOpMode opMode,
             SixWheelDriveController driveController,
             NewTransferController transferController,
@@ -67,7 +67,7 @@ public class AutonMethods {
     public static double UPTAKE_SWITCH_THRESHOLD = 1.5;
     public static double AUTON_START_X = 18.5;
     public static double AUTON_START_Y = 16;
-    public static double AUTON_START_HEADING = -135;
+    public static double AUTON_START_HEADING = -135.0;
 
     // turning perfection
     public static double HEADING_CORRECTION_KP = 0.005;
@@ -77,7 +77,10 @@ public class AutonMethods {
 
     // Timing parameters
     public static long INTAKE_TIME_MS = 280;
-    public static long SHOOT_TIME_MS = 3000;
+    public static long BALL_GAP_MS = 2000;  // Gap allowed between consecutive balls at uptake
+    public static long SHOOT_DURATION_MS = 5000;  // Total shooting duration
+    public static double FAR_RPM = 4100;
+    public static double FAR_RAMP = 0.34;
     private final ElapsedTime timer = new ElapsedTime();
 
     // Thread for continuous shooter PID
@@ -89,29 +92,40 @@ public class AutonMethods {
     // turret angles
     public static double AUTO_AIM_ANGLE = 180.0;
 
-    // shooting target field coordinates (for distance-based RPM/ramp)
+    // shooting target field coordinates (used for both turret aim AND distance-based RPM/ramp)
     public static double SHOOT_TARGET_X = 10.0;
     public static double SHOOT_TARGET_Y = 10.0;
-    public static double RPM_READY = 200.0;
-    public static long RPM_WAIT_TIMEOUT_MS = 2000;
 
+    // When true, turret calculates field angle to target once from position,
+    // then uses heading-only compensation (for far auton).
+    // When false, uses full position tracking every shot (for close auton).
+
+    /**
+     * Sets distance-based RPM/ramp, then runs ALL systems at full power
+     * until balls are gone. NO RPM gating, NO turret auto-aiming.
+     * Uses ball switch detection: exits when no ball for BALL_GAP_MS,
+     * or after SHOOT_DURATION_MS total time as safety.
+     */
     public void shootBalls() {
-        // Aim turret at SHOOT_TARGET using field-corrected position + heading — same transform as cleanup()
-        if (turret != null) {
-            double fieldX = AUTON_START_X, fieldY = AUTON_START_Y;
-            double heading = AUTON_START_HEADING;  // fallback: no rotation from start
-            try {
-                Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-                fieldX = AUTON_START_X + rawPose.position.y;   // SWAP_XY
-                fieldY = AUTON_START_Y - rawPose.position.x;   // SWAP_XY + NEGATE
-                heading = AUTON_START_HEADING + Math.toDegrees(rawPose.heading.toDouble());  // same as cleanup() fieldHeading
-            } catch (Exception e) { /* use defaults */ }
-            turret.setTarget(SHOOT_TARGET_X, SHOOT_TARGET_Y);
-            turret.enableAutoAim();
-            turret.updateAutoAim(fieldX, fieldY, heading);
-        }
+        // Read pose for distance calculation only
+        double fieldX = AUTON_START_X;
+        double fieldY = AUTON_START_Y;
+        try {
+            Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
+            fieldX = AUTON_START_X + rawPose.position.y;
+            fieldY = AUTON_START_Y - rawPose.position.x;
+        } catch (Exception e) { /* use start defaults */ }
 
-        // Wait for RPM stabilization
+        // Distance-based RPM and ramp
+        double dx = SHOOT_TARGET_X - fieldX;
+        double dy = SHOOT_TARGET_Y - fieldY;
+        double distance = Math.sqrt(dx * dx + dy * dy);
+
+        double[] params = getShootingParamsForDistance(distance);
+        shooterController.setTargetRPM(params[0]);
+        if (rampController != null) rampController.setTargetAngle(params[1]);
+
+        // Wait for RPM stabilization (brief)
         timer.reset();
         while (opMode.opModeIsActive() && timer.milliseconds() < 200) {
             if (Math.abs(shooterController.getRPM() - shooterController.getTargetRPM()) < 150) {
@@ -120,7 +134,7 @@ public class AutonMethods {
             sleep(20);
         }
 
-        // Start ALL systems for shooting
+        // Start ALL systems at full power — no RPM gating
         intakeController.setState(true);
         intakeController.update();
 
@@ -130,26 +144,21 @@ public class AutonMethods {
         uptakeController.setState(true);
         uptakeController.update();
 
-        timer.reset();
-        int ballsShotCount = 0;
-        boolean lastBallState = false; // sensor reading from previous state - for counting exactly one for one ball
+        // Shoot until no balls remain
+        ElapsedTime gapTimer = new ElapsedTime();
+        ElapsedTime shootTimer = new ElapsedTime();
+        gapTimer.reset();
+        shootTimer.reset();
 
-        while (opMode.opModeIsActive() && timer.milliseconds() < SHOOT_TIME_MS) {
-            // Get current values
-            boolean ballDetected = isBallAtUptake();
+        while (opMode.opModeIsActive() && shootTimer.milliseconds() < SHOOT_DURATION_MS) {
+            boolean ballsInBot = (uptakeSwitch != null && uptakeSwitch.getVoltage() < UPTAKE_SWITCH_THRESHOLD);
 
-            // Count balls shot
-            if (ballDetected && !lastBallState) {
-                ballsShotCount++;
-                if (ballsShotCount >= 3) {
-                    sleep(200);  // Let last ball clear
-                    break;
-                }
-                sleep(3000);  // Wait for shooter to ramp back up before next shot
+            if (ballsInBot) {
+                gapTimer.reset();
+            } else if (gapTimer.milliseconds() >= BALL_GAP_MS) {
+                break;
             }
-            lastBallState = ballDetected;
 
-            // Update all controllers to keep them running
             intakeController.update();
             transferController.update();
             uptakeController.update();
@@ -544,56 +553,6 @@ public class AutonMethods {
         sleep(50);
     }
 
-    /**
-     * Aims the turret, sets distance-based RPM and ramp angle, then waits for shooter to
-     * reach speed. Call before shootBalls(). Assumes startShooterThread() is already running.
-     *
-     * Uses the same parabolic curve as Teleop:
-     *   28in  → RPM 3250, ramp 0.0
-     *   64in  → RPM 3450, ramp 0.16
-     *   100in → RPM 3800, ramp 0.3
-     *   >110in → RPM 4200+RPM_READY, ramp 0.35
-     */
-    public void aimAndPrepareShot() {
-        // Get field-corrected position + heading — identical transform to cleanup()
-        double fieldX = AUTON_START_X;
-        double fieldY = AUTON_START_Y;
-        double aimHeading = AUTON_START_HEADING;  // fallback: no rotation from start
-        try {
-            Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-            fieldX = AUTON_START_X + rawPose.position.y;   // SWAP_XY
-            fieldY = AUTON_START_Y - rawPose.position.x;   // SWAP_XY + NEGATE
-            aimHeading = AUTON_START_HEADING + Math.toDegrees(rawPose.heading.toDouble());  // same as cleanup() fieldHeading
-        } catch (Exception e) { /* fall back to start position */ }
-
-        // Distance to shooting target
-        double dx = SHOOT_TARGET_X - fieldX;
-        double dy = SHOOT_TARGET_Y - fieldY;
-        double distance = Math.sqrt(dx * dx + dy * dy);
-
-        // Distance-based RPM and ramp angle
-        double[] params = getShootingParamsForDistance(distance);
-        double targetRPM = params[0] + (distance >= 110.0 ? RPM_READY : 0);
-        double targetRamp = params[1];
-
-        // Apply RPM and ramp
-        shooterController.setTargetRPM(targetRPM);
-        if (rampController != null) rampController.setTargetAngle(targetRamp);
-
-        // Aim turret: target-tracking mode, matching teleop's updateAutoAim(x, y, heading) call
-        if (turret != null) {
-            turret.setTarget(SHOOT_TARGET_X, SHOOT_TARGET_Y);
-            turret.enableAutoAim();
-            turret.updateAutoAim(fieldX, fieldY, aimHeading);
-        }
-
-        // Wait for RPM to come within RPM_READY of target (or timeout)
-        timer.reset();
-        while (opMode.opModeIsActive() && timer.milliseconds() < RPM_WAIT_TIMEOUT_MS) {
-            if (shooterController.getRPM() >= targetRPM - RPM_READY) break;
-            sleep(20);
-        }
-    }
 
     /**
      * Parabolic shooting curve fitted to:
@@ -605,13 +564,12 @@ public class AutonMethods {
         if (distance <= 28.0) {
             rpm = 3250.0;
             rampAngle = 0.0;
-        } else if (distance <= 110.0) {
-            double x = distance;
-            rpm = (25.0 / 432.0) * x * x + (25.0 / 108.0) * x + (86350.0 / 27.0);
-            rampAngle = (-1.0 / 129600.0) * x * x + (167.0 / 32400.0) * x + (-56.0 / 405.0);
+        } else if (distance <= 108.0) {
+            rpm = (25.0 / 432.0) * distance * distance + (25.0 / 108.0) * distance + (86350.0 / 27.0);
+            rampAngle = (-1.0 / 129600.0) * distance * distance + (167.0 / 32400.0) * distance + (-56.0 / 405.0);
         } else {
-            rpm = 4200.0;
-            rampAngle = 0.35;
+            rpm = FAR_RPM;
+            rampAngle = FAR_RAMP;
         }
         return new double[]{rpm, rampAngle};
     }
