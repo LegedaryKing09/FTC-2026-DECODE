@@ -101,10 +101,12 @@ public class CloseBlueNew extends LinearOpMode {
             );
             autoMethod.uptakeSwitch = uptakeSwitch;
             autoMethod.telemetry = telemetry;
-            AutonMethods.AUTON_START_X = 18.5;
-            AutonMethods.AUTON_START_Y = 16;
-            AutonMethods.SHOOT_TARGET_X = 10;
-            AutonMethods.SHOOT_TARGET_Y = 10;
+            AutonMethodsClose.CLOSE_RPM = CONSTANT_SHOOTER_RPM;
+            AutonMethodsClose.CLOSE_RAMP = CONSTANT_RAMP_ANGLE;
+            AutonMethodsClose.AUTON_START_X = 18.5;
+            AutonMethodsClose.AUTON_START_Y = 16;
+            AutonMethodsClose.SHOOT_TARGET_X = 10;
+            AutonMethodsClose.SHOOT_TARGET_Y = 10;
         } catch (Exception e){
             //
         }
@@ -221,17 +223,21 @@ public class CloseBlueNew extends LinearOpMode {
                 .lineToX(INITIAL_BACKWARD)
                 .build();
         Actions.runBlocking(Initial_Forward);
+        autoMethod.showPosition("After Initial Forward");
 
         currentPose = tankDrive.pinpointLocalizer.getPose();
         Action turn = tankDrive.actionBuilder(currentPose)
                 .turnTo(Math.toRadians(TURNING_ANGLE))
                 .build();
         Actions.runBlocking(turn);
-        turret.setServoPosition(FIRST_TURRET);
+        autoMethod.showPosition("After Turn");
+
+        turret.setServoPosition(autoMethod.calculateTurretServoPosition());
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (FIRST LINE)
         autoMethod.intakeSpline(SPLINE_X, SPLINE_Y, SPLINE_ANGLE);
+        autoMethod.showPosition("After Intake 1");
 
         // GO BACK FOR SHOOTING (FIRST LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -240,11 +246,14 @@ public class CloseBlueNew extends LinearOpMode {
                 .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward);
-        turret.setServoPosition(SEC_TURRET);
+        autoMethod.showPosition("After Goback 1");
+
+        turret.setServoPosition(autoMethod.calculateTurretServoPosition());
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (SECOND LINE)
         autoMethod.intakeSpline(SECOND_SPLINE_X, SECOND_SPLINE_Y, SECOND_SPLINE_ANGLE);
+        autoMethod.showPosition("After Intake 2");
 
         // GO BACK FOR SHOOTING (SECOND LINE)
         currentPose = tankDrive.pinpointLocalizer.getPose();
@@ -253,15 +262,15 @@ public class CloseBlueNew extends LinearOpMode {
                 .splineTo(new Vector2d(GOBACK_SPLINE_X,GOBACK_SPLINE_Y), Math.toRadians(GOBACK_ANGLE))
                 .build();
         Actions.runBlocking(Backward2);
+        autoMethod.showPosition("After Goback 2");
 
-        // AUTO AIM AND SHOOT (SECOND LINE)
-//        autoMethod.autoAimTurretLeft();
-        // Nudge turret CW for 3rd line
-        turret.setServoPosition(THIRD_TURRET);
+        // Use odometry-calculated turret aim for 3rd line
+        turret.setServoPosition(autoMethod.calculateTurretServoPosition());
         autoMethod.shootBalls();
 
         // SPLINE FOR INTAKE (THIRD LINE)
         autoMethod.intakeSpline(THIRD_SPLINE_X, THIRD_SPLINE_Y, THIRD_SPLINE_ANGLE);
+        autoMethod.showPosition("After Intake 3");
 
     }
 }

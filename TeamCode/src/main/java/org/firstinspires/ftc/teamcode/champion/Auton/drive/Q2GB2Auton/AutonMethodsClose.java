@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.champion.Auton.drive.Q2GB2Auton;
 import static android.os.SystemClock.sleep;
 
+import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
+
 import androidx.annotation.NonNull;
 
 import com.acmerobotics.dashboard.config.Config;
@@ -99,31 +101,58 @@ public class AutonMethodsClose {
     // When true, turret calculates field angle to target once from position,
     // then uses heading-only compensation (for far auton).
     // When false, uses full position tracking every shot (for close auton).
+    public static boolean useHeadingOnlyAim = false;
 
     /**
-     * Sets distance-based RPM/ramp, then runs ALL systems at full power
-     * until balls are gone. NO RPM gating, NO turret auto-aiming.
-     * Uses ball switch detection: exits when no ball for BALL_GAP_MS,
-     * or after SHOOT_DURATION_MS total time as safety.
+     * Converts raw Pinpoint pose to field coordinates, accounting for starting heading.
+     * Raw Pinpoint gives robot-relative displacement (forward/sideways from start).
+     * We rotate by AUTON_START_HEADING to get field-frame displacement.
+     *
+     * Returns double[3]: {fieldX, fieldY, fieldHeadingDeg}
      */
-    public void shootBalls() {
-        // Read pose for distance calculation only
+    public double[] getFieldPosition() {
         double fieldX = AUTON_START_X;
         double fieldY = AUTON_START_Y;
+        double fieldHeading = AUTON_START_HEADING;
         try {
             Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-            fieldX = AUTON_START_X + rawPose.position.y;
-            fieldY = AUTON_START_Y - rawPose.position.x;
+            double rawX = rawPose.position.x;  // sideways in robot frame
+            double rawY = rawPose.position.y;  // forward in robot frame
+
+            // Rotate raw displacement by starting heading to get field displacement
+            double startRad = Math.toRadians(AUTON_START_HEADING);
+            double cos = Math.cos(startRad);
+            double sin = Math.sin(startRad);
+
+            // rawY = forward, rawX = right in robot frame
+            // Field X += forward * sin(heading) + right * cos(heading)
+            // Field Y += forward * cos(heading) - right * sin(heading)
+            // But with SWAP_XY, Pinpoint rawX = sideways, rawY = forward
+            fieldX = AUTON_START_X + rawY * sin + rawX * cos;
+            fieldY = AUTON_START_Y + rawY * cos - rawX * sin;
+
+            // Heading: CW is negative from Pinpoint, negate to match teleop convention
+            fieldHeading = AUTON_START_HEADING - Math.toDegrees(rawPose.heading.toDouble());
         } catch (Exception e) { /* use start defaults */ }
+        return new double[]{fieldX, fieldY, fieldHeading};
+    }
 
-        // Distance-based RPM and ramp
-        double dx = SHOOT_TARGET_X - fieldX;
-        double dy = SHOOT_TARGET_Y - fieldY;
-        double distance = Math.sqrt(dx * dx + dy * dy);
+    /**
+     * Hardcoded RPM and ramp for close shooting. Set these from your auton file.
+     */
+    public static double CLOSE_RPM = 3400.0;
+    public static double CLOSE_RAMP = 0.0;
 
-        double[] params = getShootingParamsForDistance(distance);
-        shooterController.setTargetRPM(params[0]);
-        if (rampController != null) rampController.setTargetAngle(params[1]);
+    /**
+     * Runs ALL systems at full power until balls are gone.
+     * NO RPM gating, NO turret auto-aiming, NO distance calculation.
+     * Uses hardcoded CLOSE_RPM and CLOSE_RAMP.
+     * Exits when no ball for BALL_GAP_MS, or after SHOOT_DURATION_MS safety timeout.
+     */
+    public void shootBalls() {
+        // Set hardcoded RPM and ramp
+        shooterController.setTargetRPM(CLOSE_RPM);
+        if (rampController != null) rampController.setTargetAngle(CLOSE_RAMP);
 
         // Wait for RPM stabilization (brief)
         timer.reset();
@@ -178,6 +207,47 @@ public class AutonMethodsClose {
         sleep(200);
     }
 
+    /**
+     * Shows current field position on telemetry. Call after any move.
+     */
+    public void showPosition(String label) {
+        double[] pos = getFieldPosition();
+        telemetry.addData("=== " + label + " ===", "");
+        telemetry.addData("Field X", "%.1f", pos[0]);
+        telemetry.addData("Field Y", "%.1f", pos[1]);
+        telemetry.addData("Heading", "%.1f°", pos[2]);
+        telemetry.update();
+    }
+
+    /**
+     * Calculates the turret servo position needed to aim at SHOOT_TARGET from
+     * the current robot position and heading.
+     *
+     * Uses the same math as TurretController:
+     *   fieldAngle = atan2(-dx, -dy)   (0° = facing -Y = forward)
+     *   turretAngle = fieldAngle - (-heading)  (INVERT_HEADING)
+     *   servoPos = 0.5 + (-turretAngle / 315.0)
+     */
+    public double calculateTurretServoPosition() {
+        double[] pos = getFieldPosition();
+        double fieldX = pos[0];
+        double fieldY = pos[1];
+        double heading = pos[2];
+
+        double dx = SHOOT_TARGET_X - fieldX;
+        double dy = SHOOT_TARGET_Y - fieldY;
+        double fieldAngle = Math.toDegrees(Math.atan2(-dx, -dy));
+
+        // INVERT_HEADING: turretAngle = fieldAngle - (-heading) = fieldAngle + heading
+        double turretAngle = fieldAngle + heading;
+
+        // Normalize to -180..180
+        while (turretAngle > 180) turretAngle -= 360;
+        while (turretAngle <= -180) turretAngle += 360;
+
+        double servoPos = 0.5 + (-turretAngle / 315.0);
+        return Math.max(0.0, Math.min(1.0, servoPos));
+    }
 
     public void intakeSpline(double splineX, double splineY, double splineAngle) {
         intakeModeActive = true;
@@ -394,74 +464,21 @@ public class AutonMethodsClose {
     }
 
     public void cleanup() {
-        double fieldX = AUTON_START_X;
-        double fieldY = AUTON_START_Y;
-        double fieldHeading = Math.toRadians(AUTON_START_HEADING);
-        double rawX, rawY;
-        double deltaX, deltaY;
-        double deltaHeading;
-
-        try {
-            // Try to get pose from RoadRunner's pinpoint localizer
-            Pose2d rawPose = tankDrive.pinpointLocalizer.getPose();
-            rawX = rawPose.position.x;
-            rawY = rawPose.position.y;
-            deltaHeading = rawPose.heading.toDouble();  // This is delta from start (0)
-
-            // === COORDINATE TRANSFORMATION ===
-            // SWAP_XY = true, NEGATE_X = false, NEGATE_Y = true
-            deltaX = rawY;       // Swapped, not negated
-            deltaY = -rawX;      // Swapped, then negated
-
-            // Add delta to starting position
-            fieldX = AUTON_START_X + deltaX;
-            fieldY = AUTON_START_Y + deltaY;
-            fieldHeading = Math.toRadians(AUTON_START_HEADING) + deltaHeading;  // Add starting heading
-
-        } catch (Exception e) {
-            // If RoadRunner fails, try the SixWheelDriveController odometry
-            telemetry.addData("WARNING", "RoadRunner getPose failed: " + e.getMessage());
-            try {
-                if (driveController != null) {
-                    driveController.updateOdometry();
-                    rawX = driveController.getX();
-                    rawY = driveController.getY();
-                    deltaHeading = driveController.getHeading();
-
-                    // Same transformation
-                    deltaX = rawY;
-                    deltaY = -rawX;
-                    fieldX = AUTON_START_X + deltaX;
-                    fieldY = AUTON_START_Y + deltaY;
-                    fieldHeading = Math.toRadians(AUTON_START_HEADING) + deltaHeading;
-                }
-            } catch (Exception e2) {
-                telemetry.addData("WARNING", "DriveController also failed: " + e2.getMessage());
-                // Use starting position as fallback
-            }
-        }
+        // Use the corrected rotation-based field position
+        double[] pos = getFieldPosition();
+        double fieldX = pos[0];
+        double fieldY = pos[1];
+        double fieldHeading = Math.toRadians(pos[2]);
 
         // Save to PoseStorage (even if we only have starting position)
         try {
-            PoseStorage.currentPose = new Pose2d(
-                    new Vector2d(fieldX, fieldY),
-                    fieldHeading
-            );
+            PoseStorage.currentPose = new Pose2d(new Vector2d(fieldX, fieldY), fieldHeading);
+            PoseStorage.savePose(hardwareMap.appContext, fieldX, fieldY, fieldHeading, turret.getTurretAngle());
         } catch (Exception e) {
             telemetry.addData("WARNING", "Pose2d creation failed: " + e.getMessage());
         }
-
-        // Save turret angle
-        if (turret != null) {
-            try {
-                PoseStorage.turretAngle = turret.getTurretAngle();
-            } catch (Exception e) {
-                PoseStorage.turretAngle = 0;
-            }
-        }
         telemetry.addData("Field Pose SAVED", "x=%.1f, y=%.1f, h=%.1f°",
                 fieldX, fieldY, Math.toDegrees(fieldHeading));
-        telemetry.addData("Turret SAVED", "%.1f°", PoseStorage.turretAngle);
         telemetry.update();
         sleep(2000);
 

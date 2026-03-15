@@ -169,6 +169,7 @@ public class FinalBlueTeleop extends LinearOpMode {
     @Override
     public void runOpMode() {
         // Read the static pose from auton
+        PoseStorage.loadPose(hardwareMap.appContext);
         Pose2d autonPose = PoseStorage.currentPose;
 
         initializeHardware();
@@ -178,7 +179,6 @@ public class FinalBlueTeleop extends LinearOpMode {
         // Set position from auton, or use AUTON_START values if auton was skipped (pose is 0,0,0)
         if (drive != null) {
             double startX, startY, startHeading;
-
             // Check if auton was skipped (PoseStorage is at origin)
             if (autonPose.position.x == 0 && autonPose.position.y == 0 && autonPose.heading.toDouble() == 0) {
                 // Auton skipped - use configured start position
