@@ -274,6 +274,28 @@ public class FinalBlueTeleop extends LinearOpMode {
                 closeUpdateTimer.reset();
             }
 
+            // === TELEMETRY ===
+            if (shooter != null) {
+                telemetry.addData("Shooter Actual RPM", "%.0f", shooter.getRPM());
+                telemetry.addData("Shooter Target RPM", "%.0f", currentTargetRPM);
+                telemetry.addData("RPM Error", "%.0f", shooter.getRPM() - currentTargetRPM);
+            }
+            telemetry.addData("RPM Offset", "%.0f", rpmOffset);
+            if (ramp != null) {
+                telemetry.addData("Ramp Angle", "%.3f", ramp.getTargetAngle());
+            }
+            telemetry.addData("Distance", "%.1f in", getDistanceToTarget());
+            telemetry.addData("Mode", "%s%s",
+                    currentPresetMode,
+                    autoZoneSwitching ? " (auto)" : " (locked)");
+            if (drive != null) {
+                telemetry.addData("Pose", "(%.1f, %.1f) %.1f°",
+                        drive.getX(), drive.getY(), drive.getHeadingDegrees());
+            }
+            telemetry.addData("Loop", "%.0f ms", loopTimer.milliseconds());
+            loopTimer.reset();
+            telemetry.update();
+
             // Update all controllers
             updateAllSystems();
         }
